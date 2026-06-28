@@ -1,0 +1,24 @@
+<!-- folders -->
+
+.claude
+.codegraph
+.git
+.husky
+.idea
+.vscode
+build
+node_modules
+
+<!-- files -->
+
+.editorconfig
+.gitignore
+.lintstagedrc
+.npmrc
+.prettierignore
+.prettierrc
+CLAUDE.md
+commitlint.config.cjs
+eslint.config.mjs
+README.md
+rest-client.http
