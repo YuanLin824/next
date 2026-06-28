@@ -8,9 +8,9 @@ export default function SiteHeader() {
         {/* Logo / 站点名称 */}
         <a href="/home" className="mr-6 flex items-center gap-2 text-sm font-semibold">
           <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md text-xs font-bold">
-            B
+            M
           </div>
-          <span className="hidden sm:inline-block">DOC</span>
+          <span className="hidden sm:inline-block">MDX</span>
         </a>
 
         {/* 导航链接 */}
