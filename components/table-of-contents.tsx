@@ -1,7 +1,15 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 "use client"
 
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from "@/components/ui/drawer"
 import { cn } from "@/lib/utils"
+import { List } from "lucide-react"
 import { usePathname } from "next/navigation"
 import { useEffect, useRef, useState } from "react"
 
@@ -20,7 +28,8 @@ const LEVEL_INDENT: Record<number, string> = {
 
 /**
  * 页面目录 — 从当前页面提取 h1/h2/h3 标题，
- * 渲染为 sticky 右侧栏，按层级缩进，IntersectionObserver 追踪当前位置并高亮。
+ * 通过右侧浮动按钮触发 Drawer 抽屉展示，按层级缩进，
+ * IntersectionObserver 追踪当前位置并高亮。
  * 跟随路由变化自动重建目录。
  */
 export function TableOfContents() {
@@ -28,6 +37,7 @@ export function TableOfContents() {
   const [items, setItems] = useState<TocItem[]>([])
   const [activeId, setActiveId] = useState("")
   const [loading, setLoading] = useState(true)
+  const [open, setOpen] = useState(false)
   const visibleSet = useRef<Set<string>>(new Set())
 
   useEffect(() => {
@@ -76,43 +86,68 @@ export function TableOfContents() {
     }
   }, [pathname])
 
+  /** 点击目录项：跳转并关闭抽屉 */
+  const handleClick = (id: string) => {
+    setActiveId(id)
+    setOpen(false)
+  }
+
+  const tocList = (
+    <ul className="border-border space-y-0.5 border-l">
+      {items.map((item) => (
+        <li key={item.id}>
+          <a
+            href={`#${item.id}`}
+            onClick={(e) => {
+              e.preventDefault()
+              handleClick(item.id)
+              document.querySelector(`#${item.id}`)?.scrollIntoView({ behavior: "smooth" })
+            }}
+            className={cn(
+              "text-muted-foreground hover:text-secondary-foreground block py-1 text-xs transition-colors border-l-2",
+              LEVEL_INDENT[item.level] ?? "pl-3",
+              activeId === item.id
+                ? "text-secondary-foreground border-secondary-foreground -ml-px"
+                : "border-transparent"
+            )}
+          >
+            {item.text}
+          </a>
+        </li>
+      ))}
+    </ul>
+  )
+
   return (
-    <aside className="sticky top-14.25 hidden w-50 shrink-0 self-start lg:block">
-      <nav className="h-[calc(100vh-57px)] overflow-y-auto py-5">
-        <div className="text-muted-foreground/60 mb-3 text-xs font-semibold tracking-wider uppercase">
-          目录
-        </div>
-        {loading ? (
-          // Loading 骨架屏
-          <div className="animate-pulse space-y-2.5">
-            <div className="bg-muted h-2.5 w-20 rounded" />
-            <div className="bg-muted ml-3 h-2 w-24 rounded" />
-            <div className="bg-muted ml-6 h-2 w-18 rounded" />
-            <div className="bg-muted h-2 w-28 rounded" />
-            <div className="bg-muted ml-3 h-2 w-20 rounded" />
-            <div className="bg-muted ml-6 h-2 w-16 rounded" />
-          </div>
-        ) : (
-          <ul className="border-border space-y-0.5 border-l">
-            {items.map((item) => (
-              <li key={item.id}>
-                <a
-                  href={`#${item.id}`}
-                  className={cn(
-                    "text-muted-foreground hover:text-secondary-foreground block py-1 text-xs transition-colors border-l-2",
-                    LEVEL_INDENT[item.level] ?? "pl-3",
-                    activeId === item.id
-                      ? "text-secondary-foreground border-secondary-foreground -ml-px"
-                      : "border-transparent"
-                  )}
-                >
-                  {item.text}
-                </a>
-              </li>
-            ))}
-          </ul>
-        )}
-      </nav>
-    </aside>
+    <Drawer direction="left" open={open} onOpenChange={setOpen}>
+      <DrawerTrigger asChild>
+        <button
+          className="fixed left-2 top-16 z-40 rounded-full border bg-background p-2.5 shadow-md transition-colors hover:bg-muted"
+          aria-label="打开目录"
+        >
+          <List className="size-5" />
+        </button>
+      </DrawerTrigger>
+      <DrawerContent className="max-w-70">
+        <DrawerHeader>
+          <DrawerTitle>目录</DrawerTitle>
+        </DrawerHeader>
+        <nav className="overflow-y-auto px-4 pb-6">
+          {loading ? (
+            // Loading 骨架屏
+            <div className="animate-pulse space-y-2.5">
+              <div className="bg-muted h-2.5 w-28 rounded" />
+              <div className="bg-muted ml-3 h-2 w-32 rounded" />
+              <div className="bg-muted ml-6 h-2 w-24 rounded" />
+              <div className="bg-muted h-2 w-36 rounded" />
+              <div className="bg-muted ml-3 h-2 w-28 rounded" />
+              <div className="bg-muted ml-6 h-2 w-20 rounded" />
+            </div>
+          ) : (
+            tocList
+          )}
+        </nav>
+      </DrawerContent>
+    </Drawer>
   )
 }

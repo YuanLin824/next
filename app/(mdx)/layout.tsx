@@ -6,11 +6,11 @@ export default async function MDXLayout({
   children: React.ReactNode
 }>) {
   return (
-    <div className="flex">
+    <>
       <TableOfContents />
-      <article id="dmx-layout" className="px-3 flex-1 overflow-auto">
+      <article id="dmx-layout" className="px-3">
         {children}
       </article>
-    </div>
+    </>
   )
 }
