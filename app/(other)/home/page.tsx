@@ -1,13 +1,12 @@
-"use client"
-
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { HOME_FROUPS, resolveIcon } from "./constants"
 
 export default function Page() {
   return (
-    <div className="flex w-full flex-col gap-10">
+    <div className="flex w-full flex-col gap-10 pt-5">
       {HOME_FROUPS.map((group) => {
         const CategoryIcon = resolveIcon(group.icon)
+
         return (
           <section key={group.title}>
             <div className="border-border mb-4 flex items-center gap-2 border-b pb-2">
@@ -17,6 +16,7 @@ export default function Page() {
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
               {group.children.map((child) => {
                 const ChildIcon = resolveIcon(child.icon)
+
                 return (
                   <a key={child.title} href={child.url}>
                     <Card className="hover:bg-muted transition-colors">

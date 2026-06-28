@@ -29,7 +29,7 @@ export function TableOfContents() {
     setActiveId("")
     visibleSet.current.clear()
 
-    const article = document.querySelector("article")
+    const article = document.querySelector("article#dmx-layout")
     if (!article) {
       setLoading(false)
       return

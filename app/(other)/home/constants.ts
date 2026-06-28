@@ -70,7 +70,7 @@ export const HOME_FROUPS: CardGroup[] = [
       {
         title: "Claude Code",
         icon: "bot",
-        url: "/agent/claude-code",
+        url: "/agent-claude-code",
         desc: "终端里的 AI 编程伙伴",
       },
     ],
