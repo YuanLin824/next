@@ -1,0 +1,738 @@
+# 服务端组件 (Server Components)
+
+默认情况下, page, layout 都是服务端组件
+
+服务端组件可以访问 node.js API, 包括处理数据库 db
+
+```json
+// data.json
+{
+  "name": "John",
+  "age": 30,
+  "city": "New York"
+}
+```
+
+```tsx
+// app/server/page.tsx
+import fs from "node:fs" //引入fs模块
+import mysql, { RowDataPacket } from "mysql2/promise" // 操作数据库 仅供演示 非最佳实践
+const pool = mysql.createPool({
+  host: "localhost",
+  user: "root",
+  password: "123456",
+  database: "catering",
+})
+
+export default async function ServerPage() {
+  const [rows] = await pool.query<RowDataPacket[]>("SELECT * FROM goods")
+  const data = fs.readFileSync("data.json", "utf-8")
+  const json = JSON.parse(data)
+  return (
+    <div>
+      <h1>Server Page</h1>
+      {json.age}///{json.name}///{json.city}
+      <h3>mysql</h3>
+      {rows.map((item: any) => (
+        <div key={item.id}>
+          {item.name}-{item.goodsPrice}
+        </div>
+      ))}
+    </div>
+  )
+}
+```
+
+## 服务端组件优点
+
+- 安全性: 我们在服务端组件中访问一些API秘钥, 令牌等其他机密, 不会暴露给客户端
+- 体积: 因为服务端组件在服务器渲染, 所以不会被打包到客户端, 所以体积更小
+- 全栈: 可以在服务端组件访问数据库, 文件系统等其他 API, 实现全栈开发
+- FCP (首次内容绘制): 服务端组件是流式传输, 所以边渲染边返回, 提高了 FCP (首次内容绘制) 性能
+
+## 服务端组件缺点
+
+- 交互性: 服务端组件在服务器渲染无法访问浏览器 API, 所以无法进行交互
+- hooks: useEffect, useState 等 hooks 在服务端组件中无法使用
+
+JavaScript: 是由三部分组成的 (ECMAScript, DOM, BOM), 服务端组件只能使用 ECMAScript部分, 无法访问 DOM 和 BOM
+
+ECMAScript: 常用的对象, 数组, es6+ 等在客户端和服务端都能用
+
+# 客户端组件 (Client Components)
+
+客户端组件需要在文件的顶部编写 'use client' 声明这是客户端组件
+
+客户端组件会在服务端进行一次预渲染, 访问 document, window 等 API 需要在 useEffect 中访问
+
+```tsx
+"use client"
+import { useEffect, useState } from "react"
+console.log("client")
+export default function ServerPage() {
+  const [count, setCount] = useState(0)
+  console.log("client X")
+  useEffect(() => {
+    console.log(document, window)
+  }, [])
+
+  return (
+    <div>
+      <h1>Server Page</h1>
+      <button onClick={() => setCount(count + 1)}>点击</button>
+      <p>{count}</p>
+    </div>
+  )
+}
+```
+
+## 组件嵌套
+
+- 服务端组件可以嵌套客户端组件
+- 客户端只能嵌套客户端组件
+- 客户端不能嵌套服务端组件
+  - 客户端会把所有的模块以及子组件认为是客户端组件
+  - 如果服务端组件用了 node.js 的 API, 或者其他服务端操作, 那就会报错
+  - 因为客户端组件无法访问这些 API, 故此客户端组件不能嵌套服务端组件
+
+## Server-Only
+
+随着 Nodejs 的发展, 很多 API 已经可以跟浏览器共用了;
+
+例如 fetch, webSocket, 未来 Nodejs25 支持 localStorage 等 API, 所以就会出现这种情况
+
+下面这个函数可以在服务端组件使用, 也可以在客户端组件使用, 但有时候我们只想让他在服务端使用
+
+```tsx
+// 完成 server-only 之后, 只需在文件的顶部编写 import 'server-only' 声明即可
+// npm install server-only
+// yarn add server-only
+// pnpm add server-only
+import "server-only"
+export default function useTest(type: 0 | 1) {
+  if (type === 0) {
+    return fetch("https://api.github.com")
+  } else {
+    return new WebSocket("wss://api.github.com")
+  }
+}
+```
+
+# 缓存组件 (Cache Components)
+
+- Cache Components 是Next.js(16) 版本特有的机制, 实现了静态内容, 动态内容, 缓存内容的混合编排
+- 保留了静态内容的加载速度
+- 又具备动态渲染的灵活性
+- 解决了静态内容 (加载快但无法实时更新数据) 和动态内容 (加载慢但可以实时更新数据) 权衡的问题
+
+静态内容:
+
+- 构建 (npm run build) 时进行预渲染
+- 例如 「本地文件」「模块导入」「纯计算」(无网络请求, 无用户相关数据), 会被直接编译成 HTML 瞬间加载, 立即响应
+
+动态内容:
+
+- 用户发起请求时才开始渲染的内容
+- 依赖 "实时数据" 或 "用户个性化信息", 每次请求都可能生成不同结果, 不会被缓存
+- 例如「实时数据源」(如实时接口, 数据库实时查询) 或「用户请求上下文」(如 Cookie, 请求头, URL 参数)
+
+缓存内容:
+
+- 缓存内容的本质就是缓存动态数据
+- 缓存之后会被纳入静态外壳 (Static Shell)
+- 静态外壳就类似于毛坯房, 会提前把结构搭建好, 后续在通过 (流式传输) 填充里面的动态内容
+
+| 传统方案                           | Cache Components                           |
+| ---------------------------------- | ------------------------------------------ |
+| 静态页面: 数据无法实时更新         | 支持缓存内容重新验证, 动态内容流式补充     |
+| 动态页面: 初始加载慢, 服务器压力大 | 静态外壳优先返回, 动态内容并行渲染         |
+| 客户端渲染: bundle 体积大, 首屏慢  | 服务器预渲染核心内容, 客户端仅补充动态部分 |
+
+## 启用 Cache Components
+
+```ts
+// next.config.ts
+import type { NextConfig } from "next"
+
+const nextConfig: NextConfig = {
+  cacheComponents: true, // 启用缓存组件
+}
+
+export default nextConfig
+```
+
+### 静态内容展示
+
+- 适用场景: 仅依赖同步 I/O (如 fs.readFileSync), 模块导入, 纯计算的组件
+
+```tsx
+import fs from "node:fs"
+
+export default async function Home() {
+  const data = fs.readFileSync("data.json", "utf-8") //本地文件读取
+  const json = JSON.parse(data)
+  const impData = await import("../../../data.json") //模块导入
+  const names = impData.list.map((item) => item.name).join(",") //纯计算
+  console.log(json)
+  console.log(impData)
+  console.log(names)
+  return (
+    <div>
+      <h1>Home</h1>
+      <ul>
+        {json.list.map((item: any) => (
+          <li key={item.id}>
+            {item.name} - {item.age}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+```
+
+### 动态内容展示
+
+- 适用场景: fetch 请求, cookies, headers 等动态数据
+- 动态内容必须配合 Suspense 使用
+
+```tsx
+import { Suspense } from "react"
+import { cookies } from "next/headers"
+
+const DynamicContent = async () => {
+  const data = await fetch("https://www.mocklib.com/mock/random/name") //随机生成一个名称
+  const json = await data.json()
+  console.log(json)
+  const cookieStore = await cookies() //获取cookie
+  console.log(cookieStore)
+  return (
+    <div>
+      <h2>动态内容</h2>
+      <main>
+        <ul>
+          <li>名称: {json.name}</li>
+        </ul>
+      </main>
+    </div>
+  )
+}
+
+export default async function Home() {
+  return (
+    <div>
+      <h1>Home</h1>
+      <Suspense fallback={<div>动态内容Loading...</div>}>
+        <DynamicContent />
+      </Suspense>
+    </div>
+  )
+}
+```
+
+### 实现原理
+
+[实现原理](https://nextjs-docs-henna-six.vercel.app/tutorials/cache-components#%E5%90%AF%E7%94%A8cache-components)
+
+# 缓存策略 (Cache Strategies)
+
+缓存策略分两种:
+
+- 未启用缓存组件
+- 启用缓存组件
+
+## 未启用缓存组件
+
+确保 cacheComponents 配置为 false 或者不配置
+
+```tsx
+// next.config.ts
+import type { NextConfig } from "next"
+const nextConfig: NextConfig = {
+  /* config options here */
+  cacheComponents: false, // 缓存组件 (关闭或者不配置)
+}
+export default nextConfig
+
+// app/home/page.tsx (新建一个页面)
+export default async function Home() {
+  // 开发模式每次刷新, 图片都会重新获取
+  // 构建之后每次刷新, 图片都不会变化
+  // 原因是: Next.js 会尽可能多的进行缓存, 以提高性能降低成本, 这意味着路由会被静态渲染, 以及数据请求也会被缓存, 除非禁用缓存
+  const randomImage = await fetch("https://www.loliapi.com/acg/pc?type=json") // 这个接口随机返回一个二刺猿图片
+  const data = await randomImage.json()
+  console.log(data)
+  return (
+    <div>
+      <h1>Home</h1>
+      <img width={500} height={500} src={data.url} alt="random image" />
+    </div>
+  )
+}
+```
+
+**退出缓存**
+
+1. 使用 revalidate 属性设置缓存时间, 单位为秒
+2. 使用 dynamic 属性
+3. 禁用缓存
+4. 使用任意动态内容 API
+
+```tsx
+// 重新运行之后, 每过 5 秒, 图片会重新获取, 并且会显示新的图片
+export const revalidate = 5 // 5 秒后重新更新
+// export const revalidate = 0 // 设置为 0 表示不缓存
+
+export default async function Home() {
+  const randomImage = await fetch("https://www.loliapi.com/acg/pc?type=json")
+  const data = await randomImage.json()
+  return (
+    <div>
+      <h1>Home</h1>
+      <img width={500} height={500} src={data.url} alt="random image" />
+    </div>
+  )
+}
+
+// 使用 dynamic 属性, 并设置为 force-dynamic, 表示禁用缓存, 每次请求都会重新获取数据
+export const dynamic = "force-dynamic"
+
+export default async function Home() {
+  const randomImage = await fetch("https://www.loliapi.com/acg/pc?type=json")
+  const data = await randomImage.json()
+  return (
+    <div>
+      <h1>Home</h1>
+      <img width={500} height={500} src={data.url} alt="random image" />
+    </div>
+  )
+}
+
+// 使用 cache 属性, 并且设置为 no-store, 表示禁用缓存, 每次请求都会重新获取数据
+export default async function Home() {
+  const randomImage = await fetch("https://www.loliapi.com/acg/pc?type=json", { cache: "no-store" })
+  const data = await randomImage.json()
+  return (
+    <div>
+      <h1>Home</h1>
+      <img width={500} height={500} src={data.url} alt="random image" />
+    </div>
+  )
+}
+
+// 使用以下任意 API 时, 该路由会被视为动态内容, 不会被缓存
+//   cookies
+//   headers
+//   connection
+//   searchParams
+//   fetch和{ cache: ‘no-store’ }
+import { connection } from "next/server"
+export default async function Home() {
+  await connection()
+  const randomImage = await fetch("https://www.loliapi.com/acg/pc?type=json")
+  const data = await randomImage.json()
+  return (
+    <div>
+      <h1>Home</h1>
+      <img width={500} height={500} src={data.url} alt="random image" />
+    </div>
+  )
+}
+```
+
+## 启用缓存组件
+
+启用缓存组件之后, 所有组件默认为动态内容, 不需要配置 export const dynamic = 'force-dynamic'
+
+```tsx
+// next.config.ts
+import type { NextConfig } from "next"
+const nextConfig: NextConfig = {
+  /* config options here */
+  cacheComponents: false, // 缓存组件 (关闭或者不配置)
+}
+export default nextConfig
+
+import { Suspense } from "react"
+const DynamicImage = async () => {
+  const randomImage = await fetch("https://www.loliapi.com/acg/pc?type=json")
+  const data = await randomImage.json()
+  return <img width={500} height={500} src={data.url} alt="random image" />
+}
+
+export default async function Home() {
+  return (
+    <div>
+      <h1>Home</h1>
+      <Suspense fallback={<div>Loading...</div>}>
+        <DynamicImage />
+      </Suspense>
+    </div>
+  )
+}
+```
+
+# Image 组件
+
+该组件是 Next.js 内置的图片组件
+
+基于原生 img 标签进行扩展
+
+不代表原生 img 标签不能使用
+
+- 尺寸优化: 支持使用现代化图片格式, 如 webp, avif, apng等, 并自动根据设备提供正确的尺寸
+- 视觉稳定性: 防止图片加载时发生布局偏移, 具体参考 CLS
+- 懒加载: 在图片进入视口才会加载, 使用浏览器原生懒加载, 并可选择添加模糊显示占位符
+- 灵活性: 可按需调整图像大小, 即使是存储在远程服务器上的图像也可以调整
+
+## 图片引入
+
+### 引入本地图片 (src)
+
+```tsx
+import Image from "next/image"
+export default function Home() {
+  return (
+    <div>
+      <h1>Home</h1>
+      <Image src="/1.png" width={100} height={100} alt="1" />
+    </div>
+  )
+}
+```
+
+### 静态引入 (import)
+
+使用 import 引入图片时, 不需要填写宽度和高度, Next.js 会自动确定图片尺寸
+
+```json
+{
+  "compilerOptions": {
+    "paths": {
+      "@/*": ["./*"],
+      "@/public/*": ["./public/*"] // 新增这一行代码, 配置图片路径
+    }
+  }
+}
+```
+
+```tsx
+import Image from "next/image"
+import test from "@/public/1.png"
+export default function Home() {
+  return (
+    <div>
+      <h1>Home</h1>
+      <Image src={test} alt="1" />
+    </div>
+  )
+}
+```
+
+### 引入远程图片
+
+Next.js 默认只允许加载本地图片
+
+直接使用远程图片时 Next.js 会报错
+
+如果需要加载远程图片, 需要配置 next.config.js 文件
+
+```tsx
+// next.config.ts
+import type { NextConfig } from "next"
+const nextConfig: NextConfig = {
+  /* config options here */
+  images: {
+    remotePatterns: [
+      {
+        protocol: "https", // 协议
+        hostname: "eo-img.521799.xyz", // 主机名
+        pathname: "/i/pc/**", // 路径
+        port: "", // 端口
+      },
+    ],
+  },
+}
+
+import Image from "next/image"
+export default async function Home() {
+  const len = 20
+  return (
+    <div>
+      <h1>Home</h1>
+      {Array.from({ length: len }).map((_, index) => (
+        <Image
+          key={index}
+          src={`https://eo-img.521799.xyz/i/pc/img${index + 1}.webp`}
+          alt="1"
+          width={192}
+          height={108}
+        />
+      ))}
+    </div>
+  )
+}
+```
+
+### LCP 警告
+
+```tsx
+// 图片是首屏或者 LCP 图片, 需要添加 loading="eager" 属性, 否则会触发 LCP 警告,因为 Image 组件默认是懒加载的
+// lazy: 懒加载, 默认值, 在图片进入视口才会加载
+// eager: 立即加载, 在图片进入视口就会加载
+import Image from "next/image"
+export default async function Home() {
+  const len = 20
+  return (
+    <div>
+      <h1>Home</h1>
+      {Array.from({ length: len }).map((_, index) => (
+        <Image
+          key={index}
+          src={`https://eo-img.521799.xyz/i/pc/img${index + 1}.webp`}
+          alt="1"
+          width={192}
+          height={108}
+          loading="eager" // 立即加载
+        />
+      ))}
+    </div>
+  )
+}
+
+// 使用 preload 属性加载图片, 表示提前预加载图片, Next.js 推荐使用 loading="eager" 属性加载图片
+import Image from "next/image"
+export default async function Home() {
+  const len = 20
+  return (
+    <div>
+      <h1>Home</h1>
+      {Array.from({ length: len }).map((_, index) => (
+        <Image
+          key={index}
+          src={`https://eo-img.521799.xyz/i/pc/img${index + 1}.webp`}
+          alt="1"
+          width={192}
+          height={108}
+          preload={index < 10} // 优先加载策略
+        />
+      ))}
+    </div>
+  )
+}
+```
+
+### 图片格式优化
+
+Next.js 会通过请求 Accept 头自动检测浏览器支持的图像格式, 以确定最佳输出格式
+
+```txt
+Accept:image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8
+```
+
+可以同时启用 AVIF 和 WebP 格式
+
+对于支持 AVIF 的浏览器, 系统将优先使用 AVIF 格式, WebP 格式作为备选方案
+
+目前AVIF格式最优
+
+```ts
+// next.config.ts
+const nextConfig: NextConfig = {
+  /* config options here */
+  images: {
+    formats: ["image/avif", "image/webp"], // 默认是 ['image/webp']
+  },
+}
+```
+
+### 设备适配
+
+使用 deviceSizes 和 imageSizes 属性来配置
+
+```tsx
+// next.config.ts
+const nextConfig: NextConfig = {
+  /* config options here */
+  // 两个属性结合会最终生成一个 srcset 属性, 用于浏览器选择最佳图片
+  // imageSizes 用于生成小图片尺寸例如 (缩略图, 头像等)
+  // deviceSizes 用于生成大图片尺寸例如 (横幅图, 背景图, 全屏展示图)
+  images: {
+    deviceSizes: [640, 750, 828, 1080, 1200, 1920, 2048, 3840], // 设备尺寸
+    imageSizes: [16, 32, 48, 64, 96, 128, 256, 384], // 图片尺寸
+  },
+}
+
+import Image from "next/image"
+
+// 头像 - 固定 64px
+export function Avatar() {
+  return (
+    <Image
+      src="/avatar.jpg"
+      width={64}
+      height={64}
+      alt="用户头像"
+      sizes="64px" // ← 告诉浏览器这张图只需要 64px
+    />
+  )
+}
+
+// 横幅图 - 响应式全宽
+export function Banner() {
+  return (
+    <Image
+      src="/banner.jpg"
+      width={1920}
+      height={600}
+      alt="横幅"
+      sizes="100vw" // ← 占满整个视口宽度, 使用 deviceSizes
+    />
+  )
+}
+
+// 响应式内容图
+export function ContentImage() {
+  return (
+    <Image
+      src="/content.jpg"
+      width={1200}
+      height={800}
+      alt="内容图"
+      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 1200px"
+      // ↑ 手机上 100% 宽度, 平板上 50%, 桌面最大 1200px
+    />
+  )
+}
+```
+
+## Image 组件 props
+
+必需属性
+
+| 属性 | 类型   | 示例                        | 说明                               |
+| ---- | ------ | --------------------------- | ---------------------------------- |
+| src  | String | src="/profile.png"          | 图片源路径, 支持本地路径或远程 URL |
+| alt  | String | alt="Picture of the author" | 图片替代文本, 用于无障碍访问和 SEO |
+
+尺寸相关
+
+| 属性   | 类型         | 示例                             | 说明                             |
+| ------ | ------------ | -------------------------------- | -------------------------------- |
+| width  | Integer (px) | width=\{500\}                    | 图片宽度, 静态导入时可选         |
+| height | Integer (px) | height=\{500\}                   | 图片高度, 静态导入时可选         |
+| fill   | Boolean      | fill=\{true\}                    | 填充父容器, 替代 width 和 height |
+| sizes  | String       | sizes="(max-width: 768px) 100vw" | 响应式图片尺寸                   |
+
+优化相关
+
+| 属性        | 类型            | 示例                   | 说明                    |
+| ----------- | --------------- | ---------------------- | ----------------------- |
+| quality     | Integer (1-100) | quality=\{80\}         | 图片压缩质量, 默认为 75 |
+| loader      | Function        | loader=\{imageLoader\} | 自定义图片加载器函数    |
+| unoptimized | Boolean         | unoptimized=\{true\}   | 禁用图片优化, 使用原图  |
+
+加载相关
+
+| 属性        | 类型    | 示例                             | 说明                          |
+| ----------- | ------- | -------------------------------- | ----------------------------- |
+| loading     | String  | loading="lazy"                   | 加载策略, "lazy" 或 "eager"   |
+| preload     | Boolean | preload=\{true\}                 | 是否预加载, 用于 LCP 元素     |
+| placeholder | String  | placeholder="blur"               | 占位符类型, "blur" 或 "empty" |
+| blurDataURL | String  | blurDataURL="data:image/jpeg..." | 模糊占位符的 Data URL         |
+
+事件回调
+
+| 属性    | 类型     | 示例                    | 说明                 |
+| ------- | -------- | ----------------------- | -------------------- |
+| onLoad  | Function | onLoad=\{e => done()\}  | 图片加载完成时的回调 |
+| onError | Function | onError=\{e => fail()\} | 图片加载失败时的回调 |
+
+其他属性
+
+| 属性        | 类型   | 示例                               | 说明                                |
+| ----------- | ------ | ---------------------------------- | ----------------------------------- |
+| style       | Object | style=\{\{objectFit: "contain"\}\} | 内联样式对象                        |
+| overrideSrc | String | overrideSrc="/seo.png"             | 覆盖 src, 用于 SEO 优化             |
+| decoding    | String | decoding="async"                   | 解码方式, "async" / "sync" / "auto" |
+
+# Font 字体
+
+next/font 模块, 内置了字体优化功能, 其目的是防止 CLS 布局偏移
+
+font 模块主要分为两部分, 一部分是内置的 Google Fonts 字体, 另一部分是本地字体
+
+## 基本用法 (Font)
+
+在使用 google 字体时, Google 字体和 css 文件会在构建时下载到本地, 可以与静态资源一起托管到服务器, 不会向 Google 发送请求
+
+```tsx
+import { BBH_Sans_Hegarty } from "next/font/google" // 引入字体库
+
+const bbhSansHegarty = BBH_Sans_Hegarty({
+  weight: "400", // 字体粗细
+  display: "swap", // 字体显示方式
+})
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body className={bbhSansHegarty.className}>
+        {/** bbhSansHegarty会返回一个类名, 用于加载字体 */}
+        {children}
+        sdsadasdjsalkdjasl 你好
+      </body>
+    </html>
+  )
+}
+
+// 可变字体是一种可以适应不同字重和样式的字体, 可以在不同的设备上自动调整字体大小和样式, 以适应不同的屏幕大小和分辨率
+import { Roboto } from "next/font/google"
+
+const roboto = Roboto({
+  weight: ["400", "700"], // 字体粗细 (不是所有字体都支持可变字体)
+  style: ["normal", "italic"], // 字体样式
+  subsets: ["latin"],
+  display: "swap",
+})
+```
+
+## 配置选项 (Font)
+
+| 属性               | Google | 本地 | 类型           | 必填 | 说明                  |
+| ------------------ | ------ | ---- | -------------- | ---- | --------------------- |
+| src                | ✗      | ✓    | String/Array   | 是   | 字体文件路径          |
+| weight             | ✓      | ✓    | String/Array   | 可选 | 字体粗细, 如 "400"    |
+| style              | ✓      | ✓    | String/Array   | -    | 字体样式, 如 "normal" |
+| subsets            | ✓      | ✗    | Array          | -    | 字符子集              |
+| axes               | ✓      | ✗    | Array          | -    | 可变字体轴            |
+| display            | ✓      | ✓    | String         | -    | 显示策略              |
+| preload            | ✓      | ✓    | Boolean        | -    | 是否预加载            |
+| fallback           | ✓      | ✓    | Array          | -    | 备用字体              |
+| adjustFontFallback | ✓      | ✓    | Boolean/String | -    | 调整备用字体          |
+| variable           | ✓      | ✓    | String         | -    | CSS 变量              |
+| declarations       | ✗      | ✓    | Array          | -    | 自定义声明            |
+
+## 本地字体
+
+本地字体需要通过 src 属性指定字体文件路径, 字体文件路径可以是单个文件, 也可以是多个文件
+
+```tsx
+import localFont from "next/font/local"
+
+const local = localFont({
+  src: "./font/zydtt.ttf", // 本地字体文件路径
+  display: "swap", // 字体显示方式
+})
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en">
+      <body className={local.className}>
+        {children}
+        sdsadasdjsalkdjasl 你好
+      </body>
+    </html>
+  )
+}
+```

@@ -8,7 +8,7 @@ export default async function MDXLayout({
   return (
     <div className="flex">
       <TableOfContents />
-      <article id="dmx-layout" className="px-3 pb-3 flex-1">
+      <article id="dmx-layout" className="px-3 flex-1 overflow-auto">
         {children}
       </article>
     </div>

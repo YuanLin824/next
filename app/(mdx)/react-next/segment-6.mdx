@@ -1,0 +1,466 @@
+# Better Auth
+
+[Better Auth](https://better-auth.com) 是 Next.js 生态中现代化的身份验证库，支持邮箱/密码、OAuth、2FA 等多种认证方式。
+
+## 安装
+
+```bash
+npm install better-auth
+```
+
+## 基本配置 (Better Auth)
+
+```ts
+// lib/auth.ts
+import { betterAuth } from "better-auth"
+import { drizzleAdapter } from "better-auth/adapters/drizzle"
+import { db } from "./db" // 你的 Drizzle 数据库实例
+
+export const auth = betterAuth({
+  database: drizzleAdapter(db, {
+    provider: "pg", // postgresql
+  }),
+  emailAndPassword: {
+    enabled: true,
+  },
+  socialProviders: {
+    github: {
+      clientId: process.env.GITHUB_CLIENT_ID!,
+      clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+    },
+    google: {
+      clientId: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    },
+  },
+})
+```
+
+## API 路由 (Better Auth)
+
+```ts
+// app/api/auth/[...all]/route.ts
+import { auth } from "@/lib/auth"
+import { toNextJsHandler } from "better-auth/next-js"
+
+export const { GET, POST } = toNextJsHandler(auth)
+```
+
+## 服务端使用 (Better Auth)
+
+```tsx
+// app/dashboard/page.tsx
+import { auth } from "@/lib/auth"
+import { headers } from "next/headers"
+import { redirect } from "next/navigation"
+
+export default async function Dashboard() {
+  const session = await auth.api.getSession({
+    headers: await headers(),
+  })
+
+  if (!session) {
+    redirect("/login")
+  }
+
+  return (
+    <div>
+      <h1>Welcome, {session.user.name}</h1>
+      <p>Email: {session.user.email}</p>
+    </div>
+  )
+}
+```
+
+## 客户端使用 (Better Auth)
+
+```tsx
+// components/sign-in.tsx
+"use client"
+
+import { authClient } from "@/lib/auth-client"
+
+export function SignIn() {
+  async function handleSignIn() {
+    const { data, error } = await authClient.signIn.email({
+      email: "user@example.com",
+      password: "password123",
+    })
+    if (data) {
+      window.location.href = "/dashboard"
+    }
+  }
+
+  return <button onClick={handleSignIn}>Sign In</button>
+}
+```
+
+客户端需要单独创建 client 实例：
+
+```ts
+// lib/auth-client.ts
+import { createAuthClient } from "better-auth/react"
+
+export const authClient = createAuthClient()
+```
+
+## 数据库迁移 (Better Auth)
+
+Better Auth 会自动创建所需的表结构：
+
+```bash
+npx @better-auth/cli migrate
+```
+
+## 支持的认证方式
+
+- 邮箱/密码
+- OAuth（GitHub、Google、Discord 等）
+- 2FA / 双因素认证
+- 无密码邮箱链接
+- Magic Links
+- 会话管理 (JWT / Database)
+
+# Next.js 集成 Hono.js
+
+[Hono.js](https://hono.dev) 是一个轻量级、高性能的 Web 框架，支持在 Next.js 中作为 API 路由的替代方案。
+
+相比 Next.js 原生 Route Handler，Hono 提供了更丰富的路由语法和中间件生态。
+
+## 安装 (Hono.js)
+
+```bash
+npm install hono
+```
+
+## 基本用法 (Hono.js)
+
+```ts
+// app/api/[[...route]]/route.ts
+import { Hono } from "hono"
+import { handle } from "hono/vercel"
+
+const app = new Hono().basePath("/api")
+
+app.get("/hello", (c) => {
+  return c.json({ message: "Hello from Hono!" })
+})
+
+app.get("/posts/:id", (c) => {
+  const id = c.req.param("id")
+  return c.json({ postId: id })
+})
+
+app.post("/posts", async (c) => {
+  const body = await c.req.json()
+  return c.json({ created: body }, 201)
+})
+
+export const GET = handle(app)
+export const POST = handle(app)
+export const PUT = handle(app)
+export const DELETE = handle(app)
+```
+
+## 中间件 (Hono.js)
+
+Hono 提供了丰富的内置中间件：
+
+```ts
+import { Hono } from "hono"
+import { cors } from "hono/cors"
+import { logger } from "hono/logger"
+import { prettyJSON } from "hono/pretty-json"
+import { jwt } from "hono/jwt"
+
+const app = new Hono().basePath("/api")
+
+// 全局中间件
+app.use("*", cors())
+app.use("*", logger())
+app.use("*", prettyJSON())
+
+// JWT 鉴权
+app.use("/admin/*", jwt({ secret: process.env.JWT_SECRET! }))
+
+app.get("/admin/dashboard", (c) => {
+  const payload = c.get("jwtPayload")
+  return c.json({ user: payload })
+})
+```
+
+## 验证请求 (Hono.js)
+
+使用 [Zod](https://zod.dev) 进行请求验证：
+
+```ts
+import { z } from "zod"
+import { zValidator } from "@hono/zod-validator"
+
+const schema = z.object({
+  name: z.string().min(2),
+  email: z.string().email(),
+})
+
+app.post("/users", zValidator("json", schema), async (c) => {
+  const data = c.req.valid("json")
+  return c.json({ user: data }, 201)
+})
+```
+
+## 与 Next.js 原生 Route Handler 对比
+
+| 特性     | Hono.js                     | Next.js Route Handler |
+| -------- | --------------------------- | --------------------- |
+| 路由语法 | `app.get("/:id")`           | 文件系统约定          |
+| 中间件   | 内置丰富                    | 需手动包装            |
+| 体积     | ~13KB                       | 0（内置）             |
+| 跨平台   | 多运行时                    | Next.js 专属          |
+| 生态     | zod-validator、jwt、cors 等 | 需第三方库            |
+
+# Next.js 集成 ORM
+
+Next.js 支持多种 ORM，最流行的选择是 [Prisma](https://prisma.io) 和 [Drizzle ORM](https://orm.drizzle.team)。
+
+## Prisma
+
+### 安装 (Prisma)
+
+```bash
+npm install prisma @prisma/client
+npx prisma init
+```
+
+### Schema 定义 (Prisma)
+
+```prisma
+// prisma/schema.prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  name      String?
+  posts     Post[]
+  createdAt DateTime @default(now())
+}
+
+model Post {
+  id        Int      @id @default(autoincrement())
+  title     String
+  content   String?
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  Int
+  createdAt DateTime @default(now())
+}
+```
+
+### 数据库操作 (Prisma)
+
+```ts
+// lib/prisma.ts
+import { PrismaClient } from "@prisma/client"
+
+const globalForPrisma = globalThis as unknown as { prisma: PrismaClient }
+export const prisma = globalForPrisma.prisma || new PrismaClient()
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma
+```
+
+```tsx
+// app/users/page.tsx
+import { prisma } from "@/lib/prisma"
+
+export default async function Users() {
+  const users = await prisma.user.findMany({
+    include: { posts: true },
+  })
+
+  return (
+    <ul>
+      {users.map((user) => (
+        <li key={user.id}>
+          {user.name} — {user.posts.length} posts
+        </li>
+      ))}
+    </ul>
+  )
+}
+```
+
+## Drizzle ORM
+
+### 安装 (Drizzle ORM)
+
+```bash
+npm install drizzle-orm @libsql/client
+npm install -D drizzle-kit
+```
+
+### Schema 定义 (Drizzle ORM)
+
+```ts
+// db/schema.ts
+import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core"
+
+export const users = sqliteTable("users", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  email: text("email").notNull().unique(),
+  name: text("name"),
+  createdAt: text("created_at").default(new Date().toISOString()),
+})
+
+export const posts = sqliteTable("posts", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  title: text("title").notNull(),
+  content: text("content"),
+  authorId: integer("author_id").references(() => users.id),
+  createdAt: text("created_at").default(new Date().toISOString()),
+})
+```
+
+### 数据库操作 (Drizzle ORM)
+
+```ts
+// db/index.ts
+import { drizzle } from "drizzle-orm/libsql"
+import { createClient } from "@libsql/client"
+
+const client = createClient({ url: process.env.DATABASE_URL! })
+export const db = drizzle(client)
+```
+
+```tsx
+// app/users/page.tsx
+import { db } from "@/db"
+import { users, posts } from "@/db/schema"
+import { eq } from "drizzle-orm"
+
+export default async function Users() {
+  const allUsers = await db.select().from(users).leftJoin(posts, eq(users.id, posts.authorId))
+
+  return (
+    <ul>
+      {allUsers.map(({ users, posts }) => (
+        <li key={users.id}>{users.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+## Prisma vs Drizzle
+
+| 特性        | Prisma                 | Drizzle ORM     |
+| ----------- | ---------------------- | --------------- |
+| Schema 定义 | 自定义 DSL (`.prisma`) | TypeScript 原生 |
+| 类型安全    | 生成类型               | 原生推断        |
+| 迁移工具    | Prisma Migrate         | drizzle-kit     |
+| 体积        | 较大                   | 轻量 (~7KB)     |
+| 学习曲线    | 中等                   | 较低            |
+| 生态        | 成熟、社区大           | 快速发展中      |
+
+# Vercel 部署
+
+[Vercel](https://vercel.com) 是 Next.js 的创建者，提供了与 Next.js 最紧密集成的部署平台。
+
+## 方式一：Git 自动部署（推荐）
+
+1. 将项目推送到 GitHub / GitLab / Bitbucket
+2. 在 [vercel.com](https://vercel.com) 导入仓库
+3. Vercel 自动识别 Next.js 项目并配置构建设置
+4. 每次 `git push` 自动触发部署
+
+## 方式二：Vercel CLI
+
+```bash
+npm install -g vercel
+
+# 在项目根目录执行
+vercel
+# 按提示配置项目，首次部署后自动创建预览和生产环境
+```
+
+## 方式三：GitHub Actions
+
+```yaml
+# .github/workflows/deploy.yml
+name: Deploy to Vercel
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm ci
+      - run: npm run build
+      # Vercel 会根据项目配置自动部署
+```
+
+## Vercel 部署环境变量
+
+在 Vercel Dashboard → Settings → Environment Variables 中配置：
+
+```
+DATABASE_URL=postgresql://...
+JWT_SECRET=your-secret-key
+NEXT_PUBLIC_SITE_URL=https://example.com
+```
+
+或通过 CLI：
+
+```bash
+vercel env add DATABASE_URL
+```
+
+## Vercel 部署域名配置
+
+1. 在 Vercel Dashboard → Domains 中添加自定义域名
+2. 配置 DNS 记录指向 Vercel
+3. Vercel 自动配置 SSL 证书
+
+## Vercel 部署配置
+
+```ts
+// next.config.ts
+const nextConfig: NextConfig = {
+  output: "standalone", // Vercel 推荐，生成精简的独立构建
+}
+
+// vercel.json（可选，Vercel 自动识别 Next.js）
+{
+  "buildCommand": "npm run build",
+  "installCommand": "npm install",
+  "framework": "nextjs"
+}
+```
+
+## Vercel 预览部署
+
+每个 Pull Request 自动生成一个预览 URL，方便代码审查：
+
+```
+[Preview] https://my-project-git-feature-xxx.vercel.app
+```
+
+## Vercel 部署性能优化
+
+部署到 Vercel 后可获得：
+
+- **边缘网络** — 全球 CDN 加速
+- **ISR** — 增量静态再生，按需更新页面缓存
+- **Analytics** — 内置 Web Vitals 监控
+- **Serverless Functions** — API 路由自动转换为 Serverless

@@ -1,0 +1,598 @@
+import Image from "next/image"
+import Png1 from "./imgs/传统表单提交.png"
+import Png2 from "./imgs/服务器函数.png"
+
+# Script 组件
+
+Next.js 允许我们使用 Script 组件去加载 js 脚本 (外部/本地脚本), 且对 Script 组件进行了优化
+
+## 基本使用 (Script)
+
+```tsx
+// app/home/page.tsx
+// 在当前路由引入一个远程的 js 脚本, 只会在切换到该路由时才会加载, 并且只会加载一次, 然后纳入缓存
+// 底层原理会把这个 Script 组件转换成 <script> 标签, 然后插入到 <head> 标签中
+import Script from "next/script" // 引入 Script 组件
+
+export default function HomePage() {
+  return (
+    <div>
+      <Script src="https://unpkg.com/vue@3/dist/vue.global.js" />
+    </div>
+  )
+}
+```
+
+## 全局引入 (Script)
+
+```tsx
+// app/layout.tsx
+// 全局引入直接在 app/layout.tsx 中引入, 自动在所有页面中引入, 且只会加载一次, 然后纳入缓存
+import Script from "next/script"
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html>
+      <head>
+        <Script src="https://unpkg.com/vue@3/dist/vue.global.js" />
+      </head>
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+## 加载策略
+
+Next.js 允许通过 strategy 属性来控制 Script 组件的加载策略
+
+可以给 Script 组件添加 id, Next.js 会追踪优化
+
+- beforeInteractive: 在代码和页面之前加载会阻塞页面渲染
+- afterInteractive (默认值): 在页面渲染到客户端之后加载
+- lazyOnload: 在浏览器空闲时稍后加载脚本
+- worker (实验性特性): 暂时不建议使用
+
+```tsx
+<Script id="VGUBHJMK1" strategy="beforeInteractive" src="https://unpkg.com/vue@3/dist/vue.global.js" />
+<Script id="VGUBHJMK2" strategy="afterInteractive" src="https://unpkg.com/vue@3/dist/vue.global.js" />
+<Script id="VGUBHJMK3" strategy="lazyOnload" src="https://unpkg.com/vue@3/dist/vue.global.js" />
+<Script id="VGUBHJMK4" strategy="worker" src="https://unpkg.com/vue@3/dist/vue.global.js" />
+```
+
+## 内联脚本 (Script)
+
+```tsx
+// 1. 不从外部文件载入脚本, Next.js 也支持通过 {``} 直接在 Script 组件编写代码
+// 2. 使用 dangerouslySetInnerHTML 属性来设置内联脚本
+
+import Script from "next/script"
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode
+}>) {
+  return (
+    <html lang="en">
+      <head>
+        <Script
+          id="VGUBHJMK5"
+          strategy="beforeInteractive"
+          src="https://unpkg.com/vue@3/dist/vue.global.js"
+        ></Script>
+      </head>
+      <body>
+        {children}
+        <div id="app"></div>
+        <Script id="VGUBHJMK6" strategy="afterInteractive">
+          {`
+            const {createApp} = Vue
+            createApp({
+              template: '<h1>{{ message }}</h1>',
+              setup() {
+                return {
+                  message: 'Next.js + Vue.js'
+                }
+              }
+            }).mount('#app')
+          `}
+        </Script>
+
+        <Script
+          dangerouslySetInnerHTML={{
+            __html: `
+              const {createApp} = Vue
+              createApp({
+                  template: '<h1>{{ message }}</h1>',
+                  setup() {
+                  return {
+                      message: 'Next.js + Vue.js'
+                  }
+                  }
+              }).mount('#app')
+            `,
+          }}
+          strategy="afterInteractive"
+        ></Script>
+      </body>
+    </html>
+  )
+}
+```
+
+## 事件监听 (Script)
+
+- onload: 脚本加载完成时触发
+- onReady: 脚本加载完成后, 且组件每次挂载的时候都会触发
+- onError: 脚本加载失败时触发
+
+```tsx
+"use client"
+
+import Script from "next/script"
+
+// Script 组件只有在导入客户端的时候才会生效
+export default function Page() {
+  return (
+    <>
+      <Script
+        src="https://example.com/script.js"
+        onLoad={() => {
+          console.log("Script has loaded")
+        }}
+      />
+    </>
+  )
+}
+```
+
+# 静态导出 SSG
+
+Next.js 支持静态站点生成 (SSG, Static Site Generation), 可以在构建时预先生成所有页面的静态 HTML 文件
+
+这种方式特别适合内容相对固定的站点, 如官网, 博客, 文档等, 能够提供最佳的性能和 SEO 表现
+
+## 配置静态导出
+
+需在 next.config.js 文件中配置 output 为 export, 表示导出静态站点
+
+distDir 表示导出目录, 默认为out
+
+```ts
+import type { NextConfig } from "next"
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  output: "export", // 导出静态站点
+  distDir: "dist", // 导出目录
+  trailingSlash: true, // 添加尾部斜杠, 生成 /about/index.html 而不是 /about.html
+}
+
+export default nextConfig
+```
+
+## 动态路由处理
+
+使用动态路由, 则需要使用 generateStaticParams 函数来生成有多少个动态路由
+
+函数需要返回一个数组, 数组中包含所有动态路由的参数, 例如 `{ id: '1' }` 表示对应 id 为 1 的详情页
+
+```tsx
+// app/posts/[id]/page.tsx
+export async function generateStaticParams() {
+  // 支持调用接口请求详情id列表 const res = await fetch('https://api.example.com/posts')
+  return [
+    { id: "1" }, // 返回对应的详情id
+    { id: "2" },
+  ]
+}
+
+export default async function Post({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+
+  return (
+    <div>
+      <h1>Post {id}</h1>
+    </div>
+  )
+}
+```
+
+## 图片优化
+
+使用 Image 组件优化图片, 在开发模式会进行报错
+
+自定义 loader 来实现图片优化, 要求我们通过一个图床托管图片
+
+```tsx
+// next.config.ts
+import type { NextConfig } from "next"
+
+const nextConfig: NextConfig = {
+  /* config options here */
+  output: "export", // 导出静态站点
+  distDir: "dist", // 导出目录
+  trailingSlash: true, // 添加尾部斜杠, 生成 /about/index.html 而不是 /about.html
+  images: {
+    loader: "custom", // 自定义loader
+    loaderFile: "./image-loader.ts", // 自定义loader文件
+  },
+}
+
+export default nextConfig
+
+// /image-loader.ts
+export default function imageLoader({
+  src,
+  width,
+  quality,
+}: {
+  src: string
+  width: number
+  quality: number
+}) {
+  return `https://s41.ax1x.com${src}`
+}
+
+// app/about/page.tsx
+import Image from "next/image"
+
+export default function About() {
+  return (
+    <div>
+      <h1>About</h1>
+      <Image
+        loading="eager"
+        src="/2025/12/29/pZYbW7t.jpg"
+        alt="logo"
+        width={250 * 3}
+        height={131 * 3}
+      />
+    </div>
+  )
+}
+```
+
+## 注意事项
+
+以下功能在 SSG 中不支持, 请勿使用:
+
+- Dynamic Routes with dynamicParams: true
+- 动态路由没有使用 generateStaticParams()
+- 路由处理器依赖于 Request
+- Cookies
+- Rewrites 重写
+- Redirects 重定向
+- Headers 头
+- Proxy 代理
+- Incremental Static Regeneration 增量静态再生
+- Image Optimization with the default loader 默认加载器的图像优化
+- Draft Mode 草稿模式
+- Server Actions 服务器操作
+- Intercepting Routes 拦截路由
+
+# MDX
+
+MDX 是一种将 Markdown 和 React 组件混合在一起的语法, 可以在 Markdown 中使用 React 组件, 从而实现更复杂的页面
+
+## 启用 MDX
+
+```tsx
+// 安装依赖
+// npm install @next/mdx @mdx-js/loader @mdx-js/react @types/mdx
+
+//  my-project
+//   ├── app
+//   │   └── mdx-page
+//   │       └── page.(mdx/md)
+//   |── mdx-components.(tsx/js)
+//   └── package.json
+
+// next.config.js
+import type { NextConfig } from "next"
+import createMDX from "@next/mdx"
+const withMDX = createMDX({
+  // extension: /\.(md|mdx)$/ 默认只支持mdx文件,如果想额外支持md文件编写次行代码。
+})
+const nextConfig: NextConfig = {
+  reactCompiler: true,
+  pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
+}
+export default withMDX(nextConfig)
+
+// mdx-components.tsx
+import type { MDXComponents } from "mdx/types"
+const components: MDXComponents = {}
+export function useMDXComponents(): MDXComponents {
+  return components
+}
+```
+
+## 基础使用 (MDX)
+
+支持 Markdown语法 + React 组件 + HTML 标签
+
+```mdx
+# welcome to MDX
+
+这是一段文字, **他加粗了**, 并且有重点内容`important`。
+
+- one
+- two
+- three
+
+<div className="bg-red-500">
+  <p>自定义标签</p>
+</div>
+```
+
+## MDX 引入自定义组件
+
+引入自定义组件要跟 md 语法之间空一行 (否则会报错)
+
+mdx 文件无法实现一些复杂的交付逻辑, 如果有复杂的交付逻辑, 可以使用 React 组件来实现, 然后在 mdx 文件中引入
+
+```tsx
+// app/home/my-component.tsx
+"use client"
+import { useState } from "react"
+export default function MyComponent() {
+  const [count, setCount] = useState(0)
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>Increment</button>
+    </div>
+  )
+}
+```
+
+```mdx
+{/* app/home/page.mdx */}
+import MyComponent from './my-component' // 引入自定义组件一定要跟md语法之间空一行, 否则会报错。
+
+# welcome to MDX
+
+这是一段文字, **他加粗了**, 并且有重点内容`important`。
+
+- one
+- two
+- three
+
+<div className="bg-red-500">
+  <p>自定义标签</p>
+</div>
+
+<MyComponent />
+```
+
+## MDX 全局样式
+
+如果希望在项目中修改所有的 MDX 文件的样式, 可以使用 mdx-components.tsx 文件来修改
+
+```tsx
+// mdx-components.tsx
+import type { MDXComponents } from "mdx/types"
+
+const components: MDXComponents = {
+  h1: ({ children }) => <h1 className="text-2xl font-bold text-red-400">{children}</h1>, //# 代表h1 你可以自定义修改样式
+  li: ({ children }) => <li className="list-inside list-disc text-blue-500">{children}</li>, //- 代表li 你可以自定义修改样式
+  //...你可以自定义修改更多的样式
+}
+
+export function useMDXComponents(): MDXComponents {
+  return components
+}
+```
+
+## 远程加载 mdx/md 文件
+
+MDX 文件存储在远程服务器上, 可以使用远程 mdx 来加载文件
+
+```tsx
+// npm install next-mdx-remote-client
+
+// app/home/page.tsx
+import { MDXRemote } from "next-mdx-remote-client/rsc"
+export default async function Home() {
+  const res = await fetch("https://nextjs-docs-henna-six.vercel.app/xm.mdx") //链接是彩蛋
+  const source = await res.text()
+  return <MDXRemote source={source} />
+}
+```
+
+# 服务器函数 (Server Actions)
+
+服务器函数指的是服务器组件处理表单的提交, 无需手动编写 API 接口, 并且还支持数据的验证, 以及状态管理等
+
+## 核心原理 (Server Actions)
+
+React 扩展了原生 HTMLform 表单, 允许通过 action 属性直接绑定 server action 函数, 当表单提交后, 函数会自动接受原生的 FormData 数据
+
+## 基本用法 (Server Actions)
+
+传统的表单提交方式:
+
+<Image src={Png1} alt="Git 下载" width="100%" priority />
+
+服务器函数的用法:
+
+<Image src={Png2} alt="Git 下载" width="100%" priority />
+
+```tsx
+// app/login/page.tsx
+export default function Login() {
+  async function handleLogin(formData: FormData) {
+    "use server"
+    const username = formData.get("username") // 接受单个参数
+    const password = formData.get("password") // 接受单个数据
+    const form = Object.fromEntries(formData) // 接受所有数据 {username: '张三', password: '123456'}
+    // 可以直接操作数据库, 这样就无需编写API接口了
+  }
+
+  return (
+    <div>
+      <h1>登录页面</h1>
+      <div className="mx-auto mt-30 flex w-75 flex-col gap-2">
+        <form action={handleLogin} className="flex flex-col gap-2">
+          <input
+            className="rounded-md border border-gray-300 p-2"
+            type="text"
+            name="username"
+            placeholder="用户名"
+          />
+          <input
+            className="rounded-md border border-gray-300 p-2"
+            type="password"
+            name="password"
+            placeholder="密码"
+          />
+          <button type="submit" className="rounded-md bg-blue-500 p-2 text-white">
+            登录
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+```
+
+## 额外参数 (Server Actions)
+
+目前只能携带固定参数, 如 username, password 无法携带其他参数
+
+```tsx
+// 需要使用 bind 方法来进行参数扩展, 这样在函数内部就可以接收到 ID 参数
+export default function Login() {
+  // 接受 id 参数
+  async function handleLogin(id: number, formData: FormData) {
+    "use server"
+    const username = formData.get("username")
+    const password = formData.get("password")
+    const form = Object.fromEntries(formData)
+    console.log(username, password, form, id)
+  }
+
+  const userFunction = handleLogin.bind(null, 1) // 绑定 id 参数
+
+  return (
+    <div>
+      <h1>登录页面</h1>
+      <div className="mx-auto mt-30 flex w-75 flex-col gap-2">
+        <form action={handleLogin}>
+          <input type="text" name="username" placeholder="用户名" />
+          <input type="password" name="password" placeholder="密码" />
+          <button type="submit">登录</button>
+        </form>
+
+        {/* 使用新的函数绑定id参数 userFunction */}
+        <form action={userFunction} className="flex flex-col gap-2">
+          <input
+            className="rounded-md border border-gray-300 p-2"
+            type="text"
+            name="username"
+            placeholder="用户名"
+          />
+          <input
+            className="rounded-md border border-gray-300 p-2"
+            type="password"
+            name="password"
+            placeholder="密码"
+          />
+          <button type="submit" className="rounded-md bg-blue-500 p-2 text-white">
+            登录
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+```
+
+# 参数校验 (zod) + 读取状态
+
+zod 目前是一个非常流行的数据验证库, 可以在服务器端进行数据验证, 避免用户输入非法数据
+
+```tsx
+// npm i zod
+
+// app/lib/login/actions.ts
+"use server"
+
+import { z } from "zod"
+
+const loginSchema = z.object({
+  username: z.string().min(6, "用户名不能少于6位"), // zod 基本用法表示这是一个字符串, 并且不能少于 6 位
+  password: z.string().min(6, "密码不能少于6位"), // zod 基本用法表示这是一个字符串, 并且不能少于 6 位
+})
+
+export async function handleLogin(_prevState: any, formData: FormData) {
+  const result = loginSchema.safeParse(Object.fromEntries(formData)) // 调用 zod 的 safeParse 方法进行校验
+
+  if (!result.success) {
+    const errorMessage = z.treeifyError(result.error).properties // 调用 zod 的 treeifyError 方法将错误信息转换为对象
+    let str = ""
+    Object.entries(errorMessage!).forEach(([_key, value]) => {
+      value.errors.forEach((error: any) => {
+        str += error + "\n" // 将错误信息拼接成字符串
+      })
+    })
+    return { message: str } // 返回错误信息
+  }
+  // 校验成功, 进行数据库操作逻辑
+  return { message: "登录成功" } // 返回成功信息
+}
+```
+
+读取状态需要使用 React19 的 useActionState hook, 这个 hook 必须在客户端组件中使用
+
+useActionState hook 接受三个参数:
+
+- fn: 表单提交时触发的函数, 接收上一次的 state (首次为 initialState) 作为第一个参数, 其余参数为表单参数
+- initialState: state 的初始值, 可以是任何可序列化的值
+- permalink (可选): 表单提交后跳转的 URL, 用于 JavaScript 加载前的渐进式增强
+
+返回值:
+
+- state: 当前状态, 初始值为 initialState, 之后为 action 的返回值
+- formAction: 新的 action 函数, 用于传递给 form 或 button 组件
+- isPending: 布尔值, 表示是否有正在进行的 Transition
+
+```tsx
+// app/login/page.tsx
+"use client"
+import { useActionState } from "react"
+import { handleLogin } from "../lib/login/actions"
+const initialState = { message: "" }
+export default function Login() {
+  const [state, formAction, isPending] = useActionState(handleLogin, initialState)
+
+  return (
+    <div>
+      <h1>登录页面</h1>
+      {isPending && <div>Loading...</div>}
+      {state.message}
+      <div className="mx-auto mt-30 flex w-75 flex-col gap-2">
+        <form action={formAction} className="flex flex-col gap-2">
+          <input
+            className="rounded-md border border-gray-300 p-2"
+            type="text"
+            name="username"
+            placeholder="用户名"
+          />
+          <input
+            className="rounded-md border border-gray-300 p-2"
+            type="password"
+            name="password"
+            placeholder="密码"
+          />
+          <button type="submit" className="rounded-md bg-blue-500 p-2 text-white">
+            登录
+          </button>
+        </form>
+      </div>
+    </div>
+  )
+}
+```

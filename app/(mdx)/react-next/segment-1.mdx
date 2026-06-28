@@ -1,0 +1,768 @@
+# 基础入门
+
+## 前置知识
+
+- HTML: 熟练使用
+- CSS: 熟练使用
+- JavaScript: 熟练使用
+- TypeScript: 基本使用即可
+- React: 熟练使用
+- Node.js: 基本使用即可
+
+## 开始使用 Next.js
+
+Next.js 是一个基于 React 全栈框架, 由 Vercel 开发和维护, 那么它有什么优势呢?
+
+- SSR: 服务端渲染, 可以提高页面加载速度 (提升个人竞争力)
+- SSG: 静态站点生成, 可以生成静态页面, 类似于 Vitepress / Astro 等静态站点生成工具
+- SEO: Next.js 提供了 SEO 优化, 让网站更容易被搜索引擎收录
+- AI: Vercel 提供了 AI SDK 可以跟 Next.js 轻松集成, 轻松实现 AI 应用
+- 服务端操作: Next.js 提供了服务端操作
+- 社区丰富: Next.js 拥有庞大的社区, 可以轻松找到各种问题解决方案
+- 部署: 支持多种部署选项, 与 Vercel 等平台集成良好, 可以快速部署
+
+## Turbopack
+
+- 速度更快, 性能更优
+- Turbopack 是一个增量打包器, 用于取代 webpack, 使用 Rust 语言编写
+- Turbopack 转换 js/ts 使用的是 SWC, 比 vite 快 10 倍, 比 webpack 快 700 倍
+
+核心原理:
+
+- Turbopack 是函数级别的缓存, 将函数进行标记, 当这些函数被调用时, 会记住他们被调用的内容, 保存到缓存中
+
+## 创建 Next.js 项目
+
+**环境准备**
+
+- [Node 下载地址](https://nodejs.cn/en/download)
+- Node.js 12.22.0 或更高版本
+- 推荐使用 22 / 24 的 LTS 版本
+
+**搭建项目**
+
+```shell
+npx create-next-app@latest
+# Need to install the following packages:
+# create-next-app@16.2.9
+# Ok to proceed? (y) y
+# √ What is your project named? ... project-name
+# √ Would you like to use the recommended Next.js defaults? » No, customize settings
+# √ Would you like to use TypeScript? ... No / Yes
+# √ Which linter would you like to use? » ESLint
+# √ Would you like to use React Compiler? ... No / Yes
+# √ Would you like to use Tailwind CSS? ... No / Yes
+# √ Would you like your code inside a `src/` directory? ... No / Yes
+# √ Would you like to use App Router? (recommended) ... No / Yes
+# √ Would you like to customize the import alias (`@/*` by default)? ... No / Yes
+# √ What import alias would you like configured? ... @/*
+# √ Would you like to include AGENTS.md to guide coding agents to write up-to-date Next.js code? ... No / Yes
+# Creating a new Next.js app in C:\Users\27521\Documents\Docs\VSCode\project-name.
+#
+# Using npm.
+#
+# Initializing project with template: app-tw
+#
+#
+# Installing dependencies:
+# - next
+# - react
+# - react-dom
+#
+# Installing devDependencies:
+# - @tailwindcss/postcss
+# - @types/node
+# - @types/react
+# - @types/react-dom
+# - babel-plugin-react-compiler
+# - eslint
+# - eslint-config-next
+# - tailwindcss
+# - typescript
+
+# 启动开发服务器
+next dev
+npm run dev
+# ▲ Next.js 16.2.9 (Turbopack)
+# - Local:         http://localhost:3000
+# - Network:       http://192.168.50.65:3000
+# - Environments: .env.development, .env
+# ✓ Ready in 326ms
+
+# 构建项目
+next build
+npm run build
+
+# 启动生产服务器
+next start
+npm run start
+```
+
+## React Compiler
+
+React Compiler 自动优化组件渲染提高性能的工具
+
+不使用 React Compiler 的话, 我们需要手动优化 useMemo / useCallback / memo 等
+
+启用 React Compiler 后会自动优化, 只需要写代码即可, 减少心智负担
+
+若创建项目时未选择启用 React Compiler, 可按以下步骤启用:
+
+```shell
+npm install -D babel-plugin-react-compiler
+```
+
+```tsx
+// next.config.ts
+import type { NextConfig } from "next"
+
+const nextConfig: NextConfig = {
+  reactCompiler: true, //开启即可
+}
+
+export default nextConfig
+```
+
+# NextJS 路由
+
+1. Next.js 有两套路由系统, 一个是旧的 Pages Router 路由系统, 一个是新的 App Router 路由系统
+2. Next.js 推荐使用 App Router 路由系统
+
+- App Router 直接在组件中使用 fetch 调用即可
+- Pages Router 读取数据需要使用 getServerSideProps / getStaticProps / getStaticPaths 等函数
+
+## NextJS 路由基础
+
+- Next.js 采用基于文件系统的路由机制, 这意味着只需创建文件和文件夹, 框架就会自动生成对应的路由结构
+- 这种约定优于配置的设计理念, 让路由管理变得简单而直观
+
+## 文件系统路由的工作原理
+
+- Next.js 中, app 目录下的每个文件夹都代表一个路由段 (route segment), 并直接映射到 URL 路径
+- 无需配置路由表, 框架会根据您的文件结构自动处理
+
+```txt
+app/
+├── page.tsx               # /
+├── about/
+│   └── page.tsx           # /about
+├── blog/test
+│        └── page.tsx      # /blog/test
+└── contact/
+    └── page.tsx           # /contact
+```
+
+## App Router
+
+App Router 的路由系统是根据约定式定义的
+
+目录结构如下:
+
+```txt
+app
+├── page.tsx -> / 首页
+├── layout.tsx -> 布局组件
+├── template.tsx -> 模板组件
+├── loading.tsx -> 加载组件
+├── error.tsx -> 错误组件
+└── not-found.tsx -> 404组件
+├── page1
+│   └── page.tsx -> /page1 页面
+└── page2
+    └── page.tsx -> /page2 页面
+```
+
+## Pages Router
+
+Pages Router 的路由系统会把 pages 目录下的所有 jsx/tsx 文件转换成路由, 会导致不能把非路由组件写在 pages 目录下
+
+- 如 pages/index.tsx 会转换成 / 路由
+- pages/about.tsx 会转换成 /about 路由
+
+Pages Router 目录结构如下:
+
+```txt
+pages
+├── index.tsx -> /
+├── login.tsx -> /login
+├── api
+│   └── user.tsx -> /api/user
+├── posts
+│   └── [id].tsx -> /posts/[id]
+└── blog
+    ├── index.tsx -> /blog
+    └── setting.tsx -> /blog/setting
+```
+
+## 不同路由系统页面中获取数据
+
+```tsx
+// App Router:
+export default async function Home() {
+  const res = await fetch("xxx")
+  const data = await res.json()
+  return <div>{data.name}</div>
+}
+
+// Pages Router:
+export async function getServerSideProps() {
+  const res = await fetch("xxx")
+  const data = await res.json()
+  return { props: { data } }
+}
+
+export default function Home({ data }) {
+  return <div>{data.name}</div>
+}
+```
+
+## layout && template
+
+- layout (布局): 布局是多个页面共享 UI, 例如导航栏, 侧边栏, 底部等
+- template (模板): 基本功能跟布局一样, 只是不会保存状态
+
+布局和模板的特点:
+
+- 布局嵌套: 支持多层布局嵌套, 构建复杂的页面结构
+- 状态管理: 布局会在页面切换时保持状态, 而模板会重新渲染
+- 根布局: app/layout.tsx 是必须存在的根布局文件
+- 渲染顺序: 当布局和模板同时存在时, 渲染顺序为 layout → template → page
+
+## loading
+
+Next.js 的 loading 是借助 Suspense 实现的, Suspense 的具体用法请参考 [Suspense 组件](https://message163.github.io/react-docs/react/components/suspense.html)
+
+```tsx
+// loading.tsx
+export default function Loading() {
+  return (
+    <div>
+      <h1>Loading...</h1>
+    </div>
+  )
+}
+
+// page.tsx
+import Link from "next/link"
+const getData = async () => {
+  //触发异步会自动跳转到loading组件 异步结束正常返回页面
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      resolve("数据")
+    }, 5000)
+  })
+}
+export default async function APage() {
+  const data = await getData()
+  console.log(data)
+  return (
+    <div>
+      <h1>A Page</h1>
+      <Link href="/blog/b">跳转B</Link>
+    </div>
+  )
+}
+```
+
+## error
+
+Next.js 的 error 借助 Error Boundary 实现
+
+```tsx
+// error.tsx
+"use client" // 错误组件是客户端组件
+
+export default function Error() {
+  return (
+    <div>
+      <h1>Error</h1>
+    </div>
+  )
+}
+
+// page.tsx
+import Link from "next/link"
+export default async function APage() {
+  // 遇到异常会自动跳转到 error 组件
+  throw new Error("错误")
+  return (
+    <div>
+      <h1>A Page</h1>
+      <Link href="/blog/b">跳转B</Link>
+    </div>
+  )
+}
+```
+
+## not-found
+
+Next.js 默认会生成一个404页面
+自定义 404 页面, 只需在 app 目录下创建一个 not-found.tsx 文件即可
+
+```tsx
+// not-found.tsx
+export default function NotFound() {
+  return (
+    <div>
+      <h1>404 Page</h1>
+    </div>
+  )
+}
+```
+
+# 路由导航
+
+路由导航是指在 Next.js 中跳转页面的方式, 如原始的 a 标签
+
+在 Next.js 中, 共有四种方式提供跳转:
+
+- Link 组件
+- useRouter Hook (客户端组件)
+- redirect函数 (服务端组件)
+- History API (浏览器 API)
+
+## Link 组件
+
+Link 是一个内置组件, 在 a 标签的基础上扩展了功能, 并且还能用来实现预获取 (prefetch), 以及保持滚动位置 (scroll) 等
+
+```tsx
+// 基本用法
+import Link from "next/link"
+
+export default function Home() {
+  return (
+    <div>
+      <Link href="/about">跳转About页面</Link>
+
+      <Link href={{ pathname: "/about", query: { name: "张三" } }}>
+        跳转到 About 并且传入 query 参数
+      </Link>
+
+      <Link href="/page" prefetch={true}>
+        预获取page页面
+      </Link>
+
+      <Link href="/xm" scroll={true}>
+        保持滚动位置
+      </Link>
+
+      <Link href="/daman" replace={true}>
+        替换当前页面
+      </Link>
+    </div>
+  )
+}
+
+// 动态渲染
+import Link from "next/link"
+
+export default function Page() {
+  const arr = [1, 2, 3, 4, 5]
+  return arr.map((item) => (
+    <Link key={item} href={`/page/${item}`}>
+      动态渲染的Link
+    </Link>
+  ))
+}
+```
+
+## useRouter Hook
+
+```tsx
+// useRouter 可以在代码中根据逻辑跳转页面, 例如根据用户权限跳转不同的页面
+// 使用 hooks 需要在客户端组件中
+// 需要在顶层编写 'use client' 声明这是客户端组件
+"use client"
+
+import { useRouter } from "next/navigation"
+
+export default function Page() {
+  const router = useRouter()
+  return (
+    <>
+      <button onClick={() => router.push("/page")}>跳转page页面</button>
+      <button onClick={() => router.replace("/page")}>替换当前页面</button>
+      <button onClick={() => router.back()}>返回上一页</button>
+      <button onClick={() => router.forward()}>跳转下一页</button>
+      <button onClick={() => router.refresh()}>刷新当前页面</button>
+      <button onClick={() => router.prefetch("/about")}>预获取about页面</button>
+    </>
+  )
+}
+```
+
+## redirect 函数
+
+```tsx
+// redirect 函数可以用于服务端组件 / 客户端组件中跳转页面, 例如根据用户权限跳转不同的页面
+import { redirect } from "next/navigation"
+
+export default async function Page() {
+  const checkLogin = await checkLogin()
+  // 如果用户未登录, 则跳转到登录页面
+  if (!checkLogin) {
+    redirect("/login")
+  }
+  return (
+    <div>
+      <h1>Page</h1>
+    </div>
+  )
+}
+```
+
+## permanentRedirect 函数
+
+```tsx
+// 用法跟 redirect 一样, 只是状态码不同
+// Next.js 中 permanentRedirect 的状态是: 308 永久重定向
+
+// permanentRedirect 跟上面的 redirect 的区别:
+//   permanentRedirect 是永久重定向
+//   redirect 是临时重定向
+import { permanentRedirect } from "next/navigation"
+
+export default async function Page() {
+  const checkLogin = await checkLogin()
+  if (!checkLogin) {
+    permanentRedirect("/login")
+  }
+}
+```
+
+## permanentRedirect / redirect 参数说明
+
+这两个函数都接受以下参数:
+
+- path: 字符串类型, 表示重定向的目标 URL (支持相对路径和绝对路径)
+- type: 可选参数, 值为 replace 或 push, 用于控制重定向的行为
+
+关于 type 参数的默认行为:
+
+- 在 Server Actions 中: 默认使用 push, 会将新页面添加到浏览器历史记录
+- 在 其他场景 中: 默认使用 replace, 会替换当前的浏览器历史记录
+
+可以通过显式指定 type 参数来覆盖默认行为
+
+⚠️ 注意: type 参数在服务端组件中无效, 仅在客户端组件和 Server Actions 中生效
+
+# 动态路由
+
+动态路由是指在路由中使用方括号 [] 来定义路由参数
+
+使用动态路由只需要在文件夹名加上方括号 [] 即可, 例如 [id], [params] 等, 名字可以自定义
+
+- 在某些需求下, 我们需要根据不同的 id 来显示不同的页面内容, 例如商品详情页, 文章详情页等
+- 例如 /blog/[id], 其中 [id] 就是动态路由参数
+
+## 基本使用 [slug]
+
+```tsx
+// app/shop/[id]/page.tsx
+// 访问路径为: http://localhost:3000/shop/123 其中 123 就是动态路由参数, 这个可以是任意值
+export default function Page() {
+  return <div>Page</div>
+}
+```
+
+## 路由片段 […slug]
+
+如果需要捕获多个路由参数, 例如 /shop/123/456
+
+可以使用路由片段来捕获多个路由参数, 他的用法就是 [...slug], 其中 slug 就是路由片段, 名字可以自定义, 后面的片段有多少就捕获多少
+
+```tsx
+// app/shop/[...id]/page.tsx
+// 访问路径为: http://localhost:3000/shop/123/456/789 其中 123 和 456 和 789 就是动态路由参数, 后面的片段有多少就捕获多少
+export default function Page() {
+  return <div>Page</div>
+}
+```
+
+## 可选路由 [[…slug]]
+
+可选路由指的是, 我们可能会有这个路由参数, 也可能会没有这个路由参数, 例如/shop/123, 也可能是/shop,
+
+可以使用可选路由来捕获这个路由参数, 它的用法就是 [[...slug]] , 其中slug就是路由片段, 这个名字可以自定义, 后面的片段有多少就捕获多少
+
+```tsx
+// app/shop/[[...id]]/page.tsx
+// 访问路径为: http://localhost:3000/shop, 可以没有参数
+// 访问路径为: http://localhost:3000/shop/123, 可以有参数
+// 访问路径为: http://localhost:3000/shop/123/456, 可以有多个参数
+export default function Page() {
+  return <div>Page</div>
+}
+```
+
+## 接受参数
+
+```tsx
+// 使用 useParams hook 来接受参数, 这个 hook 只能在客户端组件中使用
+"use client"
+
+import { useParams } from "next/navigation"
+
+export default function ShopPage() {
+  const params = useParams()
+  console.log(params) // {id: '123'}  {id: ['123', '456']} 接受单个值以及多个值
+  return <div>ShopPage</div>
+}
+```
+
+# 平行路由
+
+平行路由指的是在同一布局 layout.tsx 中, 可以同时渲染多个页面
+
+例如 team, analytics 等, 这个东西跟 vue 的 router-view 类似
+
+## 基本用法 @
+
+平行路由不会影响 URL 路径
+
+平行路由的使用方法就是通过 @ + 文件夹名来定义, 例如 @team, @analytics 等, 名字可以自定义
+
+```tsx
+// app/@analytics
+// app/@team
+
+// 定义完成之后, 就可以在 layout.tsx 中使用 team 和 analytics 来渲染对应的页面, 会自动注入 layout 的 props 里面
+
+// 注意: 例子中我们使用了解构的语法, 这里面的名称 team, analytics 需跟文件夹名称一致
+export default function RootLayout({
+  children,
+  team,
+  analytics,
+}: {
+  children: React.ReactNode
+  team: React.ReactNode
+  analytics: React.ReactNode
+}) {
+  return (
+    <html>
+      <body>
+        {team}
+        {children}
+        {analytics}
+      </body>
+    </html>
+  )
+}
+```
+
+## 独立路由组件
+
+使用了平行路由之后, 为其单独定义 loading, error 等组件使其拥有独立加载和错误处理的能力
+
+## default.tsx
+
+每一个平行路由下面还可以接着创建对应的路由, 例如 @team 下面可以接着创建 @team/setting, @team/user 等
+
+目录结构:
+
+```txt
+├── @team
+│   ├── page.tsx
+│   ├── setting
+│   │   └── page.tsx
+└── @analytics
+│    └── page.tsx
+└── layout.tsx
+└── page.tsx
+```
+
+```tsx
+// 然后使用 Link 组件跳转子导航 setting 页面
+import Link from "next/link"
+
+export default function RootLayout({
+  children,
+  team,
+  analytics,
+}: {
+  children: React.ReactNode
+  team: React.ReactNode
+  analytics: React.ReactNode
+}) {
+  return (
+    <html>
+      <body>
+        {team}
+        {children}
+        {analytics}
+        <Link className="block text-blue-500" href="/setting">
+          Setting
+        </Link>
+      </body>
+    </html>
+  )
+}
+```
+
+子导航使用 Link 组件跳转 setting 页面时, 是没有问题的, 但是我们在跳转之后刷新页面, 就出现404了
+
+使用软导航 Link 组件跳转子页面时:
+
+- 这时 @analytics 和 children 依然保持活跃, 所以他只会替代 @team 里面的内容
+
+当使用硬导航刷新浏览器页面:
+
+- 此时 @analytics 和 children 已经失活
+- 因为它的底层原理其实是同时匹配 @team 和 @analytics, children 目录下面的 setting 页面
+- 但是只有 @team 有这个页面, 其他两个没有, 所以导致404
+
+解决方案: 使用 default.tsx 来进行兜底, 确保不会404
+
+- @analytics/default.tsx 定义 default.tsx 文件
+- app/default.tsx 定义 default.tsx 文件
+
+# 路由组
+
+路由组也是一种基于文件的约定范式, 可以按类别或团队组织路由模块, 并且不影响 URL 路径
+
+用法: 只需要通过 () 包裹住文件夹名即可, 例如 (shop), (user) 等, 名字可以自定义
+
+## 定义多个根布局
+
+一般大型项目使用, 例如需要把, 后台管理系统和前台的门户网站, 放到一个项目就可以使用这种方法实现
+
+使用方法:
+
+1. 先把 app 目录下的 layout.tsx 文件删除
+2. 在每组的目录下创建 layout.tsx 文件, 并定义 html, body 标签
+
+# 路由处理 (API)
+
+路由处理程序, 让我们在 Next.js 中编写 API 接口, 并支持与客户端组件的交互, 做到了前后端分离人不分离
+
+## 文件结构
+
+注意: page.tsx 和 route.ts 不能放在同一个文件夹下; Next.js 搞不清到底用哪一个, 所以最好把前后端代码分开
+
+- 定义前端路由页面使用 page.tsx 文件
+- 定义 API 接口使用 route.ts 文件
+- 都不受文件夹的限制, 可以放在任何地方, 只需要文件的名称以 route.ts 结尾即可
+- 可以定义一个 api 文件夹, 在文件夹下创建一一对应的模块, 如: user, login, register 等
+
+目录结构如下:
+
+```txt
+app/
+├── api
+│   ├── user
+│   │   └── route.ts
+│   ├── login
+│   │   └── route.ts
+│   └── register
+│       └── route.ts
+```
+
+## 定义请求
+
+Next.js 遵循 RESTful API 规范, 可以使用 HTTP 方法来定义请求
+
+```ts
+export async function GET(request) {}
+
+export async function HEAD(request) {}
+
+export async function POST(request) {}
+
+export async function PUT(request) {}
+
+export async function DELETE(request) {}
+
+export async function PATCH(request) {}
+
+// 如果没有定义 OPTIONS 方法, 则 Next.js 会自动实现 OPTIONS 方法
+export async function OPTIONS(request) {}
+```
+
+## 定义 GET 请求
+
+```ts
+// app/api/user/route.ts
+import { NextRequest, NextResponse } from "next/server"
+
+export async function GET(request: NextRequest) {
+  const query = request.nextUrl.searchParams //接受url中的参数
+  console.log(query.get("id"))
+  return NextResponse.json({ message: "Get request successful" }) //返回json数据
+}
+```
+
+## 定义 POST 请求
+
+```ts
+// app/api/user/route.ts
+import { NextRequest, NextResponse } from "next/server"
+
+export async function POST(request: NextRequest) {
+  //const body = await request.formData(); //接受formData数据
+  //const body = await request.text(); //接受text数据
+  //const body = await request.arrayBuffer(); //接受arrayBuffer数据
+  //const body = await request.blob(); //接受blob数据
+  const body = await request.json() //接受json数据
+  console.log(body) //打印请求体中的数据
+  return NextResponse.json({ message: "Post request successful", body }, { status: 201 })
+  //返回json数据
+}
+```
+
+## API 动态参数
+
+在路由中使用方括号 [] 定义动态参数, 例如 /api/user/[id]
+
+[id] 就是动态参数, 这个参数可以在请求中传递, 跟前端路由的动态路由类似
+
+接受动态参参数, 需要在第二个参数解构 params, 需注意这个参数是异步的, 需要使用 await 来等待参数解析完成
+
+```ts
+// app/api/user/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server"
+
+export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  console.log(id)
+  return NextResponse.json({ message: `Hello, ${id}!` })
+}
+```
+
+## Cookie
+
+Next.js 内置了 cookie 操作, 方便读写
+
+```ts
+// app/api/login/route.ts
+import { cookies } from "next/headers"
+import { NextRequest, NextResponse } from "next/server"
+
+interface ILogin {
+  username: string
+  password: string
+}
+
+export async function GET() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("token")
+  if (token?.value === "123456") {
+    return NextResponse.json({ code: 1, data: {}, message: "User is already logged in" })
+  }
+
+  return NextResponse.json({ code: 0, data: {}, message: "User is not logged in" })
+}
+
+export async function POST(request: NextRequest) {
+  const body: ILogin = await request.json()
+  if (body.username === "admin" && body.password === "123456") {
+    const cookieStore = await cookies()
+    cookieStore.set("token", "123456", { maxAge: 60 * 60 * 24 * 7, httpOnly: true })
+    return NextResponse.json({ code: 1, data: {}, message: "Login success" }, { status: 201 })
+  }
+
+  return NextResponse.json(
+    { code: 0, data: [], message: "Invalid username or password" },
+    { status: 201 }
+  )
+}
+```

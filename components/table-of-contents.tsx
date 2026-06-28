@@ -76,14 +76,14 @@ export function TableOfContents() {
     }
   }, [pathname])
 
-  // Loading 骨架屏
-  if (loading) {
-    return (
-      <aside className="sticky top-14.25 hidden w-50 shrink-0 self-start lg:block">
-        <nav className="h-[calc(100vh-57px)] overflow-y-auto py-5">
-          <div className="text-muted-foreground/60 mb-3 text-xs font-semibold tracking-wider uppercase">
-            目录
-          </div>
+  return (
+    <aside className="sticky top-14.25 hidden w-50 shrink-0 self-start lg:block">
+      <nav className="h-[calc(100vh-57px)] overflow-y-auto py-5">
+        <div className="text-muted-foreground/60 mb-3 text-xs font-semibold tracking-wider uppercase">
+          目录
+        </div>
+        {loading ? (
+          // Loading 骨架屏
           <div className="animate-pulse space-y-2.5">
             <div className="bg-muted h-2.5 w-20 rounded" />
             <div className="bg-muted ml-3 h-2 w-24 rounded" />
@@ -92,35 +92,26 @@ export function TableOfContents() {
             <div className="bg-muted ml-3 h-2 w-20 rounded" />
             <div className="bg-muted ml-6 h-2 w-16 rounded" />
           </div>
-        </nav>
-      </aside>
-    )
-  }
-
-  return (
-    <aside className="sticky top-14.25 hidden w-50 shrink-0 self-start lg:block">
-      <nav className="h-[calc(100vh-57px)] overflow-y-auto py-5">
-        <div className="text-muted-foreground/60 mb-3 text-xs font-semibold tracking-wider uppercase">
-          目录
-        </div>
-        <ul className="border-border space-y-0.5 border-l">
-          {items.map((item) => (
-            <li key={item.id}>
-              <a
-                href={`#${item.id}`}
-                className={cn(
-                  "text-muted-foreground hover:text-secondary-foreground block py-1 text-xs transition-colors border-l-2",
-                  LEVEL_INDENT[item.level] ?? "pl-3",
-                  activeId === item.id
-                    ? "text-secondary-foreground border-secondary-foreground -ml-px"
-                    : "border-transparent"
-                )}
-              >
-                {item.text}
-              </a>
-            </li>
-          ))}
-        </ul>
+        ) : (
+          <ul className="border-border space-y-0.5 border-l">
+            {items.map((item) => (
+              <li key={item.id}>
+                <a
+                  href={`#${item.id}`}
+                  className={cn(
+                    "text-muted-foreground hover:text-secondary-foreground block py-1 text-xs transition-colors border-l-2",
+                    LEVEL_INDENT[item.level] ?? "pl-3",
+                    activeId === item.id
+                      ? "text-secondary-foreground border-secondary-foreground -ml-px"
+                      : "border-transparent"
+                  )}
+                >
+                  {item.text}
+                </a>
+              </li>
+            ))}
+          </ul>
+        )}
       </nav>
     </aside>
   )

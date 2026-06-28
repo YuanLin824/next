@@ -1,0 +1,768 @@
+# AI
+
+[AI SDK 官网](https://ai-sdk.dev/getting-started)
+
+Vercel 提供了 AI SDK, 可以在 Next.js 中轻松集成 AI 功能;
+
+## 安装 AI-SDK
+
+在 Next.js 中轻松集成 AI 功能
+
+```shell
+# 如: 使用 deepseek 作为 AI 模型
+# @ai-sdk/react 封装了流式输出和上下文管理 hook
+npm i ai @ai-sdk/deepseek @ai-sdk/react
+
+# 如果要安装其他模型, 只需要将 deepseek 替换为其他模型即可
+# 例如: 安装 openai 模型
+npm i ai @ai-sdk/openai @ai-sdk/react
+```
+
+## 编写 API 接口
+
+```ts
+// app/api/chat/route.ts
+import { NextRequest } from "next/server"
+import { streamText, convertToModelMessages } from "ai"
+import { createDeepSeek } from "@ai-sdk/deepseek"
+import { DEEPSEEK_API_KEY } from "./key"
+
+const deepSeek = createDeepSeek({
+  apiKey: DEEPSEEK_API_KEY, // 设置 API 密钥
+})
+
+export async function POST(req: NextRequest) {
+  const { messages } = await req.json() // 获取请求体
+  // 这里为什么接受 messages?
+  // 因为我们使用前端的 useChat 他会自动注入这个参数, 所以可以直接读取
+  const result = streamText({
+    model: deepSeek("deepseek-chat"), // 使用 deepseek-chat 模型
+    messages: convertToModelMessages(messages), // 转换为模型消息
+    // 前端传过来的 messages 不符合 sdk 格式, 需要 convertToModelMessages 转换一下
+    // 转换之后的格式:
+    // [
+    //   { role: 'user', content: [ [Object] ] },
+    //   { role: 'assistant', content: [ [Object] ] },
+    //   { role: 'user', content: [ [Object] ] },
+    //   { role: 'assistant', content: [ [Object] ] },
+    //   { role: 'user', content: [ [Object] ] },
+    //   { role: 'assistant', content: [ [Object] ] },
+    //   { role: 'user', content: [ [Object] ] }
+    // ]
+    system: "你是一个高级程序员, 请根据用户的问题给出回答", // 系统提示词
+  })
+
+  return result.toUIMessageStreamResponse() // 返回流式响应
+}
+```
+
+前端使用 useChat 组件来实现 AI 对话, 这个组件内部封装了流式响应的, 默认会向 /api/chat 发送请求
+
+- messages: 消息列表的, 包含用户和 AI 的对话内容
+- sendMessage: 发送消息的函数的, 参数为消息内容
+- onFinish: 消息发送完成后的回调函数, 可以在这里进行一些操作, 如清空输入框
+
+messages: 数据结构解析
+
+```json
+[
+  {
+    "parts": [
+      {
+        "type": "text", // 文本类型
+        "text": "你知道 api router 吗"
+      }
+    ],
+    "id": "FPHwY1udRrkEoYgR", // 消息ID
+    "role": "user" // 用户角色
+  },
+  {
+    "id": "qno6vcWcwFM4Yc8J", // 消息 ID
+    "role": "assistant", // AI 角色
+    "parts": [
+      {
+        "type": "step-start" // 步骤开始
+      },
+      {
+        "type": "text", // 文本类型
+        "text": "是的，我知道 **API Router**。", // 文本内容
+        "state": "done" // 步骤完成
+      }
+    ]
+  }
+]
+```
+
+```tsx
+// app/page.tsx
+"use client"
+
+import { useState, useRef, useEffect } from "react"
+import { Button } from "@/components/ui/button"
+import { Textarea } from "@/components/ui/textarea"
+import { useChat } from "@ai-sdk/react"
+
+export default function HomePage() {
+  const [input, setInput] = useState("") // 输入框的值
+  const messagesEndRef = useRef<HTMLDivElement>(null) // 获取消息结束的ref
+  // useChat 内部封装了流式响应默认会向 /api/chat 发送请求
+  const { messages, sendMessage } = useChat({
+    onFinish: () => {
+      setInput("")
+    },
+  })
+
+  // 自动滚动到底部
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }, [messages])
+
+  // 回车发送消息
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault()
+      if (input.trim()) {
+        sendMessage({ text: input })
+      }
+    }
+  }
+
+  return (
+    <div className="flex h-screen flex-col bg-linear-to-br from-blue-50 via-white to-purple-50">
+      {/* 头部标题 */}
+      <div className="border-b border-gray-200 bg-white/80 shadow-sm backdrop-blur-sm">
+        <div className="mx-auto max-w-4xl px-6 py-4">
+          <h1 className="bg-linear-to-r from-blue-600 to-purple-600 bg-clip-text text-2xl font-bold text-transparent">
+            AI 智能助手
+          </h1>
+          <p className="mt-1 text-sm text-gray-500">随时为您解答问题</p>
+        </div>
+      </div>
+
+      {/* 消息区域 */}
+      <div className="flex-1 overflow-y-auto px-4 py-6">
+        <div className="mx-auto max-w-4xl space-y-4">
+          {messages.length === 0 ? (
+            <div className="flex h-full flex-col items-center justify-center py-20 text-center">
+              <div className="mb-4 rounded-full bg-linear-to-br from-blue-100 to-purple-100 p-6">
+                <svg
+                  className="h-12 w-12 text-blue-600"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"
+                  />
+                </svg>
+              </div>
+              <h2 className="mb-2 text-xl font-semibold text-gray-700">开始对话</h2>
+              <p className="text-gray-500">输入您的问题，我会尽力帮助您</p>
+            </div>
+          ) : (
+            messages.map((message) => (
+              <div
+                key={message.id}
+                className={`flex ${message.role === "user" ? "justify-end" : "justify-start"} animate-in fade-in slide-in-from-bottom-4 duration-500`}
+              >
+                <div
+                  className={`flex max-w-[80%] gap-3 ${message.role === "user" ? "flex-row-reverse" : "flex-row"}`}
+                >
+                  {/* 头像 */}
+                  <div
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full font-semibold text-white ${
+                      message.role === "user"
+                        ? "bg-linear-to-br from-blue-500 to-blue-600"
+                        : "bg-linear-to-br from-purple-500 to-purple-600"
+                    }`}
+                  >
+                    {message.role === "user" ? "你" : "AI"}
+                  </div>
+
+                  {/* 消息内容 */}
+                  <div
+                    className={`flex flex-col ${message.role === "user" ? "items-end" : "items-start"}`}
+                  >
+                    <div
+                      className={`rounded-2xl px-4 py-3 shadow-sm ${
+                        message.role === "user"
+                          ? "bg-linear-to-br from-blue-500 to-blue-600 text-white"
+                          : "border border-gray-200 bg-white text-gray-800"
+                      }`}
+                    >
+                      {message.parts.map((part, index) => {
+                        switch (part.type) {
+                          case "text":
+                            return (
+                              <div
+                                key={message.id + index}
+                                className="wrap-break-word whitespace-pre-wrap"
+                              >
+                                {part.text}
+                              </div>
+                            )
+                        }
+                      })}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
+          <div ref={messagesEndRef} />
+        </div>
+      </div>
+
+      {/* 输入区域 */}
+      <div className="border-t border-gray-200 bg-white/80 shadow-lg backdrop-blur-sm">
+        <div className="mx-auto max-w-4xl px-4 py-4">
+          <div className="flex items-end gap-3">
+            <div className="relative flex-1">
+              <Textarea
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="请输入你的问题... (按 Enter 发送，Shift + Enter 换行)"
+                className="max-h-50 min-h-15 resize-none rounded-xl border-gray-300 shadow-sm transition-all focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+            </div>
+            <Button
+              onClick={() => {
+                if (input.trim()) {
+                  sendMessage({ text: input })
+                }
+              }}
+              disabled={!input.trim()}
+              className="h-15 rounded-xl bg-linear-to-r from-blue-500 to-purple-600 px-6 shadow-md transition-all hover:from-blue-600 hover:to-purple-700 hover:shadow-lg disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"
+                />
+              </svg>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+```
+
+# Proxy 代理
+
+Next.js 16 开始, 中间件 Middleware 更名为代理 (Proxy), 以更好地体现其用途, 功能保持不变
+
+Next.js 提供了命令行工具来升级为 16.x 版本, 只需要执行以下命令即可:
+
+```shell
+npx @next/codemod@canary middleware-to-proxy .
+# 代码转换会将文件和函数名从 middleware 重命名为 proxy
+
+# middleware.ts -> proxy.ts
+- export function middleware() {
++ export function proxy() {
+```
+
+## Proxy 基本使用
+
+应用场景:
+
+- 处理跨域请求
+- 接口转发: 如 /api/user -> (可能是其他服务器 java/go/python 等) -> /api/user
+- 限流: 如配合第三方服务做限流
+- 鉴权 / 判断是否登录
+
+Prxoy 代理跟拦截器类似, 在请求完成之前进行拦截, 然后进行一些处理, 例如: 修改请求头, 修改请求体, 修改响应体等
+
+定义 proxy 函数导出即可, Next.js 会自动调用
+
+```ts
+// proxy.ts
+// 会拦截项目中所有的请求, 包括静态资源, API 请求, 页面请求等
+import { NextRequest, NextResponse } from "next/server"
+
+export async function proxy(request: NextRequest) {
+  console.log(request.url, "url")
+}
+```
+
+## Proxy 配置
+
+如只想匹配 '/api' 下面的路径去做一些事情, 可以使用 config 配置来实现
+
+```ts
+import { NextRequest, NextResponse } from "next/server"
+
+export async function proxy(request: NextRequest) {
+  console.log(request.url, "url")
+}
+
+// 配置匹配路径
+export const config = {
+  matcher: "/api/:path*",
+  // matcher: ['/api/:path*','/api/user/:path*'], 支持单个以及多个路径匹配
+  // matcher: ['/((?!api|_next/static|_next/image|.*\\.png$).*)'], 同样支持正则表达式匹配
+}
+```
+
+## Proxy 复杂匹配
+
+- source: 表示匹配路径
+- has: 表示匹配路径中必须 (包含) 某些条件
+- missing: 表示匹配路径中 (必须不包含) 某些条件
+
+type 只能匹配: header, query, cookie
+
+```ts
+import { NextRequest, NextResponse } from "next/server"
+import { ProxyConfig } from "next/server"
+
+export async function proxy(request: NextRequest) {
+  console.log("start proxy")
+  return NextResponse.next()
+}
+
+export const config: ProxyConfig = {
+  matcher: [
+    {
+      source: "/home/:path*",
+      // 表示匹配路径中必须 (包含) Authorization 头和 userId 查询参数
+      has: [
+        { type: "header", key: "Authorization", value: "Bearer 123456" },
+        { type: "query", key: "userId", value: "123" },
+      ],
+      // 表示匹配路径中 (必须不包含) cookie 和 userId 查询参数
+      missing: [
+        { type: "cookie", key: "token", value: "123456" },
+        { type: "query", key: "userId", value: "456" },
+      ],
+    },
+  ],
+}
+```
+
+## Proxy 案例实战 (处理跨域)
+
+```ts
+// 只要是 /api 下面的接口都可以被任意访问
+import { NextRequest, NextResponse } from "next/server"
+import { ProxyConfig } from "next/server"
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+}
+
+export async function proxy(request: NextRequest) {
+  const response = NextResponse.next()
+  Object.entries(corsHeaders).forEach(([key, value]) => {
+    response.headers.set(key, value)
+  })
+  return response
+}
+
+export const config: ProxyConfig = {
+  matcher: "/api/:path*",
+}
+```
+
+# NextJS CSS 方案
+
+Next.js 多种 CSS 方案:
+
+- Tailwind CSS (推荐)
+- CSS Modules (创建 CSS 模块化, 类似于 Vue 的单文件组件)
+- SASS (CSS 预处理器, Next.js 已内置)
+- 全局 CSS (全局的 CSS, 可以全局使用)
+- Style (内联样式)
+- css-in-js (类似于 React 的 styled-components, 不推荐)
+
+## Tailwind CSS
+
+Tailwind CSS(原子化 CSS) 是一个 CSS 框架, 提供了大量 CSS 类, 只需要使用这些类, 就可快速构建网页
+
+```shell
+# 创建 Next.js 项目时, 选择 customize settings 就会出现 Tailwind CSS 选项, 选择 Yes 即可
+npx create-next-app@latest my-project
+```
+
+创建项目时未启用 Tailwind CSS 需手动启用, 手动启用步骤如下:
+
+1. 安装 Tailwind CSS 及相关依赖
+
+   ```shell
+   # 创建项目时, 未启用 Tailwind CSS
+   npm install tailwindcss @tailwindcss/postcss postcss
+   ```
+
+2. 创建 Tailwind CSS 配置文件
+
+   ```ts
+   // 项目根目录下创建 postcss.config.mjs 文件, 并添加如下内容:
+   const config = {
+     plugins: {
+       "@tailwindcss/postcss": {},
+     },
+   }
+   export default config
+   ```
+
+3. 导入 Tailwind CSS
+
+   ```css
+   /* app/globals.css */
+   @import "tailwindcss";
+   ```
+
+## CSS Modules
+
+CSS Modules 是一种 CSS 模块化方案, 可以在组件中使用 CSS 模块化, 类似于 Vue 的单文件组件 (scoped)
+
+Next.js 已经内置了对 CSS Modules 的支持, 只需在创建文件的时候新增 .module.css 后缀即可; 例如 index.module.css
+
+```css
+/** index.module.css */
+.container {
+  background-color: red;
+}
+```
+
+```tsx
+/** index.tsx */
+import styles from "./index.module.css"
+
+export default function Home() {
+  return (
+    <div className={styles.container}>
+      <h1>Home</h1>
+    </div>
+  )
+}
+```
+
+## SASS (Next.js 已内置)
+
+Next.js 内置了 SASS 配置, 使用时只需安装 SASS 即可
+
+```shell
+npm install --save-dev sass
+```
+
+Next.js 还支持配置全局 SASS 变量, 只需在 next.config.js 中配置即可
+
+```ts
+// next.config.js
+import type { NextConfig } from "next"
+const config: NextConfig = {
+  reactCompiler: true,
+  reactStrictMode: false,
+  cacheComponents: false,
+  sassOptions: {
+    additionalData: `$color: blue;`, // 全局变量
+  },
+}
+
+export default config
+```
+
+## 全局 CSS
+
+根目录下创建 globals.css 文件, 添加全局样式
+
+```css
+/** app/globals.css */
+body {
+  background-color: red;
+}
+
+.flex {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+```
+
+layout.tsx 文件中引入 globals.css 文件
+
+```tsx
+//app/layout.tsx
+import "./globals.css"
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="en">
+      <body>{children}</body>
+    </html>
+  )
+}
+```
+
+## Style
+
+style 就是内联样式, 直接在组件中使用 style 属性来定义样式
+
+```tsx
+export default function Home() {
+  return (
+    <div style={{ backgroundColor: "red" }}>
+      <h1>Home</h1>
+    </div>
+  )
+}
+```
+
+## CSS-in-JS
+
+css-in-js 是把 css + js + html 混合在一起; 如 styled-components
+
+1. 安装启用 styled-components
+
+   ```ts
+   // npm install styled-components
+   import type { NextConfig } from "next"
+
+   const config: NextConfig = {
+     compiler: {
+       styledComponents: true, // 启用 styled-components
+     },
+   }
+   export default config
+   ```
+
+2. 创建 styled-components 注册表
+
+   ```tsx
+   // lib/registry.tsx
+   "use client"
+
+   import React, { useState } from "react"
+   import { useServerInsertedHTML } from "next/navigation"
+   import { ServerStyleSheet, StyleSheetManager } from "styled-components"
+
+   export default function StyledComponentsRegistry({ children }: { children: React.ReactNode }) {
+     // 仅使用惰性初始状态创建一次样式表
+     // x-ref: https://reactjs.org/docs/hooks-reference.html#lazy-initial-state
+     const [styledComponentsStyleSheet] = useState(() => new ServerStyleSheet())
+
+     useServerInsertedHTML(() => {
+       const styles = styledComponentsStyleSheet.getStyleElement()
+       styledComponentsStyleSheet.instance.clearTag()
+       return <>{styles}</>
+     })
+
+     if (typeof window !== "undefined") return <>{children}</>
+
+     return (
+       <StyleSheetManager sheet={styledComponentsStyleSheet.instance}>{children}</StyleSheetManager>
+     )
+   }
+   ```
+
+3. 用样式注册表组件包裹根布局的 children
+
+   ```tsx
+   // app/layout.tsx
+   import StyledComponentsRegistry from "./lib/registry"
+
+   export default function RootLayout({ children }: { children: React.ReactNode }) {
+     return (
+       <html>
+         <body>
+           <StyledComponentsRegistry>{children}</StyledComponentsRegistry>
+         </body>
+       </html>
+     )
+   }
+   ```
+
+# 渲染基础
+
+渲染方式: CSR, SSR, SSG
+
+Hydration: 水合
+
+## CSR
+
+Client Side Rendering, 客户端渲染
+
+Vue, React, Angular 等框架, 都是CSR
+
+工作流程如下:
+
+- 浏览器请求服务器 -> 服务器返回 HTML / JS / CSS 等文件 -> JS 动态渲染生成 DOM -> 浏览器渲染 DOM
+
+优点:
+
+- 交互流畅, 可直接响应
+- 前后端分离, 前端注重UI, 后端注重数据
+
+缺点:
+
+- 首屏加载慢, 因为需要下载 JS / CSS 等文件
+- SEO 不友好, 因为 JS 动态渲染 (现在爬虫普遍已经支持 JS 抓取了)
+
+适合场景:
+
+- 后台管理系统开发 (后台系统不需要 SEO, 也不需要首屏加载速度)
+- 单页面应用开发 (SPA)
+
+## SSR
+
+Server Side Rendering, 服务端渲染
+
+Next.js, Nuxt.js等框架, 都是SSR
+
+工作流程如下:
+
+- 浏览器请求服务器 -> 服务器 (内部调用 API 接口-> 渲染 HTML 页面) -> 浏览器直接读取 HTML 页面, 同时加载 JS / CSS 等文件 -> 执 行hydration (水合)
+
+优点:
+
+- 首屏加载快, 因为服务器已经渲染了 HTML 页面
+- SEO 友好, 搜索引擎能爬取到完整内容
+
+缺点:
+
+- 开发成本高, 需要懂服务端知识, 全栈开发
+- 服务器承担渲染工作, 如果用户访问量大, 对服务器配置要求高, 增大成本
+
+适合场景:
+
+- 电商网站开发
+- 博客网站开发
+- 官网 / 首页等
+
+## SSG
+
+Static Site Generation, 静态站点生成
+
+Vitepress, Astro 等框架, 都是SSG
+
+工作流程如下:
+
+- 项目构建 npm run build -> 生成静态文件 (每个路由对应一个 HTML) -> 部署到 CDN / Nginx 等服务器 -> 浏览器请求服务器 -> 服务器返回 HTML 页面 -> hydration
+
+优点:
+
+- 首屏加载极快 (CDN 分发静态文件, 无需服务器实时渲染)
+- 服务器压力小 (CDN 直接承载请求, 无需服务器执行 JS)
+- SEO 最优 (静态 HTML 含完整数据, 搜索引擎爬取无压力)
+
+缺点:
+
+- 不适用于动态数据 (数据更新需要重新构建部署, 如实时股价, 实时评论)
+- 详情页面如果过多 (构建时间会长)
+
+适合场景:
+
+- 技术文档
+- 静态营销页
+- 静态新闻站
+
+## Hydration (水合)
+
+- HTML 是静态的 (没有任何交互效果), 通过 JS 才能变成动态的
+- JS 下载完成在赋予 HTML 交互效果的阶段称之为水合
+
+Next.js 水合 (详细版本):
+
+1. 服务端操作:
+
+   - Next.js 服务器接收到用户请求
+   - 服务器执行 React 组件代码, 获取数据 (比如从 API 接口请求文章列表)
+   - 服务器将 React 组件渲染成静态 HTML 字符串 (包含了文章列表的所有内容)
+   - 服务器将这个 HTML 字符串返回给浏览器
+
+2. 客户端操作:
+
+   - 浏览器接收到 HTML, 立即解析并展示给用户 (此时用户能看到文章列表, 但点击 “查看详情” 按钮没有反应)
+   - 浏览器开始下载页面所需的 JS 文件 (包括 React 核心库, 组件代码等)
+   - JS 下载完成后, React 会执行 ReactDOM.hydrateRoot() 方法 (在 React 18+ 中)
+   - hydrateRoot() 会对比浏览器中的真实 DOM 和 React 组件的虚拟 DOM:
+     - 如果结构一致, React 会给真实 DOM 绑定事件监听器
+     - 如果发现差异 (比如服务器和客户端数据不一致), React 会发出警告, 并以客户端渲染的结果为准
+   - 水合完成后, 页面变成可交互的动态页面 (用户可以点击按钮, 滚动加载更多内容等)
+
+# RSC (React Server Components)
+
+RSC (服务器组件) 是 React19 正式引入的一种新的组件类型, 可以在服务器端渲染, 也可以在客户端渲染
+
+- SSR 在服务器提前把页面渲染好 => 返回给浏览器 => 进行水合
+- CSR 在客户端渲染
+- RSC 吸取两方优势, 分为服务器组件和客户端组件
+
+例: 有一个页面, 上面是静态内容, 但下面是需要交互的, 此时我们就可以拆分成两个组件:
+
+- 服务器组件:
+  - 静态内容: 例如正文, 标题, 图片等, 这类组件之所以适合在服务端执行
+  - 核心原因在于服务端渲染 HTML + CSS 的速度更快
+  - 生成的内容对搜索引擎完全可见
+  - 无需客户端额外处理交互逻辑, 完美匹配静态内容的需求
+    ```tsx
+    // Next.js 默认服务器组件
+    export default function HomePage() {
+      return (
+        <div>
+          <h1>Home Page</h1>
+        </div>
+      )
+    }
+    ```
+
+- 客户端组件:
+  - 需要交互的: 例如交互功能, 如点赞按钮, 计数器, 表单等
+  - 这类组件需要依赖浏览器 DOM 事件, 状态管理 (useState), 副作用 (useEffect) 等客户端能力
+  - 必须在客户端完成渲染和水合 (即添加事件处理程序的过程) 才能实现交互效果
+    ```tsx
+    "use client" // 声明这是一个客户端组件
+    export default function HomePage() {
+      return (
+        <div>
+          <h1>Home Page</h1>
+        </div>
+      )
+    }
+    ```
+
+## 渲染 (RSC Payload)
+
+SSR 模式是在服务器直接渲染成 HTML 页面, 返回给浏览器的
+
+RSC 是一种特殊的紧凑格式
+
+那为什么这么做呢? 因为组件可以进行嵌套: 服务器组件嵌套客户端组件
+
+客户端组件也会在服务器进行一次预渲染
+
+Next.js 会标记哪些是客户端组件并预留好位置, 但不会进行水合
+
+```
+b2:["$","span",null,{"className":"line","children":["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":"    })"}]}]
+b3:["$","span",null,{"className":"line","children":[["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":"  }"}],["$","span",null,{"style":{"color":"var(--shiki-token-punctuation)"},"children":","}],["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":" [])"}]]}]
+b4:["$","span",null,{"className":"line","children":" "}]
+b5:["$","span",null,{"className":"line","children":[["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":"  "}],["$","span",null,{"style":{"color":"var(--shiki-token-comment)"},"children":"// You can use `isPending` to give users feedback"}]]}]
+b6:["$","span",null,{"className":"line","children":[["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":"  "}],["$","span",null,{"style":{"color":"var(--shiki-token-keyword)"},"children":"return"}],["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":" <"}],["$","span",null,{"style":{"color":"var(--shiki-token-string-expression)"},"children":"p"}],["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":">Total Views: {views}</"}],["$","span",null,{"style":{"color":"var(--shiki-token-string-expression)"},"children":"p"}],["$","span",null,{"style":{"color":"var(--shiki-color-text)"},"children":">"}]]}]
+```
+
+优点:
+
+- 将组件拆分成客户端组件和服务器组件:
+  - 可以有效的减少 bundle 体积
+  - 因为服务器组件已经在服务器渲染好了,
+  - 所以没必要打入 bundle 中
+  - 也就是说服务器组件所依赖的包都不会打进去, 大大减少了 bundle 体积
+- 局部水合:
+  - 像传统 SSR 同构模式
+  - 所有的页面都要在客户端进行水合
+  - RSC 将组件拆分出来, 只会把客户端组件进行水合, 避免了全量水合带来的性能损耗
+- 流式加载:
+  - HTML 页面本来就支持流式加载
+  - 所以服务器组件可以边渲染边返回, 提高了 FCP (首次内容绘制) 性能
