@@ -25,9 +25,7 @@ export default function Page() {
                           <ChildIcon className="text-primary size-4 transition-transform group-hover/card:scale-110" />
                           <span>{child.title}</span>
                         </CardTitle>
-                        {child.description && (
-                          <CardDescription>{child.description}</CardDescription>
-                        )}
+                        {child.desc && <CardDescription>{child.desc}</CardDescription>}
                       </CardHeader>
                     </Card>
                   </a>
