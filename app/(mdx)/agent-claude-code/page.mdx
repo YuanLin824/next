@@ -1,0 +1,372 @@
+import Image from "next/image"
+import Node from "./imgs/node.png"
+import Git from "./imgs/git.png"
+import CCSwitch from "./imgs/ccswitch.png"
+import Claude1 from "./imgs/claude-1.png"
+import Claude2 from "./imgs/claude-2.png"
+import Claude3 from "./imgs/claude-3.png"
+import Claude4 from "./imgs/claude-4.png"
+import Claude5 from "./imgs/claude-5.png"
+import Claude6 from "./imgs/claude-6.png"
+import Usgae1 from "./imgs/usage-1.png"
+import Usgae2 from "./imgs/usage-2.png"
+import Usgae3 from "./imgs/usage-3.png"
+
+# 安装
+
+## 使用 npm 安装 (以 windows 为例)
+
+使用 npm 安装 ClaudeCodeCli 不需梯子
+
+### 环境准备
+
+Node 环境安装步骤:
+
+1. [Node 下载地址](https://nodejs.cn/en/download)
+2. 根据系统选择对应的 Node 版本, 点击下载按钮
+3. 下载完成后, 双击应用程序安装 (安装选项默认即可)
+
+<Image src={Node} alt="Node 下载" width="100%" priority />
+
+Git 环境安装步骤:
+
+1. [Git 下载地址](https://git-scm.com/install/windows)
+2. 根据芯片架构点击 `Git for Windows/x64 Setup` 或 `Git for Windows/ARM64 Setup` 进行下载
+3. 下载完成后, 双击应用程序安装 (安装选项默认即可)
+
+<Image src={Git} alt="Git 下载" width="100%" priority />
+
+### 环境验证
+
+执行命令后出现版本号即表示环境准备完成
+
+```bash
+node --version
+# v24.16.0
+
+npm --version
+# 11.17.0
+
+git --version
+# git version 2.54.0.windows.1
+```
+
+### 安装 ClaudeCodeCli
+
+```bash
+# 切换国内 npm 镜像源 (默认镜像源可能下载报错)
+npm config set registry https://registry.npmmirror.com
+
+# 安装 ClaudeCodeCli
+npm install -g @anthropic-ai/claude-code@stable
+
+# 验证 ClaudeCodeCli; 执行 claude --version 后, 出现版本号即表示安装完成
+claude --version
+# 2.1.169 (Claude Code)
+```
+
+### 卸载 ClaudeCodeCli
+
+```bash
+# 卸载 ClaudeCodeCli
+npm uninstall -g @anthropic-ai/claude-code@stable
+```
+
+# 配置
+
+## 配置文件
+
+配置文件类型
+
+1. 全局系统提示 (System Prompt), 对所有项目生效: ~/.claude/CLAUDE.md
+2. 全局设置, 如语言, 行为偏好等: ~/.claude/settings.json
+3. 自定义斜杠命令目录: ~/.claude/commands/
+
+项目级别配置 (仅对当前项目生效)
+
+1. 项目级系统提示: .claude/CLAUDE.md
+2. 项目级设置: .claude/settings.json
+
+配置文件优先级
+
+1. 当前项目: .claude/CLAUDE.md 和 .claude/settings.json
+2. 用户主目录: ~/.claude/CLAUDE.md 和 ~/.claude/settings.json
+3. 内置默认行为
+
+## 配置 ClaudeCodeCli
+
+ClaudeCodeCli 的配置需要手动编辑对应的配置文件
+
+为了方便, 这里使用 CCSwitch 进行配置
+
+### 安装 CCSwitch
+
+1. [CCSwitch 下载地址](https://github.com/farion1231/cc-switch/releases)
+2. 根据系统点击对应版本进行下载
+3. 下载完成后, 双击应用程序安装 (安装选项默认即可)
+
+<Image src={CCSwitch} alt="CCSwitch 下载" width="100%" priority />
+
+### 使用 CCSwitch 配置 ClaudeCodeCli
+
+1. 打开 CCSwitch
+2. 添加模型
+3. 完善模型信息
+4. 点击右下加添加按钮
+5. 测试模型
+
+上述流程如下图:
+
+图片一
+
+<Image src={Claude1} alt="Claude1" width="100%" priority />
+
+图片二
+
+<Image src={Claude2} alt="Claude2" width="100%" priority />
+
+图片三
+
+<Image src={Claude3} alt="Claude3" width="100%" priority />
+
+图片四
+
+<Image src={Claude4} alt="Claude4" width="100%" priority />
+
+图片五
+
+<Image src={Claude5} alt="Claude5" width="100%" priority />
+
+图片六
+
+<Image src={Claude6} alt="Claude6" width="100%" priority />
+
+# 使用
+
+## 验证 ClaudeCodeCli 接入自定义大模型
+
+1. 执行 claude 命令, 进入 Claude 终端
+
+   <Image src={Usgae1} alt="Claude1" width="100%" priority />
+
+2. 验证大模型是否接入成功
+
+   <Image src={Usgae2} alt="Claude2" width="100%" priority />
+
+   <Image src={Usgae3} alt="Claude3" width="100%" priority />
+
+## 常用命令
+
+### CLI 启动命令
+
+| 命令                       | 说明                         |
+| -------------------------- | ---------------------------- |
+| `claude`                   | 启动交互式会话               |
+| `claude -r`                | 恢复当前目录最近一次会话     |
+| `claude -c`                | 继续最近一次会话（全局）     |
+| `claude -r <name>`         | 恢复指定名称的会话           |
+| `claude -n "name"`         | 命名当前会话                 |
+| `claude -p "prompt"`       | 打印模式，直接输出结果后退出 |
+| `claude "prompt"`          | 以初始提示词启动会话         |
+| `claude -w feature-branch` | 在隔离的 git worktree 中启动 |
+| `claude --bare`            | 纯净模式，跳过 hooks/skills  |
+| `claude --verbose`         | 详细日志模式                 |
+| `claude --debug`           | 调试输出                     |
+| `claude --version`         | 显示版本号                   |
+| `claude --help`            | 显示帮助信息                 |
+| `claude config`            | 打开设置编辑器               |
+| `claude mcp`               | 管理 MCP 服务器连接          |
+
+### 常用参数
+
+| 参数                                      | 说明                                      |
+| ----------------------------------------- | ----------------------------------------- |
+| `--model opus\|sonnet\|haiku`             | 指定模型                                  |
+| `--effort high\|medium\|low`              | 设置推理力度                              |
+| `--max-turns <N>`                         | 限制最大交互轮数（CI 场景）               |
+| `--max-budget-usd <N>`                    | 限制最大花费美元（CI 场景）               |
+| `--permission-mode plan`                  | 权限模式：`plan` / `acceptEdits` / `auto` |
+| `--allowedTools "Bash(git log *)" "Read"` | 允许特定工具                              |
+| `--output-format json`                    | JSON 格式输出（CI 场景）                  |
+| `--dangerously-skip-permissions`          | 跳过所有权限提示（谨慎使用）              |
+
+### 会话内斜杠命令
+
+#### 会话管理
+
+| 命令             | 说明                         |
+| ---------------- | ---------------------------- |
+| `/help`          | 列出所有可用命令             |
+| `/clear`         | 清空对话历史                 |
+| `/compact`       | 总结对话以释放上下文窗口     |
+| `/resume`        | 恢复之前的会话               |
+| `/rename <name>` | 重命名当前会话               |
+| `/rewind`        | 回滚到之前的检查点           |
+| `/btw <问题>`    | 提一个旁侧问题，不入主对话流 |
+| `/recap`         | 总结当前会话进度             |
+| `/exit`          | 退出 CLI                     |
+
+#### 状态与监控
+
+| 命令       | 说明                       |
+| ---------- | -------------------------- |
+| `/status`  | 显示账号、模型、版本信息   |
+| `/cost`    | 显示 Token 使用量和花费    |
+| `/context` | 可视化上下文窗口占用       |
+| `/model`   | 查看或切换模型             |
+| `/fast`    | 切换快速模式               |
+| `/usage`   | 显示用量限制和速率限制状态 |
+
+#### 项目与配置
+
+| 命令              | 说明                         |
+| ----------------- | ---------------------------- |
+| `/init`           | 生成初始 CLAUDE.md 项目说明  |
+| `/memory`         | 查看/编辑 CLAUDE.md 记忆文件 |
+| `/config`         | 打开设置编辑器               |
+| `/permissions`    | 查看/修改工具审批规则        |
+| `/theme`          | 打开主题选择器               |
+| `/keybindings`    | 编辑快捷键绑定               |
+| `/terminal-setup` | 安装终端快捷键绑定           |
+| `/doctor`         | 诊断安装和环境问题           |
+
+#### 代码审查与规划
+
+| 命令               | 说明                     |
+| ------------------ | ------------------------ |
+| `/plan`            | 计划模式，只读探索不修改 |
+| `/code-review`     | 审查 diff 中的正确性缺陷 |
+| `/simplify`        | 代码清理：复用/简化/效率 |
+| `/security-review` | 安全漏洞扫描             |
+| `/review`          | PR 审查                  |
+| `/diff`            | 交互式查看未提交的变更   |
+
+#### 自动化和技能
+
+| 命令                  | 说明                 |
+| --------------------- | -------------------- |
+| `/loop <间隔> <提示>` | 按时间间隔重复执行   |
+| `/schedule`           | 创建/管理定时任务    |
+| `/batch <指令>`       | 大规模并行变更编排   |
+| `/skills`             | 列出所有可用技能     |
+| `/agents`             | 列出/创建/编辑子代理 |
+| `/hooks`              | 查看已配置的钩子     |
+| `/mcp`                | 管理 MCP 服务器连接  |
+
+### 常用快捷键
+
+#### 基本操作
+
+| 快捷键        | 操作                       |
+| ------------- | -------------------------- |
+| `Shift+Tab`   | 循环切换权限模式           |
+| `Esc`         | 中断 Claude 回复           |
+| `Esc` + `Esc` | 打开回滚/检查点菜单        |
+| `Ctrl+C`      | 取消当前输入（空行时退出） |
+| `Ctrl+D`      | 退出 Claude Code           |
+| `Ctrl+L`      | 刷新屏幕                   |
+| `Ctrl+O`      | 切换会话查看器             |
+| `Ctrl+R`      | 反向搜索命令历史           |
+| `Ctrl+T`      | 切换任务列表               |
+| `Ctrl+G`      | 在外部编辑器中打开提示词   |
+
+#### 模式切换
+
+| 快捷键  | 操作                  |
+| ------- | --------------------- |
+| `Alt+P` | 切换模型（Win/Linux） |
+| `Alt+T` | 切换扩展思维模式      |
+| `Alt+O` | 切换快速模式          |
+| `Alt+\` | 切换权限模式          |
+
+#### 文本编辑
+
+| 快捷键   | 操作                     |
+| -------- | ------------------------ |
+| `Ctrl+A` | 光标移至行首             |
+| `Ctrl+E` | 光标移至行尾             |
+| `Ctrl+K` | 删除至行尾（可粘贴恢复） |
+| `Ctrl+U` | 从光标删除至行首         |
+| `Ctrl+W` | 删除前一个词             |
+| `Ctrl+Y` | 粘贴已删除的文本         |
+| `Alt+B`  | 光标后退一个词           |
+| `Alt+F`  | 光标前进一个词           |
+
+#### 多行输入
+
+| 快捷键        | 说明                 |
+| ------------- | -------------------- |
+| `\` + `Enter` | 反斜杠换行（通用）   |
+| `Shift+Enter` | 换行（多数终端支持） |
+| `Ctrl+J`      | 通用控制序列换行     |
+
+> **提示**：以 `!` 开头可直接执行系统命令；以 `@` 可引用文件路径并获得自动补全。
+
+# Skills
+
+Skills 是 Claude Code 的可扩展能力模块。每个 Skill 封装了特定领域的专业知识、工作流程和工具集成，通过在会话中使用 `/<skill-name>` 调用。
+
+## 使用方式
+
+在 Claude Code 终端中输入 `/<skill-name>` 即可触发对应技能：
+
+| 用法                   | 说明                         |
+| ---------------------- | ---------------------------- |
+| `/<skill-name>`        | 直接调用技能                 |
+| `/<skill-name> <参数>` | 带参数调用技能               |
+| `/skills`              | 查看当前已安装的所有技能列表 |
+
+> **提示**：使用 `npx skills add <skill-name>` 可安装新技能。部分技能在首次触发时会自动下载安装。
+
+## 技能列表
+
+### 官方技能（Anthropic）
+
+| 技能                | 说明                                                                                | 文档                                                                                   |
+| ------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| **skill-creator**   | 创建和优化自定义 Skill，支持从零编写、编辑修改、性能评测和描述优化                  | [文档](https://github.com/anthropics/skills/blob/main/skills/skill-creator/SKILL.md)   |
+| **frontend-design** | 独特的、有意图的视觉设计指导，帮助构建不显模板化的 UI，涵盖美学方向、排版和配色选择 | [文档](https://github.com/anthropics/skills/blob/main/skills/frontend-design/SKILL.md) |
+| **docx**            | 创建、读取、编辑和操作 Word 文档 (.docx)，支持目录、页眉页脚、页码、图片替换等      | [文档](https://github.com/anthropics/skills/blob/main/skills/docx/SKILL.md)            |
+| **pdf**             | PDF 文件操作与处理                                                                  | [文档](https://github.com/anthropics/skills/blob/main/skills/pdf/SKILL.md)             |
+| **pptx**            | 创建和编辑 PowerPoint 演示文稿 (.pptx)                                              | [文档](https://github.com/anthropics/skills/blob/main/skills/pptx/SKILL.md)            |
+| **xlsx**            | 创建、读取和编辑 Excel 电子表格 (.xlsx)，支持公式、图表和数据格式化                 | [文档](https://github.com/anthropics/skills/blob/main/skills/xlsx/SKILL.md)            |
+
+### 社区技能
+
+#### 代码质量
+
+| 技能                        | 说明                                                                                         | 文档                                                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| **code-review-and-quality** | 多维度代码审查：正确性、安全性、性能、可维护性。适用于合并前审查、人工/AI 编写的代码质量评估 | [文档](https://github.com/addyosmani/agent-skills/blob/main/skills/code-review-and-quality/SKILL.md)      |
+| **debugger**                | 系统性调试与根因分析，支持错误排查、崩溃定位、堆栈跟踪分析、修复验证                         | [文档](https://github.com/Shubhamsaboo/awesome-llm-apps/blob/main/awesome_agent_skills/debugger/SKILL.md) |
+
+#### 编码准则
+
+| 技能                    | 说明                                                                                                | 文档                                                                                                       |
+| ----------------------- | --------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| **karpathy-guidelines** | Andrej Karpathy 风格的编码准则 — 避免过度设计、做精准外科手术式修改、明确假设、定义可验证的成功标准 | [文档](https://github.com/multica-ai/andrej-karpathy-skills/blob/main/skills/karpathy-guidelines/SKILL.md) |
+
+#### 数据与金融
+
+| 技能             | 说明                                                                                                                                                               | 文档                                                                    |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------- |
+| **a-stock-data** | A 股全栈数据工具包，覆盖行情/研报/信号/资金面/新闻/基础数据/公告七层数据源。适用于个股估值、研报检索、题材归因、龙虎榜跟踪、解禁预警、融资融券跟踪、批量筛选等场景 | [文档](https://github.com/simonlin1212/a-stock-data/blob/main/SKILL.md) |
+
+#### 工具与发现
+
+| 技能            | 说明                                                                     | 文档                                                                                |
+| --------------- | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| **find-skills** | 帮助发现和安装新技能，搜索技能生态、验证质量并通过 `npx skills` CLI 安装 | [文档](https://github.com/vercel-labs/skills/blob/main/skills/find-skills/SKILL.md) |
+
+## 常见场景推荐
+
+| 场景                | 推荐技能                  |
+| ------------------- | ------------------------- |
+| 审查代码变更        | `code-review-and-quality` |
+| 排查 Bug / 崩溃     | `debugger`                |
+| 设计新页面 UI       | `frontend-design`         |
+| 生成项目文档 (Word) | `docx`                    |
+| 编写高质量代码      | `karpathy-guidelines`     |
+| A 股数据分析        | `a-stock-data`            |
+| 创建自定义技能      | `skill-creator`           |
+| 发现更多技能        | `find-skills`             |
