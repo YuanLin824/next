@@ -11,9 +11,16 @@ interface TocItem {
   level: number
 }
 
+/** 每级标题对应的左侧缩进（Tailwind pl-*） */
+const LEVEL_INDENT: Record<number, string> = {
+  1: "pl-3",
+  2: "pl-6",
+  3: "pl-9",
+}
+
 /**
- * 页面目录 — 从当前页面提取 h2/h3 标题，
- * 渲染为 sticky 右侧栏，IntersectionObserver 追踪当前位置并高亮。
+ * 页面目录 — 从当前页面提取 h1/h2/h3 标题，
+ * 渲染为 sticky 右侧栏，按层级缩进，IntersectionObserver 追踪当前位置并高亮。
  * 跟随路由变化自动重建目录。
  */
 export function TableOfContents() {
@@ -35,11 +42,12 @@ export function TableOfContents() {
       return
     }
 
-    const headings = article.querySelectorAll("h2, h3")
+    const headings = article.querySelectorAll("h1, h2, h3")
     const tocItems: TocItem[] = []
     headings.forEach((h) => {
       if (h.id) {
-        tocItems.push({ id: h.id, text: h.textContent || "", level: h.tagName === "H2" ? 2 : 3 })
+        const level = Number(h.tagName.charAt(1)) // "H1" → 1, "H2" → 2, "H3" → 3
+        tocItems.push({ id: h.id, text: h.textContent || "", level })
       }
     })
     setItems(tocItems)
@@ -71,17 +79,18 @@ export function TableOfContents() {
   // Loading 骨架屏
   if (loading) {
     return (
-      <aside className="sticky top-14.25 hidden w-40 shrink-0 self-start lg:block">
+      <aside className="sticky top-14.25 hidden w-50 shrink-0 self-start lg:block">
         <nav className="h-[calc(100vh-57px)] overflow-y-auto py-5">
           <div className="text-muted-foreground/60 mb-3 text-xs font-semibold tracking-wider uppercase">
             目录
           </div>
           <div className="animate-pulse space-y-2.5">
-            <div className="bg-muted h-2.5 w-16 rounded" />
-            <div className="bg-muted h-2 w-24 rounded" />
-            <div className="bg-muted ml-3 h-2 w-20 rounded" />
+            <div className="bg-muted h-2.5 w-20 rounded" />
+            <div className="bg-muted ml-3 h-2 w-24 rounded" />
+            <div className="bg-muted ml-6 h-2 w-18 rounded" />
             <div className="bg-muted h-2 w-28 rounded" />
-            <div className="bg-muted ml-3 h-2 w-18 rounded" />
+            <div className="bg-muted ml-3 h-2 w-20 rounded" />
+            <div className="bg-muted ml-6 h-2 w-16 rounded" />
           </div>
         </nav>
       </aside>
@@ -89,7 +98,7 @@ export function TableOfContents() {
   }
 
   return (
-    <aside className="sticky top-14.25 hidden w-40 shrink-0 self-start lg:block">
+    <aside className="sticky top-14.25 hidden w-50 shrink-0 self-start lg:block">
       <nav className="h-[calc(100vh-57px)] overflow-y-auto py-5">
         <div className="text-muted-foreground/60 mb-3 text-xs font-semibold tracking-wider uppercase">
           目录
@@ -100,11 +109,11 @@ export function TableOfContents() {
               <a
                 href={`#${item.id}`}
                 className={cn(
-                  "text-muted-foreground hover:text-secondary-foreground block py-1 text-xs transition-colors",
-                  item.level === 3 && "pl-3",
+                  "text-muted-foreground hover:text-secondary-foreground block py-1 text-xs transition-colors border-l-2",
+                  LEVEL_INDENT[item.level] ?? "pl-3",
                   activeId === item.id
-                    ? "text-secondary-foreground border-l-secondary-foreground -ml-px border-l-2 pl-3"
-                    : "border-l-2 border-transparent pl-3"
+                    ? "text-secondary-foreground border-secondary-foreground -ml-px"
+                    : "border-transparent"
                 )}
               >
                 {item.text}
