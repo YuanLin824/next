@@ -1,0 +1,204 @@
+# Linux-Docker-Container
+
+## Docker-Compose 创建 Linux 容器
+
+```yml
+# 默认自动读取 .env 中的环境变量
+# 手动指定环境变量: docker compose -f docker-compose.yml up -d --env-file .env.dev
+
+name: ubuntu
+
+services:
+  ubuntu_24.04:
+    image: ubuntu:24.04
+    container_name: ubuntu_24.04
+    # 机器名
+    hostname: ${UBUNTU_HOSTNAME:-ubuntu2404}
+    # 端口映射
+    ports:
+      - "${UBUNTU_PORT_1:-20001}:22"
+      - "${UBUNTU_PORT_2:-20002}:80"
+    # 启用交互式终端，支持 attach 进去操作
+    tty: true
+    stdin_open: true
+    restart: unless-stopped
+```
+
+## 使用 Docker 创建 Linux 容器
+
+```shell
+# 拉取镜像
+docker pull ubuntu:24.04
+# 查看本地镜像
+docker images
+
+# 查看系统防火墙状态
+systemctl status firewalld
+# 开启系统防火墙
+systemctl start firewalld
+
+# 放行端口
+firewall-cmd --zone=public --add-port=21022/tcp --permanent
+firewall-cmd --zone=public --add-port=21080/tcp --permanent
+firewall-cmd --reload
+# 查看放通的端口列表
+firewall-cmd --list-port
+
+# 关闭防火墙
+# systemctl stop firewalld
+
+docker run -itd --name ubuntu_24.04 --privileged=true -p 20001:22 -p 20002:80 -h LinYuan ubuntu:24.04
+
+docker exec -it ubuntu_24.04 bash
+```
+
+# Linux 基础命令
+
+## 用户管理
+
+```shell
+adduser
+su - username
+su root
+# 修改密码
+sudo passwd username
+sudo vi /etc/sudoers
+LinYuan ALL=(ALL:ALL) NOPASSWD:ALL
+```
+
+## 文件夹管理
+
+```shell
+# 修改目录所有者和组
+sudo chown -R ubuntu:ubuntu /loveliveOBS/nginx
+# 修改目录权限
+sudo chmod -R 777 /loveliveOBS/nginx
+
+# 移动文件
+mv
+```
+
+# 包管理器
+
+## apt
+
+```shell
+# apt = apt-get、apt-cache 和 apt-config 中最常用命令选项的集合
+
+sudo apt update
+sudo apt upgrade -y
+sudo apt dist-upgrade
+sudo apt autoremove
+```
+
+## yum
+
+```shell
+# 列出可更新软件清单
+yum check-update
+# 更新所有软件
+yum update
+# 更新指定软件
+yum update <package_name>
+# 列出所有可安装的软件
+yum list
+
+# 查找软件包
+yum search <keyword>
+# 安装指定软件
+yum install <package_name>
+# 删除指定软件
+yum remove <package_name>
+
+# 清除缓存目录下的软件包
+yum clean packages
+# 清除缓存目录下的 headers
+yum clean headers
+# 清除缓存目录下旧的 headers
+yum clean oldheaders
+# 清除缓存目录下的软件包及旧的 headers
+yum clean, yum clean all (= yum clean packages; yum clean oldheaders)
+```
+
+# 解压缩
+
+## ZIP
+
+```shell
+# 压缩率不是很高; 兼容不同操作系统平台;
+
+zip -r name.zip directory # 打包一个目录
+
+# unzip [-Z] [-opts[modifiers]] file[.zip] [list] [-x xlist] [-d exdir]
+
+# 解压到当前目录
+unzip name.zip
+# 解压到指定目录
+unzip test.zip -d /temp
+# 不覆盖已存在的文件 unzip -n -d /temp test.zip
+unzip -n test.zip
+# 查看压缩包中的文件
+unzip -l test.zip
+# 查看显示的文件列表和压缩比率
+unzip -v test.zip
+# 检查 zip 文件是否损坏
+unzip -t test.zip
+# 将 test.zip 解压到指定目录 tmp 下; -o: 覆盖原有文件
+unzip -o test.zip -d /tmp/
+```
+
+## TAR
+
+```shell
+# linux 中常用打包格式; CPU 消耗少, 打包快; 不负责压缩;
+
+# 打包一个目录
+tar -cvf name.tar directory
+# 解压到当前目录
+tar -xvf name.tar
+# 指定解压路径
+tar -xvf name.tar -C /path
+```
+
+## TAR.GZ
+
+```shell
+# CPU 占用少; 压缩率较理想;
+
+# 压缩一个目录
+tar -zcvf name.tar.gz directory
+# 解压到当前目录
+tar -zxvf name.tar.gz
+# 解压到指定目录
+tar -zxvf name.tar.gz -C /path
+```
+
+## TAR.BZ2
+
+```shell
+# 压缩率最高; CPU 占用高, 压缩满;
+
+# 压缩一个目录
+tar -jcvf name.tar.bz2 directory
+# 解压到当前目录
+tar -jxvf name.tar.bz2
+# 解压到指定目录
+tar -jxvf name.tar.bz2 -C /path
+```
+
+## 7z
+
+```shell
+# 解压到当前目录
+7z x name.7z
+# 解压到根目录
+7z e name.7z
+# -r: 递归所有子文件夹; -o: 解压到指定目录, -o 后没有空格, 直接接目录;
+7z x name.7z -r -o/path
+
+# a: 添加文件/文件夹到压缩包;
+# -t: 指定压缩类型, 一般指定为 7z;
+# -r: 递归所有子文件夹;
+# /path/*: 压缩该目录下所有文件;
+7z a -t7z -r name.7z /path/*
+```

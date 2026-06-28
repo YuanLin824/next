@@ -1,0 +1,27 @@
+# PowerShell
+
+## 配置显示 git 分支
+
+```shell
+$PROFILR # 查看 PowerShell 配置文件路径
+# C:\Users\27521\Documents\PowerShell\Microsoft.PowerShell_profile.ps1
+cd C:/Users/27521/Documents # 切换到配置文件的上上级目录
+mkdir PowerShell # 创建 PowerShell 文件夹
+notepad $PROFILE # 编辑配置文件
+```
+
+```ps1
+# Microsoft.PowerShell_profile.ps1 # 编辑配置文件
+function Prompt {
+  $git_branch = ""
+  git rev-parse | Out-Null
+
+  if($?){
+    $git_branch = " $(git branch --show-current --no-color)"
+  }
+
+  $pattern = $env:userprofile -replace '\\', '\\'
+  $promptString = "$(Get-Location)" -replace $pattern, "~"
+  "`e[1;32m" + $promptString +"`e[1;36m"+ $git_branch + "`e[m: "
+}
+```
