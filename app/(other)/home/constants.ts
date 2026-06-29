@@ -171,12 +171,7 @@ export const HOME_FROUPS: CardGroup[] = [
         desc: "Webpack、Vite 与构建优化",
       },
       { title: "Agent", icon: "bot", url: "/interview-agent", desc: "AI Agent 原理与面试题" },
-      {
-        title: "Node",
-        icon: "server",
-        url: "/interview-node",
-        desc: "Node.js 核心概念与常见面试题",
-      },
+      { title: "Node", icon: "server", url: "/interview-node", desc: "Node.js 核心概念" },
       { title: "Vue", icon: "layers", url: "/interview-vue", desc: "Vue 原理、响应式与状态管理" },
     ],
   },
