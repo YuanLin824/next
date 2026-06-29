@@ -17,6 +17,7 @@ node_modules
 .npmrc
 .prettierignore
 .prettierrc
+.prettierrc.cjs
 CLAUDE.md
 commitlint.config.cjs
 eslint.config.mjs
