@@ -1,0 +1,1086 @@
+# Docker
+
+## Docker 基本概念
+
+Image
+
+- 极度精简版的 Linux 程序运行环境
+- Docker Image 内不建议有运行期需要修改的配置文件
+- Dockerfile 用来创建一个自定义的 image, 包含了用户指定的软件依赖等
+- 当前目录下包含 Dockerfile, 使用命令 build 来创建新的 image
+- Docker Image 的最佳实践之一是尽量重用和使用网上公开的基础镜像
+
+Container
+
+- Docker Container 是 Image 的实例, 共享内核
+- Docker Container 里可以运行不同 Os 的 Image, 如 Ubuntu 或 Centos
+- Docker Container 不建议内部开启一个 SSHD 服务
+- 1.3 版本后新增了 docker exec 命令进入容器排查问题
+- Docker Container 没有 IP 地址, 通常不会有服务端口暴露, 是一个封闭的 "盒子/沙箱"
+
+Daemon
+
+- Docker Daemon 是创建和运行 Container 的 Linux 守护进程, 也是Docker 最主要的核心组件
+- Docker Daemon 可以理解为 Docker Container 的 Container
+- Docker Daemon 可以绑定本地端口并提供 Rest API 服务, 用来远程访问和控制
+
+Registry/Hub
+
+## Install Docker
+
+| Docker 相关包名称     | 说明                                                             |
+| --------------------- | ---------------------------------------------------------------- |
+| docker-ce             | Docker 引擎本身                                                  |
+| docker-ce-cli         | 一个命令行工具, 可让您与 Docker 守护进程对话                     |
+| containerd.io         | 管理容器生命周期的容器运行时                                     |
+| docker-buildx-plugin  | 一个 CLI 插件, 可通过许多新功能扩展 Docker 构建                  |
+| docker-compose-plugin | 一个配置管理插件, 用于通过撰写文件来协调 Docker 容器的创建和管理 |
+
+### Linux 中安装 Docker
+
+```shell
+# ------------------------------ yum ------------------------------
+# 安装 wget
+sudo yum install wget
+# 设置 CentOS 源
+sudo wget -O /etc/yum.repos.d/CentOS-Base.repo https://mirrors.aliyun.com/repo/Centos-vault-8.5.2111.repo
+# 安装依赖包
+sudo yum install -y yum-utils device-mapper-persistent-data lvm2
+# 设置 Docker 镜像源
+sudo yum-config-manager --add-repo https://mirrors.aliyun.com/docker-ce/linux/centos/docker-ce.repo
+# 更新 yum 源
+sudo yum update -y
+# 安装社区版 Docker
+sudo yum install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+# 启动 docker 命令, 且设置开机自启命令
+sudo systemctl start docker && sudo systemctl enable docker
+# 查看 docker 版本命令
+docker version
+
+# ------------------------------ dnf ------------------------------
+sudo dnf install 'dnf-command(config-manager)'
+# 添加 docker-ce 的仓库
+sudo dnf config-manager --add-repo=https://repo.huaweicloud.com/docker-ce/linux/centos/docker-ce.repo
+# 替换 docker-ce 的 yum 源
+sudo sed -i 's+download.docker.com+repo.huaweicloud.com/docker-ce+' /etc/yum.repos.d/docker-ce.repo
+# 替换 docker-ce 的 yum 源
+sudo sed -i 's+$releasever+9+' /etc/yum.repos.d/docker-ce.repo
+# 更新缓存
+sudo dnf makecache
+# 安装 docker-ce
+sudo dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+
+# ------------------------------ apt ------------------------------
+# 更新系统
+sudo apt update && sudo apt upgrade
+# 安装依赖
+sudo apt install apt-transport-https ca-certificates curl gnupg lsb-release
+# 下载 Docker 的 GPG key
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+# 添加 Docker 的 apt 源
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+# 更新 apt
+sudo apt update
+# 安装 Docker
+sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+# 查看 docker 版本命令
+docker version
+```
+
+### Windows 安装 Docker
+
+下载 Docker-desktop 安装包, 直接安装即可
+
+## Docker Command
+
+### 镜像管理
+
+```shell
+# ------------------------------ 镜像查看和搜索 ------------------------------
+# 列出本地镜像
+docker images
+docker image ls
+# 显示所有镜像 (包括中间层)
+docker images -a
+# 显示镜像摘要信息
+docker images --digests
+# 格式化输出
+docker images --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}"
+# 搜索 Docker Hub 镜像
+docker search nginx
+docker search --limit 10 --filter stars=100 nginx
+
+# ------------------------------ 镜像拉取和推送 ------------------------------
+# 拉取镜像
+docker pull nginx
+docker pull nginx:1.21-alpine
+docker pull ubuntu:20.04
+# 推送镜像到仓库
+docker push myregistry.com/myapp:latest
+# 登录/登出 Docker 仓库
+docker login
+docker login myregistry.com
+docker logout
+
+# ------------------------------ 镜像构建 ------------------------------
+# 从 Dockerfile 构建镜像
+docker build -t myapp:latest .
+docker build -t myapp:v1.0 -f Dockerfile.prod .
+# 使用构建参数
+docker build --build-arg NODE_VERSION=18 -t myapp .
+# 不使用缓存构建
+docker build --no-cache -t myapp .
+# 多阶段构建指定目标
+docker build --target production -t myapp:prod .
+
+# ------------------------------ 镜像管理 ------------------------------
+# 给镜像打标签
+docker tag myapp:latest myregistry.com/myapp:v1.0
+# 删除镜像
+docker rmi nginx:latest
+docker image rm myapp:old
+# 删除所有未使用的镜像
+docker image prune
+# 删除所有镜像
+docker rmi $(docker images -q)
+# 查看镜像详细信息
+docker inspect nginx:latest
+# 查看镜像构建历史
+docker history nginx:latest
+```
+
+### 容器操作
+
+```shell
+# ------------------------------ 容器运行 ------------------------------
+# 基本运行
+docker run nginx
+# -d 后台运行
+docker run -d nginx
+# -it 交互式运行
+docker run -it ubuntu bash
+# 端口映射
+docker run -d -p 8080:80 nginx
+docker run -d -p 127.0.0.1:8080:80 nginx
+# 环境变量
+docker run -e NODE_ENV=production -e PORT=3000 myapp
+docker run --env-file .env myapp
+# 挂载数据卷
+docker run -v /host/path:/container/path nginx
+docker run -v myvolume:/data nginx
+# 网络配置
+docker run --network mynetwork nginx
+docker run --network host nginx
+# 资源限制
+docker run -m 512m --cpus="1.5" nginx
+docker run --memory=1g --memory-swap=2g nginx
+# 完整示例
+docker run -d --name myapp -p 3000:3000 -e NODE_ENV=production -v /host/logs:/app/logs --restart unless-stopped myapp:latest
+
+# ------------------------------ 容器管理 ------------------------------
+# 运行中的容器
+docker ps
+# 所有容器
+docker ps -a
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+# 启动/停止/重启容器
+docker start container_name
+docker stop container_name
+docker restart container_name
+# 暂停/恢复容器
+docker pause container_name
+docker unpause container_name
+# 删除容器
+docker rm container_name
+# 强制删除运行中的容器
+docker rm -f running_container
+# 删除所有停止的容器
+docker container prune
+docker rm $(docker ps -aq --filter status=exited)
+
+# ------------------------------ 容器交互 ------------------------------
+# 进入运行中的容器
+docker exec -it container_name bash
+docker exec -it container_name sh
+docker exec -u root -it container_name bash
+# 在容器中执行命令
+docker exec container_name ls -la
+docker exec container_name cat /etc/hosts
+# 查看容器日志
+docker logs container_name
+# 实时跟踪
+docker logs -f container_name
+# 最后 100 行
+docker logs --tail 100 container_name
+docker logs --since "2023-01-01" container_name
+# 复制文件
+docker cp /host/file container_name:/container/path
+docker cp container_name:/container/file /host/path
+# 查看容器详细信息
+docker inspect container_name
+# 查看容器资源使用情况
+docker stats
+docker stats container_name
+```
+
+### 数据卷管理
+
+```shell
+# ------------------------------ 数据卷操作 ------------------------------
+# 创建数据卷
+docker volume create myvolume
+docker volume create --driver local myvolume
+# 列出数据卷
+docker volume ls
+# 查看数据卷详细信息
+docker volume inspect myvolume
+# 删除数据卷
+docker volume rm myvolume
+# 删除未使用的数据卷
+docker volume prune
+# 使用数据卷运行容器
+docker run -v myvolume:/data nginx
+# 绑定挂载
+docker run -v /host/path:/container/path nginx
+docker run --mount type=bind,source=/host/path,target=/container/path nginx
+# 只读挂载
+docker run -v /host/path:/container/path:ro nginx
+```
+
+### 网络管理
+
+```shell
+# ------------------------------ 网络操作 ------------------------------
+# 列出网络
+docker network ls
+# 创建网络
+docker network create mynetwork
+docker network create --driver bridge mynetwork
+docker network create --subnet=172.20.0.0/16 mynetwork
+# 查看网络详细信息
+docker network inspect mynetwork
+# 连接容器到网络
+docker network connect mynetwork container_name
+# 断开容器网络连接
+docker network disconnect mynetwork container_name
+# 删除网络
+docker network rm mynetwork
+# 删除未使用的网络
+docker network prune
+# 使用自定义网络运行容器
+docker run --network mynetwork nginx
+```
+
+### 系统命令管理
+
+```shell
+# ------------------------------ 系统信息 ------------------------------
+# 显示 Docker 系统信息
+docker info
+docker system info
+# 显示 Docker 版本
+docker version
+docker --version
+# 显示磁盘使用情况
+docker system df
+# 显示实时事件
+docker events
+docker events --filter container=mycontainer
+
+# ------------------------------ 系统清理 ------------------------------
+# 清理未使用的资源
+docker system prune
+# 清理所有未使用的资源 (包括未使用的镜像)
+docker system prune -a
+# 清理特定类型的资源
+# 清理停止的容器
+docker container prune
+# 清理未使用的镜像
+docker image prune
+# 清理未使用的数据卷
+docker volume prune
+# 清理未使用的网络
+docker network prune
+# 强制清理 (不询问确认)
+docker system prune -f
+```
+
+## Docker Compose 命令
+
+```shell
+# 启动服务
+docker-compose up
+# 后台运行
+docker-compose up -d
+# 停止服务
+docker-compose down
+# 同时删除数据卷
+docker-compose down -v
+# 重启服务
+docker-compose restart
+# 查看服务状态
+docker-compose ps
+# 查看日志
+docker-compose logs
+docker-compose logs -f service_name
+# 执行命令
+docker-compose exec service_name bash
+# 构建镜像
+docker-compose build
+docker-compose build --no-cache
+# 拉取镜像
+docker-compose pull
+```
+
+## 实用命令组合
+
+```shell
+# ------------------------------ 批量操作 ------------------------------
+# 停止所有容器
+docker stop $(docker ps -q)
+# 删除所有容器
+docker rm $(docker ps -aq)
+# 删除所有镜像
+docker rmi $(docker images -q)
+# 删除悬空镜像
+docker rmi $(docker images -f "dangling=true" -q)
+# 按条件删除容器
+docker rm $(docker ps -aq --filter status=exited)
+docker rm $(docker ps -aq --filter ancestor=nginx)
+# 查看容器 IP 地址
+docker inspect -f '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' container_name
+
+# ------------------------------ 监控和调试 ------------------------------
+# 实时监控容器资源使用
+docker stats --no-stream
+# 查看容器进程
+docker top container_name
+# 查看容器端口映射
+docker port container_name
+# 查看容器文件系统变化
+docker diff container_name
+# 导出容器为 tar 文件
+docker export container_name > container.tar
+# 从 tar 文件导入镜像
+docker import container.tar myimage:latest
+# 保存镜像为 tar 文件
+docker save nginx:latest > nginx.tar
+# 从 tar 文件加载镜像
+docker load < nginx.tar
+```
+
+## 常用参数详解
+
+```shell
+# ------------------------------ 基本参数 ------------------------------
+# 后台运行
+-d, --detach
+# 保持 STDIN 开启
+-i, --interactive
+# 分配伪终端
+-t, --tty
+# 指定容器名称
+--name
+# 容器退出时自动删除
+--rm
+
+# ------------------------------ 网络参数 ------------------------------
+# 端口映射
+-p, --publish
+# 映射所有暴露端口
+-P, --publish-all
+# 指定网络
+--network
+# 链接到其他容器 (已废弃)
+--link
+
+# ------------------------------ 卷参数 ------------------------------
+# 挂载数据卷
+-v, --volume
+# 挂载 (推荐使用)
+--mount
+# 从其他容器挂载数据卷
+--volumes-from
+
+# ------------------------------ 环境参数 ------------------------------
+# 设置环境变量
+-e, --env
+# 从文件读取环境变量
+--env-file
+# 设置工作目录
+-w, --workdir
+# 指定用户
+-u, --user
+
+# ------------------------------ 资源限制 ------------------------------
+# 内存限制
+-m, --memory
+# CPU 限制
+--cpus
+# CPU 权重
+--cpu-shares
+# 禁用 OOM Killer
+--oom-kill-disable
+
+# ------------------------------ 重启策略 ------------------------------
+# no: 不重启 (默认)
+# always: 总是重启
+# unless-stopped: 除非手动停止
+# on-failure: 失败时重启
+--restart
+```
+
+# Docker-Compose
+
+```sh
+# mongo.sh
+
+#!/bin/bash
+set -e
+
+# | 角色      | 权限                      |
+# | --------- | ------------------------- |
+# | root      | 超级管理员, 所有权限      |
+# | dbAdmin   | 数据库管理 (索引, 统计等) |
+# | readWrite | 读写权限                  |
+# | read      | 只读权限                  |
+# | userAdmin | 用户管理权限              |
+
+echo "========== MongoDB 初始化 =========="
+
+mongosh admin --eval "
+  print('========== 创建数据库 ==========')
+  db = db.getSiblingDB('${MONGO_APP_DATABASE}');
+  db.createCollection('init');
+  db.init.insertOne({ initializedAt: new Date(), db: '${MONGO_APP_DATABASE}' });
+
+  print('========== 创建读写用户 ==========')
+  db.createUser({
+    user: '${MONGO_APP_USERNAME}',
+    pwd: '${MONGO_APP_PASSWORD}',
+    roles: [
+      { role: 'readWrite', db: '${MONGO_APP_DATABASE}' },
+      { role: 'dbAdmin', db: '${MONGO_APP_DATABASE}' },
+    ],
+  });
+
+  print('========== 创建只读用户 ==========')
+  db.createUser({
+    user: '${MONGO_APP_USERNAME}_readonly',
+    pwd: '${MONGO_APP_PASSWORD}',
+    roles: [{ role: 'read', db: '${MONGO_APP_DATABASE}' }],
+  });
+"
+
+echo "========== MongoDB 初始化完成 =========="
+```
+
+```sh
+# ./mysql.md
+
+#!/bin/bash
+set -e
+
+MYSQL_ROOT_USER="root"
+
+echo "========== MySQL 初始化 =========="
+
+echo "========== 创建用户和数据库 =========="
+mysql -u "$MYSQL_ROOT_USER" -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+-- 创建用户
+CREATE USER IF NOT EXISTS '${MYSQL_APP_USERNAME}'@'%' IDENTIFIED BY '${MYSQL_APP_PASSWORD}';
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS ${MYSQL_APP_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- 把新建的库授权给新创建的用户
+GRANT ALL ON ${MYSQL_APP_DATABASE}.* TO '${MYSQL_APP_USERNAME}'@'%';
+-- 刷新用户权限
+FLUSH PRIVILEGES;
+EOF
+
+echo "========== 创建表并插入数据 =========="
+mysql -u "$MYSQL_APP_USERNAME" -p"${MYSQL_APP_PASSWORD}" "$MYSQL_APP_DATABASE" <<EOF
+EOF
+
+echo "========== MySQL 初始化完成 =========="
+
+```
+
+```sh
+# ./postgres
+
+#!/bin/bash
+set -e
+
+echo "========== Postgres 初始化 =========="
+
+echo "========== 创建用户和数据库 =========="
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+-- 创建用户
+CREATE USER ${POSTGRES_APP_USERNAME} WITH LOGIN CREATEDB PASSWORD '${POSTGRES_APP_PASSWORD}';
+-- 创建数据库
+CREATE DATABASE ${POSTGRES_APP_DATABASE} OWNER ${POSTGRES_APP_USERNAME};
+-- 把新建的库授权给新创建的用户
+GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_APP_DATABASE} TO ${POSTGRES_APP_USERNAME};
+EOSQL
+
+echo "========== 创建表并插入数据 =========="
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_APP_USERNAME" --dbname "$POSTGRES_APP_DATABASE" <<-EOSQL
+EOSQL
+
+echo "========== Postgres 初始化完成 =========="
+
+```
+
+```sh
+# ./redis
+
+#!/bin/sh
+set -e
+
+echo "========== Redis 初始化 =========="
+
+echo "========== 动态创建 /etc/redis/redis.users.acl 文件 =========="
+cat > /etc/redis/redis.users.acl <<EOF
+user default off
+user admin on >${REDIS_APP_PASSWORD} ~* &* +@all
+user ${REDIS_APP_USERNAME} on >${REDIS_APP_PASSWORD} ~${REDIS_APP_KEY_PREFIX}* &* +@read +@write +@connection +info
+user ${REDIS_APP_USERNAME}_readonly on >${REDIS_APP_PASSWORD} ~${REDIS_APP_KEY_PREFIX}* &* +@read +@connection +info
+EOF
+
+echo "========== 动态创建 /etc/redis/redis.conf 文件 =========="
+cat > /etc/redis/redis.conf <<EOF
+# 基础配置
+ bind                        0.0.0.0
+ port                        6379
+ protected-mode              yes
+ timeout                     0
+ tcp-keepalive               300
+
+# 持久化 - RDB
+ save                        900 1
+ save                        300 100
+ save                        60 10000
+ dbfilename                  dump.rdb
+ dir                         /data
+ stop-writes-on-bgsave-error yes
+ rdbcompression              yes
+ rdbchecksum                 yes
+
+# 持久化 - AOF (推荐同时开启)
+ appendonly                  yes
+ appendfilename              "appendonly.aof"
+ appendfsync                 everysec
+ no-appendfsync-on-rewrite   no
+ auto-aof-rewrite-percentage 100
+ auto-aof-rewrite-min-size   64mb
+
+# 内存管理
+ maxmemory                   256mb
+ maxmemory-policy            allkeys-lru
+
+# 日志
+ loglevel                    notice
+ logfile                     ""
+
+# ACL 文件 (关键)
+ aclfile                     /etc/redis/redis.users.acl
+
+# 慢查询
+ slowlog-log-slower-than     10000
+ slowlog-max-len             128
+EOF
+
+echo "========== 使用自定义 redis.conf 配置启动 redis 服务 =========="
+exec redis-server /etc/redis/redis.conf
+
+echo "========== Redis 初始化完成 =========="
+```
+
+```yml
+# ./docker-compose.yml
+
+# 默认自动读取 .env 中的环境变量
+# 手动指定环境变量: docker compose -f docker-compose.yml --env-file .env.dev up -d
+
+name: nest
+
+services:
+  mongo:
+    image: mongo:6-jammy
+    container_name: mongo_nest
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      TZ: Asia/Shanghai
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: mongo123
+      MONGO_APP_USERNAME: ${MONGO_USERNAME:-nest}
+      MONGO_APP_PASSWORD: ${MONGO_PASSWORD:-mongo123}
+      MONGO_APP_DATABASE: ${MONGO_DATABASE:-nest_db}
+    volumes:
+      - mongo_conf:/data/configdb
+      - mongo_data:/data/db
+      - mongo_log:/var/log/mongodb
+      - ./mongo.sh:/docker-entrypoint-initdb.d/mongo.sh:ro
+    restart: unless-stopped
+
+  mysql:
+    image: mysql:8-oracle
+    container_name: mysql_nest
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: mysql123
+      MYSQL_APP_USERNAME: ${MYSQL_USERNAME:-nest}
+      MYSQL_APP_PASSWORD: ${MYSQL_PASSWORD:-mysql123}
+      MYSQL_APP_DATABASE: ${MYSQL_DATABASE:-nest_db}
+    volumes:
+      - mysql_conf:/etc/mysql
+      - mysql_data:/var/lib/mysql
+      - mysql_log:/var/log
+      - ./mysql.sh:/docker-entrypoint-initdb.d/mysql.sh:ro
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres_nest
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_APP_USERNAME: ${POSTGRES_USERNAME:-nest}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_APP_DATABASE: ${POSTGRES_DATABASE:-nest_db}
+    volumes:
+      # - postgres_data:/var/lib/postgresql # 镜像为 postgres:18-alpine 使用
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres.sh:/docker-entrypoint-initdb.d/postgres.sh:ro
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis_nest
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    environment:
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+      REDIS_APP_USERNAME: ${REDIS_USERNAME:-nest}
+      REDIS_APP_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      REDIS_APP_KEY_PREFIX: ${REDIS_KEY_PREFIX:-nest:}
+    volumes:
+      - redis_data:/data
+      - ./redis.sh:/etc/redis/redis.sh:ro
+    entrypoint: ["/bin/sh", "/etc/redis/redis.sh"]
+    restart: unless-stopped
+
+volumes:
+  mongo_conf:
+  mongo_data:
+  mongo_log:
+  mysql_conf:
+  mysql_data:
+  mysql_log:
+  postgres_data:
+  redis_data:
+```
+
+# Dockerfile
+
+## FROM - 指定基础镜像
+
+```dockerfile
+# 基本语法
+FROM <image>[:<tag>] [AS <name>]
+
+# 示例
+FROM node:18-alpine
+FROM ubuntu:20.04
+FROM nginx:latest AS webserver
+# 空白镜像
+FROM scratch
+```
+
+## LABEL - 添加元数据
+
+```dockerfile
+# 添加标签信息
+LABEL version="1.0"
+LABEL description="This is a demo application"
+# MAINTAINER developer@example.com (已废弃, 推荐使用 LABEL)
+LABEL maintainer="developer@example.com"
+# 一次添加多个标签
+LABEL version="1.0" description="This is a demo application" maintainer="developer@example.com"
+```
+
+## COPY - 复制文件
+
+```dockerfile
+# 基本语法
+COPY [--chown=<user>:<group>] <src>... <dest>
+
+# 示例
+COPY package.json /app/
+COPY src/ /app/src/
+COPY --chown=node:node package*.json /app/
+# 多阶段构建中复制
+COPY --from=builder /app/dist /usr/share/nginx/html
+```
+
+## ADD - 添加文件 (功能更强)
+
+```dockerfile
+# 注意: 推荐使用 COPY, 除非需要 ADD 的特殊功能
+# 基本语法
+ADD [--chown=<user>:<group>] <src>... <dest>
+
+# 示例
+ADD package.json /app/
+# 支持 URL
+ADD https://example.com/file.tar.gz /tmp/
+# 自动解压缩
+ADD archive.tar.gz /app/
+```
+
+## RUN - 执行命令
+
+```dockerfile
+# Shell 形式
+RUN <command>
+# Exec 形式 (推荐)
+RUN ["executable", "param1", "param2"]
+
+# 示例
+RUN apt-get update && apt-get install -y curl vim git && rm -rf /var/lib/apt/lists/*
+RUN npm install --production --silent
+# 多行命令
+RUN set -ex && apt-get update && apt-get install -y --no-install-recommends ca-certificates curl && rm -rf /var/lib/apt/lists/*
+```
+
+## CMD - 默认执行命令
+
+```dockerfile
+# Exec 形式 (推荐)
+CMD ["executable", "param1", "param2"]
+# Shell 形式
+CMD command param1 param2
+# 作为 ENTRYPOINT 的参数
+CMD ["param1", "param2"]
+
+# 示例
+CMD ["node", "server.js"]
+CMD ["nginx", "-g", "daemon off;"]
+CMD npm start
+```
+
+## ENTRYPOINT - 入口点
+
+```dockerfile
+# Exec 形式 (推荐)
+ENTRYPOINT ["executable", "param1", "param2"]
+# Shell 形式
+ENTRYPOINT command param1 param2
+
+# 示例
+ENTRYPOINT ["docker-entrypoint.sh"]
+ENTRYPOINT ["node", "app.js"]
+# 与 CMD 结合使用
+# 可被 docker run 参数覆盖
+ENTRYPOINT ["node"]
+CMD ["app.js"]
+```
+
+## ENV - 设置环境变量
+
+```dockerfile
+# 基本语法
+ENV <key>=<value> ...
+ENV <key> <value>
+
+# 示例
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV DATABASE_URL=mongodb://localhost:27017/myapp
+# 多个变量
+ENV NODE_ENV=production PORT=3000 DEBUG=false
+```
+
+## ARG - 构建参数
+
+```dockerfile
+# 基本语法
+ARG <name>[=<default value>]
+
+# 示例
+ARG NODE_VERSION=18
+ARG BUILD_DATE
+ARG VERSION=1.0.0
+FROM node:${NODE_VERSION}-alpine
+# 使用构建参数
+RUN echo "Building version: $VERSION"
+# 构建时传递参数
+# docker build --build-arg NODE_VERSION=16 --build-arg VERSION=2.0.0 .
+```
+
+## WORKDIR - 设置工作目录
+
+```dockerfile
+# 基本语法
+WORKDIR /path/to/workdir
+
+# 示例
+WORKDIR /app
+WORKDIR /usr/src/app
+# 可以使用变量
+ENV APP_HOME=/app
+WORKDIR $APP_HOME
+# 相对路径 (相对于上一个 WORKDIR)
+WORKDIR /app
+# 实际路径为 /app/src
+WORKDIR src
+```
+
+## EXPOSE - 声明端口
+
+```dockerfile
+# 声明容器监听的端口; 容器运行时, 使用 -p 将主机端口映射到容器端口
+# 基本语法
+EXPOSE <port> [<port>/<protocol>...]
+
+# 示例
+EXPOSE 80
+EXPOSE 3000
+EXPOSE 80/tcp 443/tcp
+EXPOSE 53/udp
+```
+
+## VOLUME - 声明挂载点
+
+```dockerfile
+# 基本语法
+VOLUME ["/data"]
+VOLUME /var/log /var/db
+
+# 示例
+VOLUME ["/app/data"]
+VOLUME ["/var/lib/mysql"]
+# 多个挂载点
+VOLUME ["/var/log", "/var/db"]
+```
+
+## USER - 设置用户
+
+```dockerfile
+# 基本语法
+USER <user>[:<group>]
+USER <UID>[:<GID>]
+
+# 示例
+USER node
+USER 1000:1000
+USER www-data:www-data
+# 创建用户示例
+RUN groupadd -r myuser && useradd -r -g myuser myuser
+USER myuser
+```
+
+## HEALTHCHECK - 健康检查
+
+```dockerfile
+# 基本语法
+HEALTHCHECK [OPTIONS] CMD command
+# 禁用健康检查
+HEALTHCHECK NONE
+# 选项
+# --interval=DURATION (default: 30s)
+# --timeout=DURATION (default: 30s)
+# --start-period=DURATION (default: 0s)
+# --retries=N (default: 3)
+
+# 示例
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:3000/health || exit 1
+HEALTHCHECK --interval=5m --timeout=3s \
+  CMD curl -f http://localhost/ || exit 1
+```
+
+## 示例
+
+### 多阶段构建示例
+
+```dockerfile
+# 第一阶段: 构建
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+
+# 第二阶段: 运行时
+FROM node:18-alpine AS runtime
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
+EXPOSE 3000
+CMD ["node", "server.js"]
+
+# 第三阶段: 开发环境
+FROM builder AS development
+RUN npm ci
+CMD ["npm", "run", "dev"]
+```
+
+### Node.js 应用 Dockerfile
+
+```dockerfile
+# 多阶段构建 Node.js 应用
+FROM node:18-alpine AS base
+LABEL maintainer="developer@example.com"
+LABEL version="1.0.0"
+
+# 设置工作目录
+WORKDIR /app
+
+# 复制 package 文件
+COPY package*.json ./
+
+# 开发依赖阶段
+FROM base AS development
+ENV NODE_ENV=development
+RUN npm ci
+COPY . .
+EXPOSE 3000
+CMD ["npm", "run", "dev"]
+
+# 构建阶段
+FROM base AS builder
+ENV NODE_ENV=production
+RUN npm ci --only=production && npm cache clean --force
+COPY . .
+RUN npm run build
+
+# 生产环境阶段
+FROM node:18-alpine AS production
+ENV NODE_ENV=production
+ENV PORT=3000
+
+# 创建非 root 用户
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
+
+WORKDIR /app
+
+# 复制构建产物
+COPY --from=builder --chown=nextjs:nodejs /app/dist ./dist
+COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=builder --chown=nextjs:nodejs /app/package.json ./package.json
+
+USER nextjs
+
+EXPOSE 3000
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:3000/health || exit 1
+
+CMD ["node", "dist/server.js"]
+```
+
+### Nginx 静态网站 Dockerfile
+
+```dockerfile
+# 多阶段构建静态网站
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# 复制 package 文件
+COPY package*.json ./
+RUN npm ci
+
+# 复制源代码并构建
+COPY . .
+RUN npm run build
+
+# 生产环境
+FROM nginx:alpine AS production
+
+# 复制自定义 nginx 配置
+COPY nginx.conf /etc/nginx/nginx.conf
+
+# 复制构建产物
+COPY --from=builder /app/dist /usr/share/nginx/html
+
+# 添加标签
+LABEL maintainer="developer@example.com"
+LABEL description="Static website with Nginx"
+
+EXPOSE 80
+
+# 健康检查
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost/ || exit 1
+
+CMD ["nginx", "-g", "daemon off;"]
+```
+
+### 优化镜像大小
+
+```dockerfile
+# 使用 alpine 镜像
+FROM node:18-alpine
+
+# 合并 RUN 指令
+RUN apt-get update && apt-get install -y package1 package2 && rm -rf /var/lib/apt/lists/*
+
+# 使用 .dockerignore
+# 在 .dockerignore 文件中排除不需要的文件
+```
+
+### 安全最佳实践
+
+```dockerfile
+# 使用非 root 用户
+RUN adduser -D -s /bin/sh appuser
+USER appuser
+
+# 最小化攻击面
+FROM node:18-alpine
+RUN apk add --no-cache dumb-init
+ENTRYPOINT ["dumb-init", "--"]
+
+# 使用特定版本标签
+FROM node:18.17.0-alpine3.18
+```
+
+### 缓存优化
+
+```dockerfile
+# 先复制依赖文件，利用 Docker 缓存
+COPY package*.json ./
+RUN npm ci
+
+# 再复制源代码
+COPY . .
+```
+
+### 构建和运行
+
+```shell
+# 构建镜像
+docker build -t myapp:latest .
+docker build -t myapp:v1.0.0 --build-arg VERSION=1.0.0 .
+# 多阶段构建指定目标
+docker build --target development -t myapp:dev .
+docker build --target production -t myapp:prod .
+# 运行容器
+docker run -d -p 3000:3000 --name myapp myapp:latest
+docker run -it --rm myapp:dev sh
+# 查看镜像信息
+docker inspect myapp:latest
+docker history myapp:latest
+```

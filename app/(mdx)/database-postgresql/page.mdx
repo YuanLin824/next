@@ -1,0 +1,240 @@
+# PostgreSQL
+
+## 使用 Docker 命令创建 PostgreSQL 容器
+
+```shell
+# 拉取镜像
+docker pull postgres:18-alpine
+
+mkdir /postgres
+mkdir /postgres/sql
+
+# [-d]: 后台运行；
+# [--name]: 容器名字
+# [-p]: 配置端口映射 (宿主机端口:容器端口)
+# -v: 自定义挂载 自定义路径:容器内部路径
+# [-e]: 添加配置信息
+#   POSTGRES_USER: 超级用户名 (默认 postgres)
+#   POSTGRES_PASSWORD: 密码, 必须设置, 否则容器起不来
+#   TZ: Asia/Shanghai
+#   PGTZ: Asia/Shanghai
+docker run -d -p 5432:5432 --name postgres -e TZ=Asia/Shanghai -e PGTZ=Asia/Shanghai -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres123 -v /postgres:/var/lib/postgresql postgres:18-alpine
+
+# Windows 使用 Docker 创建 MySQL 容器
+cd C:/Soft/DockerData
+mkdir ./postgres
+mkdir ./postgres/sql
+
+docker run -d -p 5432:5432 --name postgres -e TZ=Asia/Shanghai -e PGTZ=Asia/Shanghai -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres123 -v C:/Soft/DockerData/postgres:/var/lib/postgresql postgres:18-alpine
+
+# 使用默认的 postgres 超级用户连接到默认的 postgres 数据库
+docker exec -it postgres psql -U postgres
+```
+
+## 使用 Docker-Compose 编排 PostgreSQL 容器
+
+```sh
+# ./postgres.sh
+
+#!/bin/bash
+set -e
+
+echo "========== Postgres 初始化 =========="
+
+echo "========== 创建用户和数据库 =========="
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+-- 创建用户
+CREATE USER ${POSTGRES_APP_USERNAME} WITH LOGIN CREATEDB PASSWORD '${POSTGRES_APP_PASSWORD}';
+-- 创建数据库
+CREATE DATABASE ${POSTGRES_APP_DATABASE} OWNER ${POSTGRES_APP_USERNAME};
+-- 把新建的库授权给新创建的用户
+GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_APP_DATABASE} TO ${POSTGRES_APP_USERNAME};
+EOSQL
+
+echo "========== 创建表并插入数据 =========="
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_APP_USERNAME" --dbname "$POSTGRES_APP_DATABASE" <<-EOSQL
+EOSQL
+
+echo "========== Postgres 初始化完成 =========="
+
+```
+
+```yml
+# ./docker-compose.yml
+
+# 默认自动读取 .env 中的环境变量
+# 手动指定环境变量: docker compose -f docker-compose.yml --env-file .env.dev up -d
+
+name: nest
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres_nest
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres123
+      POSTGRES_APP_USERNAME: ${POSTGRES_USERNAME:-nest}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_APP_DATABASE: ${POSTGRES_DATABASE:-nest_db}
+    volumes:
+      # - postgres_data:/var/lib/postgresql # 镜像为 postgres:18-alpine 使用
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres.sh:/docker-entrypoint-initdb.d/postgres.sh:ro
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+```
+
+## PostgreSQL Command
+
+### 连接与退出
+
+```shell
+# 连接数据库
+psql -U postgres -d postgres -h localhost -p 5432
+# 进入容器连接 (Docker)
+# 退出 psql# 使用默认的 postgres 超级用户连接到默认的 postgres 数据库
+docker exec -it postgres psql -U postgres
+\q
+```
+
+### 数据库操作
+
+```sql
+-- 创建 nest 用户, 并赋权
+CREATE USER nest WITH LOGIN CREATEDB PASSWORD 'postgres123';
+-- 删除 nest 用户
+DROP ROLE nest;
+
+-- 创建 nest 数据库
+CREATE DATABASE nest;
+-- 删除数据库
+DROP DATABASE IF EXISTS nest;
+-- 切换数据库 (在 psql 里)
+\c nest;
+-- 查看所有数据库
+\l
+-- 查看数据库大小
+SELECT pg_size_pretty(pg_database_size('nest'));
+```
+
+### 表操作
+
+```sql
+-- 创建表
+CREATE TABLE users (
+    id SERIAL PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+-- 查看所有表
+\dt
+-- 查看表结构
+\d users
+-- 查看表详细定义
+\d+ users
+-- 删除表
+DROP TABLE IF EXISTS users CASCADE;
+-- 清空表 (重置自增)
+TRUNCATE TABLE users RESTART IDENTITY;
+```
+
+### 用户与权限
+
+```sql
+-- 创建用户
+CREATE USER myuser WITH PASSWORD 'pass';
+-- 创建超级用户
+CREATE USER admin WITH PASSWORD 'pass' SUPERUSER;
+-- 授权数据库
+GRANT ALL PRIVILEGES ON DATABASE mydb TO myuser;
+-- 授权表
+GRANT SELECT, INSERT ON users TO myuser;
+-- 查看所有用户
+\du
+-- 修改密码
+ALTER USER myuser WITH PASSWORD 'newpass';
+-- 删除用户
+DROP USER IF EXISTS myuser;
+```
+
+### 数据增删改查
+
+```sql
+-- 插入
+INSERT INTO users (name) VALUES ('Alice'), ('Bob');
+-- 查询
+SELECT * FROM users WHERE name = 'Alice' ORDER BY id DESC LIMIT 10;
+-- 更新
+UPDATE users SET name = 'Charlie' WHERE id = 1;
+-- 删除
+DELETE FROM users WHERE id = 1;
+-- 去重计数
+SELECT COUNT(DISTINCT name) FROM users;
+```
+
+### 索引与约束
+
+```sql
+-- 创建索引
+CREATE INDEX idx_users_name ON users(name);
+-- 唯一索引
+CREATE UNIQUE INDEX idx_users_email ON users(email);
+-- 添加外键
+ALTER TABLE orders
+ADD CONSTRAINT fk_user
+FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE;
+-- 删除索引
+DROP INDEX idx_users_name;
+```
+
+### 备份与恢复 (命令行)
+
+```shell
+# 备份单个数据库
+pg_dump -U admin -d mydb > backup.sql
+# 备份所有数据库
+pg_dumpall -U admin > all_backup.sql
+# 恢复
+psql -U admin -d mydb < backup.sql
+# Docker 备份
+docker exec postgres pg_dump -U admin mydb > backup.sql
+```
+
+### psql 元命令 (反斜杠命令)
+
+| 命令            | 作用                        |
+| --------------- | --------------------------- |
+| \q              | 退出                        |
+| \c dbname       | 切换数据库                  |
+| \l              | 列出所有数据库              |
+| \dt             | 列出所有表                  |
+| \d tablename    | 查看表结构                  |
+| \du             | 列出所有用户 / 角色         |
+| \dn             | 列出所有 schema             |
+| \timing         | 开关查询耗时显示            |
+| \x              | 切换扩展显示模式 (适合宽表) |
+| \?              | 查看所有 psql 命令          |
+| \h CREATE TABLE | 查看 SQL 语法帮助           |
+
+### 实用查询
+
+```sql
+-- 查看当前连接数
+SELECT count(*) FROM pg_stat_activity;
+-- 查看慢查询
+SELECT * FROM pg_stat_statements ORDER BY mean_exec_time DESC LIMIT 10;
+-- 查看表大小
+SELECT pg_size_pretty(pg_total_relation_size('users'));
+-- 查看所有表大小排序
+SELECT relname, pg_size_pretty(pg_total_relation_size(relid))
+FROM pg_stat_user_tables
+ORDER BY pg_total_relation_size(relid) DESC;
+```

@@ -1,0 +1,927 @@
+# Vue
+
+## Options API (vue2)
+
+```html
+<!-- 不便于后期维护和复用 -->
+<script>
+  export default {
+    data() {
+      return {
+        name: "world",
+      }
+    },
+    methods: {
+      greet(name) {
+        console.log(`Hello, ${name}!`)
+      },
+    },
+    computed: {
+      greeting() {
+        return `Hello, ${this.name}`
+      },
+    },
+    watch: {
+      name(newName, oldName) {
+        console.log(`${oldName} -> ${newName}`)
+      },
+    },
+
+    // vue3 新增的 setup 配置项 (Composition API 的基础)
+    // setup 在 beforeCreate 之前执行 (setup 是最早的生命周期)
+    // setup 中没有 this (this 为 undefined)
+    // setup 将数据和方法通过 return 返回才能在 template 中使用
+    // setup 返回值也可以是一个渲染函数
+    // data 中能够通过 this.xxx 获取到 setup 中定义的数据 (反之不行)
+    setup() {
+      const greet = (name) => console.log(`Hello, ${name}!`)
+      return { greet }
+    },
+  }
+</script>
+```
+
+## Composition API (vue3)
+
+```html
+<!-- 用函数的方式, 更加优雅的组织代码, 让相关功能的代码更加有序的组织在一起 -->
+<!-- setup 是 vue3 新增的配置项 (Composition API 的基础), 能以语法糖形式使用 -->
+<script setup>
+  import { ref, reactive } from "vue"
+
+  // ref 一般用来定义基本类型的响应式数据
+  // 返回一个 RefImpl 对象 (ref 对象)
+  const count = ref(0)
+  function increment() {
+    // template 中直接使用
+    // script 中使用 ref 包装的数据, 需要使用 .value 访问
+    count.value++
+  }
+  // ref 也可以定义复杂类型数据
+  const person = ref({ name: "zs", age: 18 })
+  function changeAhe() {
+    person.value.age++
+  }
+
+  // reactive 只能定义复杂类型的响应式数据 (深层响应式)
+  // 返回一个 Proxy 对象
+  // 直接使用即可
+  const car = reactive({ price: 10000, name: "BYD" })
+  function changeName() {
+    car.name = "Tesla"
+  }
+</script>
+```
+
+## ref 和 reactive
+
+```html
+<script setup lang="ts">
+  // ref: 基本类型, 复杂类型
+  // reactive: 复杂类型
+
+  // 区别
+  //   1. ref 创建的变量要使用 .value (.value 数据一定是及响应式的)
+  //   2. reactive 重新分配一个变量会失去响应式, 可以使用 Object.assign 去替换
+
+  // 使用原则
+  //   1. 基本类型数据使用 ref
+  //   2. 层级不深的响应式对象 ref, reactive 都可以
+  //   3. 层级深的响应式对象, 使用 reactive
+</script>
+```
+
+## toRef 和 toRefs
+
+```html
+<script setup lang="ts">
+  const person = reactive({ name: "ZS", age: 18 })
+
+  const name = toRef(person, "name")
+  const age = toRef(person, "age")
+  // 与上面写法效果一致
+  const { name, age } = toRefs(person)
+
+  // toRef 的返回值是 ObjectRefImpl 类型
+  // toRefs 的返回值是 key 为属性名, value 为 toRef(person, key) 的对象
+  name.value = "ZS_LS"
+  age.value = 19
+</script>
+
+<template>
+  <span>{{ name }}</span>
+  <span>{{ age }}</span>
+
+  <span>{{ person.name }}</span>
+  <span>{{ person.age }}</span>
+</template>
+```
+
+## 计算属性
+
+```html
+<script setup lang="ts">
+  const person = reactive({ name: "ZS", age: 18 })
+  // 计算属性 ComputedRefImpl
+  // 只读写法
+  const fullName = computed(() => `${person.name} -- ${person.age}`)
+  // 可读可写写法
+  const fullName = computed({
+    get() {
+      return `${person.name} -- ${person.age}`
+    },
+    set(val) {
+      console.log("set", val)
+      const [name, age] = val.split(" -- ")
+      person.name = name
+      person.age = Number(age)
+    },
+  })
+</script>
+
+<template>
+  姓名: <input type="text" v-model:value="person.name" /> <br />
+  年龄: <input type="text" v-model:value="person.age" /> <br />
+  <!-- 总结: {{ person.name }} -- {{ person.age }} -->
+  总结: {{ fullName }} fullName
+</template>
+```
+
+## watch
+
+```html
+<script setup>
+  // 只能监视一下四种数据
+  //   1. ref 定义的数据
+  //   2. reactive 定义的数据
+  //   3. 一个函数, 返回一个值 (即 gutter 函数)
+  //   4. 包含上面内容的数组
+  import { ref, watch } from "vue"
+  const count = ref(0)
+  // 监视 ref 定义的基本类型数据 (监视的是 ref 返回的整个 RefImpl 类型的对象)
+  const stopWatch1 = watch(count, (newCount, oldCount) => {
+    console.log("count changed: ", newCount, oldCount)
+    if (true) stopWatch1()
+  })
+
+  // 监视 ref 定义的复杂类型数据 (默认监视的是对象的地址值; 可手动开启深度监视)
+  const person = ref({ name: "ZS", age: 19 })
+  const stopWatch2 = watch(
+    person,
+    (newVal, oldVal) => {
+      console.log("count changed: ", newVal, oldVal)
+      if (true) stopWatch2()
+    },
+    // deep: true; 开启深层监视
+    // immediate 开启立即监视; 立即执行一边监视回调 (该次执行时 oldVal 为 undefined)
+    { deep: true, immediate: true }
+  )
+
+  // 监视 reactive 定义的数据
+  const car = reactive({ brand: "BMW", model: "M3" })
+  // 监视 reactive 定义的数据时, 默认开启深度监视, 且不可关闭
+  const stopWatch3 = watch(car, (newVal, oldVal) => {
+    console.log("car changed: ", newVal, oldVal)
+    if (true) stopWatch2()
+  })
+
+  // 监视 ref 或 reactive 定义的对象的某个基本类型属性
+  const animal = reactive({ type: "cat", name: "Mimi", info: { age: 1, color: "white" } })
+  const stopWatch4 = watch(
+    () => animal.type,
+    (newVal, oldVal) => {
+      console.log("animal type changed: ", newVal, oldVal)
+    }
+  )
+
+  // 监视 ref 或 reactive 定义的对象的某个复杂类型属性
+  const stopWatch4 = watch(
+    () => animal.info,
+    (newVal, oldVal) => {
+      console.log("animal info changed: ", newVal, oldVal)
+    },
+    { deep: true }
+  )
+
+  // 监视多个数据源
+  const stopWatch4 = watch(
+    [() => animal.type, () => animal.name, () => animal.info],
+    (newVal, oldVal) => {
+      console.log("animal type or name changed: ", newVal, oldVal)
+    },
+    { deep: true }
+  )
+</script>
+
+<template>
+  <button @click="count++">{{ count }}</button>
+</template>
+```
+
+## watchEffect
+
+```html
+<script setup lang="ts">
+  // watch 需要指定监视的数据
+  // watchEffect 会自动分析依赖的数据
+  // 会立即执行一边回调函数
+  import { ref, watchEffect } from "vue"
+  const count = ref(0)
+  watchEffect(() => {
+    console.log("count:", count.value)
+  })
+</script>
+
+<template></template>
+```
+
+## 标签的 ref 属性
+
+```html
+<script setup lang="ts">
+  import { ref } from "vue"
+  const title = ref()
+
+  // 可以通过组件的 ref 拿到暴露出去的数据
+  defineExpose({ title })
+</script>
+
+<template>
+  <h2 ref="title" @click="() => console.log(title)">HelloWorld</h2>
+</template>
+```
+
+## props 的使用
+
+```html
+<script setup lang="ts">
+  import { ref } from "vue"
+  // 使用 defineProps 来获取 props 变量
+  // 不指定 props 类型
+  const props = defineProps(["msg"])
+  // 指定 props 类型
+  const props = defineProps<{ msg: string; info?: string }>()
+  // 给默认值
+  withDefaults(defineProps<{ msg: string; info?: string }>(), { info: () => "info" })
+  console.log(props.msg)
+</script>
+```
+
+## 对生命周期的理解
+
+```html
+<script setup lang="ts">
+  // 父: 创建 -> 子: 创建 -> 子: 挂载 -> 父: 挂载 -> 子: 卸载 -> 父: 卸载
+
+  // 创建: vue2: beforeCreate, created; vue3: setup() {} 就是创建阶段
+  // 挂在: vue2: beforeMount, mounted; vue3: onBeforeMount(callback), onMounted(callback)
+  // 更新: vue2: beforeUpdate, updated; vue3: onBeforeUpdate(callback), onUpdated(callback)
+  // 销毁(vue2)/卸载(vue3): vue2: beforeDestroy, destroyed; vue3: onBeforeUnmount(callback), onUnmounted(callback)
+</script>
+```
+
+## 自定义 hook
+
+```ts
+// useSum.ts
+import { ref, onBeforeUnmount } from "vue"
+export default function useSum() {
+  const sum = ref(0)
+  const callbacks = []
+
+  function add(value) {
+    sum.value += value
+    callbacks.forEach((callback) => callback())
+  }
+
+  function remove(value) {
+    sum.value -= value
+    callbacks.forEach((callback) => callback())
+  }
+
+  onBeforeUnmount(() => {
+    sum.value = 0
+  })
+
+  return { sum, add, remove }
+}
+```
+
+## 路由的理解
+
+- 前端页面与 URL 路径的对应规则
+
+## 路由切换效果
+
+```ts
+/** 👇 @/router.ts 👇 */
+import { createRouter, createWebHistory } from "vue-router"
+
+export const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: "/home", name: "Home", component: () => import("@/views/Home.vue") },
+    { path: "/about", name: "About", component: () => import("@/views/About.vue") },
+    { path: "/", redirect: "/home" },
+  ],
+})
+
+/** 👇 @/main.ts 👇 */
+import App from "@/App.vue"
+import "@/assets/main.css"
+import { router } from "@/router" // 引入路由
+import { createApp } from "vue" // 创建 Vue 应用实例
+
+const app = createApp(App)
+
+app.use(router) // 使用路由
+
+app.mount("#app") // 挂载 Vue 应用实例到 #app 元素
+```
+
+```html
+<!-- 👇 @/App.vue 👇 -->
+<script setup lang="ts"></script>
+
+<template>
+  <main>
+    <RouterLink to="/" active-class="active">Home</RouterLink>
+    <RouterLink to="/about" active-class="active">About</RouterLink>
+    <RouterView />
+  </main>
+</template>
+
+<style scoped>
+  .active {
+    color: aqua;
+  }
+</style>
+```
+
+## 路由工作模式
+
+```ts
+/** 👇 history 模式 👇 */
+//   地址栏没有 #
+/** 👇 hash 模式 👇 */
+```
+
+## 路由传参
+
+```html
+<!-- query 参数 -->
+<RouterLink to="/about/detail?id=1&name=book" active-class="active">name: 'About'</RouterLink>
+<RouterLink :to="{ path: '/about', query: { id: '1', name: 'book' } }" active-class="active">
+  name: 'About'
+</RouterLink>
+<!-- 组件中获取 query 参数 -->
+<script setup lang="ts">
+  import { useRoute } from "vue-router"
+
+  const route = useRoute()
+  console.log(route.query)
+</script>
+
+<!-- params 参数 -->
+<!-- route: { path: '/about/detail/:id/:name?', name: 'AboutDetail', component: () => import('@/views/About.vue') } -->
+<RouterLink to="/about/detail/1/book" active-class="active">name: 'About'</RouterLink>
+<!-- params 参数只能用 name 跳转 -->
+<RouterLink :to="{ name: 'AboutDetail', params: { id: '1', name: 'book' } }" active-class="active">
+  name: 'About'
+</RouterLink>
+
+<!-- 路由 props 配置 -->
+<!--
+export const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    { path: '/', name: 'Home', component: () => import('@/views/Home.vue') },
+    {
+      path: '/about',
+      name: 'About',
+      component: () => import('@/views/About.vue'),
+      children: [
+        {
+          path: 'detail/:id?/:name?',
+          component: () => import('@/views/AboutDetail.vue'),
+          /** 👇 boolean 值写法: 只能将 params 参数作为 props 传递给组件 👇 */
+          // props: true,
+          /** 👇 函数形式: props 可以将任意数据作为 props 传递给组件 👇 */
+          props: (route) => {
+            // return route.params
+            return route.query
+          },
+          /** 👇 对象形式: 传递个固定值作为 props 传递给组件 👇 */
+          // props: { id: 1, name: 'John' },
+        },
+      ],
+    },
+  ],
+})
+-->
+<!-- 组件中获取 params 参数 -->
+<template>
+  <div>id: {{ id }}</div>
+  <div>name: {{ name }}</div>
+</template>
+<script setup lang="ts">
+  defineProps(["id", "name"])
+</script>
+```
+
+## 编程式导航
+
+```html
+<script setup lang="ts">
+  import { useRouter } from "vue-router"
+  const router = useRouter()
+  const goBack = () => {
+    router.go(-1) // 返回上页
+  }
+  const goHome = () => {
+    // RouterLink 的 to 属性怎么传, push 参数怎么传
+    router.push("/") // 返回首页
+  }
+</script>
+```
+
+## pinia (vue3 的集中式状态管理工具)
+
+```ts
+/** 👇 @/pinia/counter 👇 */
+import { defineStore } from "pinia"
+import { ref } from "vue"
+
+/** 👇 选项式写法 👇 */
+export const useCounterStore = defineStore("counter", {
+  state: () => ({ count: 0 }),
+  actions: {
+    increment() {
+      this.count++
+    },
+    decrement() {
+      this.count--
+    },
+  },
+})
+/** 👇 组合式写法 👇 */
+export const useCounterStore1 = defineStore("counter1", () => {
+  const counter = ref(0)
+  const add = (n: number) => (counter.value += n)
+  return { add, counter }
+})
+
+/** 👇 保持响应式 👇 */
+const counterStore = useCounterStore()
+// $subscribe
+counterStore.$subscribe((mutation, state) => {
+  /** 👇 订阅, 监控 store 数据的变化 👇 */
+  console.log("subscribe: ", mutation, state)
+})
+const { counter } = storeToRefs(counterStore)
+
+/** 👇 @/main.ts 👇 */
+import App from "@/App.vue"
+import "@/assets/main.css"
+import { router } from "@/router" // 引入路由
+import { createPinia } from "pinia"
+import { createApp } from "vue" // 创建 Vue 应用实例
+
+const app = createApp(App)
+const pinia = createPinia() // 创建 Pinia 实例
+
+app.use(pinia) // 使用 Pinia
+app.use(router) // 使用路由
+
+app.mount("#app") // 挂载 Vue 应用实例到 #app 元素
+```
+
+## 组件通信
+
+| 传递方向           | 传递方式                                        |
+| ------------------ | ----------------------------------------------- |
+| 父 => 子           | props, v-model, $refs, 默认插槽, 具名插槽       |
+| 子 => 父           | props, 自定义事件, v-model, $parent, 作用域插槽 |
+| 组 \<=\> 孙        | $attrs, provide, inject                         |
+| 兄弟组件或任意组件 | mitt, pinia                                     |
+
+### props
+
+```html
+<script setup lang="ts">
+  import { ref } from "vue"
+  // 使用 defineProps 来获取 props 变量
+  // 不指定 props 类型
+  const props = defineProps(["msg"])
+  // 指定 props 类型
+  const props = defineProps<{ msg: string; info?: string }>()
+  // 给默认值
+  withDefaults(defineProps<{ msg: string; info?: string }>(), { info: () => "info" })
+  console.log(props.msg)
+</script>
+```
+
+### 自定义事件
+
+```html
+<!-- /** 👇 子组件 👇 */ -->
+<script setup lang="ts" name="AboutDetail">
+  // 使用 defineEmits 声明自定义事件
+  const emits = defineEmits(["msg"])
+</script>
+
+<template>
+  <!-- 触发自定义事件 -->
+  <div @click="emits('msg', 'Hello')">AboutDetail</div>
+</template>
+
+<!-- /** 👇 父组件 👇 */ -->
+<script setup lang="ts" name="About">
+  import AboutDetail from "./AboutDetail.vue"
+
+  const onMsg = (msg: string) => {
+    console.log("onMsg", msg)
+  }
+</script>
+
+<template>
+  <div>About</div>
+  <!-- 传递自定义事件 -->
+  <AboutDetail @msg="onMsg" />
+</template>
+```
+
+### mitt
+
+```ts
+/** 👇 能够实现任意组件通信 👇 */
+import mitt from "mitt"
+
+/** 👇 调用 mitt 获取 emitter (emitter 能绑定事件, 触发事件) 👇 */
+const emitter = mitt()
+
+/** 👇 给 emitter 绑定事件 👇 */
+emitter.on("test", () => {
+  console.log("test event triggered")
+})
+
+/** 👇 触发 emitter 绑定的事件 👇 */
+emitter.emit("test")
+
+/** 👇 解绑 emitter 绑定的事件 👇 */
+emitter.off("test")
+
+export default emitter
+```
+
+### v-model
+
+```html
+<!-- /** 👇 v-model 由 v-bind 和相关事件实现 👇 */ -->
+<!-- /** 👇 子组件 👇 */ -->
+<script setup lang="ts" name="VModelChild">
+  import { ref } from "vue"
+
+  /** 👇 组件实现 v-model 👇 */
+  defineProps(["modelValue", "modelValue1", "modelValue2"])
+  const emits = defineEmits(["update:modelValue", "update:modelValue1", "update:modelValue2"])
+
+  const text = ref("")
+</script>
+
+<template>
+  <input
+    type="text"
+    :value="text"
+    @input="emits('update:modelValue', (<HTMLInputElement>$event.target).value)"
+  />
+</template>
+
+<!-- /** 👇 父组件 👇 */ -->
+<script setup lang="ts" name="VModel">
+  import { ref } from "vue"
+  import VModelChild from "./VModelChild.vue"
+
+  const text = ref("")
+  const text1 = ref("")
+
+  const text2 = ref("")
+</script>
+
+<template>
+  <!-- /** 👇 v-model 用在 html 标签上 👇 */ -->
+  <input type="text" v-model="text" />
+  <!-- /** 👇 v-model 实现原理 👇 */ -->
+  <input type="text" :value="text1" @input="text1 = (<HTMLInputElement>$event.target).value" />
+
+  <!-- /** 👇 使用组件实现的 v-model 👇 */ -->
+  <VModelChild v-model="text2" v-model:model-value1="text2" v-bind:model-value2="text2" />
+  <VModelChild
+    :modelValue="text2"
+    @update:modelValue="text2 = $event"
+    :model-value1="text2"
+    @update:model-value1="text2 = $event"
+    :model-value2="text2"
+    @update:model-value2="text2 = $event"
+  />
+</template>
+```
+
+### $attrs
+
+```html
+<!-- /** 👇 通过 $attrs 能够获取到除 props 外的其他属性 👇 */ -->
+<!-- /** 👇 AttrsChild 👇 */ -->
+<script setup lang="ts" name="AttrsChild">
+  defineProps(["msg", "name", "getData"])
+</script>
+
+<template>
+  <div>msg: {{ msg }}</div>
+  <div>name: {{ name }}</div>
+  <div @click="getData(123)">getData</div>
+</template>
+
+<!-- /** 👇 AttrsParent 👇 */ -->
+<script setup lang="ts" name="AttrsParent"></script>
+
+<template>
+  <AttrsParent v-bind="$attrs" />
+</template>
+
+<!-- 👇 Attrs 👇 -->
+<script setup lang="ts" name="Attrs">
+  import AttrsParent from "./AttrsParent.vue"
+</script>
+
+<template>
+  <AttrsParent
+    v-bind="{ msg: 'Hello World', name: 'Attrs', getData: (data: any) => console.log(data) }"
+  />
+</template>
+```
+
+### \$refs & \$parent
+
+```html
+<!-- /** 👇 $refs: 父传子 👇 */ -->
+<!-- /** 👇 $parent: 子传父 👇 */ -->
+
+<!-- /** 👇 RefsAndParent 👇 */ -->
+<script setup lang="ts" name="RefsAndParent">
+  import { ref } from "vue"
+  import RefsAndParentChild1 from "./RefsAndParentChild1.vue"
+  import RefsAndParentChild2 from "./RefsAndParentChild2.vue"
+
+  const RefsAndParentChild1Instance = ref()
+  const RefsAndParentChild2Instance = ref()
+
+  const name = ref("RefsAndParent")
+
+  defineExpose({ name })
+</script>
+
+<template>
+  <div @click="() => console.log($refs)">console.log($refs)</div>
+  <RefsAndParentChild1 ref="RefsAndParentChild1Instance" />
+  <RefsAndParentChild2 ref="RefsAndParentChild2Instance" />
+</template>
+
+<!-- /** 👇 RefsAndParentChild1 👇 */ -->
+<script setup lang="ts" name="RefsAndParentChild1">
+  import { ref } from "vue"
+
+  const RefsAndParentChild1Data1 = ref("RefsAndParentChild1Data1")
+  const RefsAndParentChild1Data2 = ref("RefsAndParentChild1Data2")
+
+  defineExpose({ RefsAndParentChild1Data1, RefsAndParentChild1Data2 })
+</script>
+
+<template>
+  <div @click="console.log($parent)">console.log($parent)</div>
+</template>
+
+<!-- /** 👇 RefsAndParentChild2 👇 */ -->
+<script setup lang="ts" name="RefsAndParentChild2">
+  import { ref } from "vue"
+
+  const RefsAndParentChild2Data1 = ref("RefsAndParentChild2Data1")
+  const RefsAndParentChild2Data2 = ref("RefsAndParentChild2Data2")
+
+  defineExpose({ RefsAndParentChild2Data1, RefsAndParentChild2Data2 })
+</script>
+
+<template>
+  <div @click="console.log($parent)">console.log($parent)</div>
+</template>
+```
+
+### provide & inject
+
+```html
+<!-- /** 👇 ProvideAndInjectChild 👇 */ -->
+<script setup lang="ts" name="ProvideAndInjectChild">
+  import { inject } from "vue"
+
+  /** 👇 inject(key, defaultValue, treatDefaultAsFactory) 👇 */
+  const parentName = inject("name")
+</script>
+
+<template>
+  <div>parentName: {{ parentName }}</div>
+</template>
+
+<!-- /** 👇 ProvideAndInjectParent 👇 */ -->
+<script setup lang="ts" name="ProvideAndInjectParent">
+  import ProvideAndInjectChild from "./ProvideAndInjectChild.vue"
+</script>
+
+<template>
+  <ProvideAndInjectChild />
+</template>
+
+<!-- /** 👇 ProvideAndInject 👇 */ -->
+<script setup lang="ts" name="ProvideAndInject">
+  import { provide, ref } from "vue"
+
+  const name = ref("ProvideAndInject")
+
+  /** 👇 向其后代传递数据 👇 */
+  provide("name", name)
+</script>
+
+<template>
+  <div></div>
+</template>
+```
+
+## 插槽
+
+```html
+<!-- /** 👇 SlotChild 👇 */ -->
+<script setup lang="ts" name="SlotChild">
+  import { ref } from "vue"
+
+  const childName = ref("SlotChild")
+</script>
+
+<template>
+  <div>默认插槽</div>
+  <!-- /** 👇 默认插槽 👇 */ -->
+  <slot>默认插槽: 默认内容</slot>
+
+  <br />
+  <br />
+
+  <div>具名插槽</div>
+  <!-- /** 👇 具名插槽 👇 */ -->
+  <slot name="nameSlot">具名插槽: 默认内容</slot>
+
+  <br />
+  <br />
+
+  <div>作用域插槽</div>
+  <!-- 和默认插槽同时存在时, 作用域插槽的优先级高于默认插槽 -->
+  <slot :childName="childName">作用域插槽: 默认内容</slot>
+  <slot name="scopeSlot" :childName="childName">作用域插槽: 默认内容</slot>
+</template>
+
+<!-- /** 👇 Slot 👇 */ -->
+<script setup lang="ts" name="Slot">
+  import SlotChild from "./SlotChild.vue"
+</script>
+
+<template>
+  <SlotChild>
+    <div>默认插槽: 外部传递的内容</div>
+
+    <!-- v-slot 只能用在 template 或组件上-->
+    <!-- v-slot 简写为 ## -->
+    <template v-slot:nameSlot>
+      <div>具名插槽: 外部传递的内容</div>
+    </template>
+
+    <!-- /** 👇 作用域插槽 👇 */ -->
+    <template v-slot="{ childName }"> childName: {{ childName }} </template>
+    <template v-slot:scopeSlot="{ childName }"> childName: {{ childName }} </template>
+  </SlotChild>
+</template>
+```
+
+## 其他 API
+
+### shallowRef 和 shallowReactive
+
+定义浅层响应式对象, 可作为性能优化
+
+### readonly 和 shallowReadonly
+
+- readonly: 将响应式对象变为只读的
+- shallowReadonly: 将响应式对象的浅层变为只读的，但是对象内的嵌套对象是可写的
+
+### toRaw 和 markRaw
+
+- toRaw: 将响应式对象变为非响应式对象
+- markRaw: 标记一个对象, 使其不会成为响应式对象
+
+## customRef
+
+```ts
+import { customRef } from "vue"
+
+export const useMsgRef = (initMsg = "init") => {
+  const msg = customRef((track, trigger) => {
+    return {
+      get() {
+        console.log("get called")
+        track() // 告诉 vue 对 msg 持续关注 (即跟踪数据变化)
+        return initMsg
+      },
+      set(value) {
+        console.log("set called", value)
+        initMsg = value
+        trigger() // 通知 vue 对 msg 的值有改变
+      },
+    }
+  })
+
+  return { msg }
+}
+```
+
+## Vue3 新组件
+
+### Teleport
+
+```html
+<!-- Teleport: 将内容挂载到指定元素 -->
+<script setup lang="ts" name="TestTeleport"></script>
+
+<template>
+  <Teleport to="body"> 123231 </Teleport>
+</template>
+```
+
+### Suspense
+
+```html
+<!-- /** 👇 TestSuspenseChild 👇 */ -->
+<script setup lang="ts" name="TestSuspenseChild">
+  const delay = async () => {
+    await setTimeout(() => {}, 1000)
+    return 123
+  }
+  const msg = await delay()
+</script>
+
+<template>
+  <div>msg: {{ msg }}</div>
+</template>
+
+<!-- /** 👇 TestSuspense 👇 */ -->
+<script setup lang="ts" name="TestSuspense">
+  import TestSuspenseChild from "./TestSuspenseChild.vue"
+</script>
+
+<template>
+  <Suspense>
+    <template #default>
+      <TestSuspenseChild />
+    </template>
+
+    <template #fallback> Loading... </template>
+  </Suspense>
+</template>
+```
+
+## Vue3 中将全局 API 转移到应用对象
+
+- app.component: 注册全局组件
+- app.config: 添加全局配置; 如, app.config.globalProperties.appName = 'My App'
+- app.directive: 定义全局指令
+- app.mount: 挂载根组件到指定元素上; 返回 Vue 实例
+- app.unmount: 卸载已挂载的 Vue 实例
+- app.use: 使用插件
+- ...
+
+| 名称          | 作用                                  | 例子                                           |
+| ------------- | ------------------------------------- | ---------------------------------------------- |
+| app.component | 注册全局组件                          |                                                |
+| app.config    | 添加全局配置                          | app.config.globalProperties.appName = 'My App' |
+| app.directive | 定义全局自定义指令                    |                                                |
+| app.mount     | 挂载根组件到指定元素上; 返回 Vue 实例 |                                                |
+| app.unmount   | 卸载已挂载的 Vue 实例                 |                                                |
+| app.use       | 使用插件                              |                                                |
+| ...           |                                       |                                                |
+
+## Vue3 的非兼容性改变
+
+| 名称                                 | 变化                                             |
+| ------------------------------------ | ------------------------------------------------ |
+| 过度类名                             | v-enter => v-enter-from, v-leave => v-leave-from |
+| keyCode 作为 v-on 的修饰符           |                                                  |
+| v-model 指定在组件上的使用被重新设计 | 替换掉了 v-bind.sync                             |
+| v-id 和 v-for 的优先级               | v-if 优先级比 v-for 更高                         |
+| 移除 $on, $off, $once 实例方法       |                                                  |
+| 移除过滤器 filter                    |                                                  |
+| 移除 $children 实例 propert          |                                                  |

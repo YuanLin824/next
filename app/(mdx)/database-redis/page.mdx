@@ -1,0 +1,327 @@
+# Redis
+
+## 使用 Docker 命令创建 Redis 容器
+
+```shell
+docker pull redis:7-alpine
+
+mkdir /redis
+mkdir /redis/data
+
+# -d: 后台运行
+# --name: 给容器起一个名字
+# -p: 端口映射 宿主机:容器
+# -v: 自定义挂载 自定义路径:容器内部路径
+docker run -d -p 6379:6379 --name redis -v /redis/data:/data redis-server redis:7-alpine
+
+# Windows 使用 Docker 创建 Redis 容器
+# 切换到保存持久化数据的目录
+cd C:/Soft/DockerData
+mkdir ./redis
+mkdir ./redis/data
+
+docker run -d -p 6379:6379 --name redis -v C:/Soft/DockerData/redis/data:/data redis-server redis:7-alpine
+
+docker exec -it redis redis-cli
+
+# 使用 redis
+set name redis
+get name
+
+# 切换/登录到另一个用户
+AUTH username password
+# 切换到默认用户
+AUTH redis123
+
+# 查看当前用户
+ACL WHOAMI
+# 查看所有用户
+ACL LIST
+# 创建 / 修改 admin (超级管理员)
+ACL SETUSER admin on >redis123 ~* &* +@all
+# 创建 / 修改读写用户: 读写权限, 限制只能操作 app: 开头的 key
+ACL SETUSER YuanLin on >redis123 ~app:* &* +@read +@write +@connection
+# 创建 / 修改只读用户: 只读用户, 限制只能操作 app: 开头的 key
+ACL SETUSER readonly on >redis123 ~app:* &* +@read +@connection
+# 删除用户
+ACL DELUSER YuanLin
+# 查看用户详情
+ACL GETUSER YuanLin
+```
+
+## 使用 Docker-Compose 编排 Redis 容器
+
+```sh
+# ./redis.sh
+
+#!/bin/sh
+set -e
+
+echo "========== Redis 初始化 =========="
+
+echo "========== 动态创建 /etc/redis/redis.users.acl 文件 =========="
+cat > /etc/redis/redis.users.acl <<EOF
+user default off
+user admin on >${REDIS_APP_PASSWORD} ~* &* +@all
+user ${REDIS_APP_USERNAME} on >${REDIS_APP_PASSWORD} ~${REDIS_APP_KEY_PREFIX}* &* +@read +@write +@connection +info
+user ${REDIS_APP_USERNAME}_readonly on >${REDIS_APP_PASSWORD} ~${REDIS_APP_KEY_PREFIX}* &* +@read +@connection +info
+EOF
+
+echo "========== 动态创建 /etc/redis/redis.conf 文件 =========="
+cat > /etc/redis/redis.conf <<EOF
+# 基础配置
+ bind                        0.0.0.0
+ port                        6379
+ protected-mode              yes
+ timeout                     0
+ tcp-keepalive               300
+
+# 持久化 - RDB
+ save                        900 1
+ save                        300 100
+ save                        60 10000
+ dbfilename                  dump.rdb
+ dir                         /data
+ stop-writes-on-bgsave-error yes
+ rdbcompression              yes
+ rdbchecksum                 yes
+
+# 持久化 - AOF (推荐同时开启)
+ appendonly                  yes
+ appendfilename              "appendonly.aof"
+ appendfsync                 everysec
+ no-appendfsync-on-rewrite   no
+ auto-aof-rewrite-percentage 100
+ auto-aof-rewrite-min-size   64mb
+
+# 内存管理
+ maxmemory                   256mb
+ maxmemory-policy            allkeys-lru
+
+# 日志
+ loglevel                    notice
+ logfile                     ""
+
+# ACL 文件 (关键)
+ aclfile                     /etc/redis/redis.users.acl
+
+# 慢查询
+ slowlog-log-slower-than     10000
+ slowlog-max-len             128
+EOF
+
+echo "========== 使用自定义 redis.conf 配置启动 redis 服务 =========="
+exec redis-server /etc/redis/redis.conf
+
+echo "========== Redis 初始化完成 =========="
+```
+
+```yml
+# ./docker-compose.yml
+
+# 默认自动读取 .env 中的环境变量
+# 手动指定环境变量: docker compose -f docker-compose.yml --env-file .env.dev up -d
+
+name: nest
+
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: redis_nest
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    environment:
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+      REDIS_APP_USERNAME: ${REDIS_USERNAME:-nest}
+      REDIS_APP_PASSWORD: ${REDIS_PASSWORD:-redis123}
+      REDIS_APP_KEY_PREFIX: ${REDIS_KEY_PREFIX:-nest:}
+    volumes:
+      - redis_data:/data
+      - ./redis.sh:/etc/redis/redis.sh:ro
+    entrypoint: ["/bin/sh", "/etc/redis/redis.sh"]
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+```
+
+## Redis Command
+
+### 常用 TOP 10
+
+| 排名 | 命令                 | 场景                 |
+| :--: | -------------------- | -------------------- |
+|  1   | SET / GET            | 缓存, KV 存储        |
+|  2   | EXPIRE / TTL         | 设置/查看过期时间    |
+|  3   | INCR / DECR          | 计数器, 限流         |
+|  4   | LPUSH / RPOP / BLPOP | 消息队列             |
+|  5   | HSET / HGETALL       | 存储对象 (替代 JSON) |
+|  6   | SADD / SISMEMBER     | 去重, 标签, 判断存在 |
+|  7   | ZADD / ZREVRANGE     | 排行榜, 延时队列     |
+|  8   | DEL / EXISTS         | 键管理               |
+|  9   | MULTI / EXEC         | 原子操作             |
+|  10  | INFO memory          | 排查内存问题         |
+
+### 通用键操作
+
+```shell
+KEYS pattern          # 查找键 (生产环境慎用，大数据量阻塞)
+  KEYS user:*
+
+EXISTS key            # 判断键是否存在 (返回 1/0)
+DEL key [key ...]     # 删除键 (返回删除数量)
+EXPIRE key seconds    # 设置过期时间 (秒)
+TTL key               # 查看剩余生存时间 (-1 永不过期，-2 已过期)
+TYPE key              # 查看键的数据类型
+RENAME key newkey     # 重命名
+```
+
+### 字符串
+
+```shell
+SET key value [EX seconds] [NX|XX]   # 设置值
+  SET name "zhangsan" EX 60          # 60秒过期
+  SET lock:123 "1" NX EX 10          # 分布式锁：不存在才设置，10秒过期
+
+GET key               # 获取值
+MSET k1 v1 k2 v2     # 批量设置
+MGET k1 k2           # 批量获取
+INCR key             # 原子自增 +1 (计数器)
+DECR key             # 原子自减 -1
+INCRBY key num       # 自增指定数值
+APPEND key value     # 追加内容
+STRLEN key           # 获取字符串长度
+```
+
+### 哈希 (Hash)
+
+```shell
+HSET key field value          # 设置字段
+  HSET user:1001 name "张三" age 25
+
+HGET key field                # 获取单个字段
+HMGET key field1 field2       # 获取多个字段
+HGETALL key                   # 获取所有字段和值
+HDEL key field                # 删除字段
+HEXISTS key field             # 判断字段是否存在
+HLEN key                      # 获取字段数量
+HINCRBY key field num         # 字段数值自增 (适合存储对象属性)
+HKEYS key                     # 获取所有字段名
+HVALS key                     # 获取所有字段值
+```
+
+### 列表 (List)
+
+```shell
+LPUSH key value [value ...]   # 左侧插入 (栈/队列)
+RPUSH key value [value ...]   # 右侧插入
+LRANGE key start stop         # 范围查询 (0 -1 表示全部)
+  LRANGE queue 0 -1
+
+LPOP key                      # 左侧弹出
+RPOP key                      # 右侧弹出
+BLPOP key [key ...] timeout   # 阻塞左侧弹出 (消息队列常用，0表示永久阻塞)
+BRPOP key [key ...] timeout   # 阻塞右侧弹出
+LLEN key                      # 获取列表长度
+LINDEX key index              # 获取指定索引元素
+LREM key count value          # 删除指定值
+```
+
+### 集合 (Set)
+
+```shell
+SADD key member [member ...]  # 添加成员
+SMEMBERS key                  # 获取所有成员
+SISMEMBER key member          # 判断成员是否存在 (1/0)
+SREM key member               # 删除成员
+SCARD key                     # 获取成员数量
+SINTER key [key ...]          # 交集
+SUNION key [key ...]          # 并集
+SDIFF key [key ...]           # 差集
+SPOP key [count]              # 随机弹出指定数量成员 (抽奖场景)
+SRANDMEMBER key [count]       # 随机获取指定数量成员 (不删除)
+```
+
+### 有序集合 (Sorted Set)
+
+```shell
+ZADD key score member [score member ...]   # 添加成员 (带分数)
+  ZADD leaderboard 100 "player1" 85 "player2"
+
+ZRANGE key start stop [WITHSCORES]         # 按分数升序排列
+  ZRANGE leaderboard 0 -1 WITHSCORES       # 获取排行榜全部带分数
+
+ZREVRANGE key start stop [WITHSCORES]      # 按分数降序排列 (排行榜常用)
+ZREM key member                            # 删除成员
+ZSCORE key member                          # 获取成员分数
+ZCARD key                                  # 获取成员数量
+ZINCRBY key increment member               # 增加成员分数
+ZRANGEBYSCORE key min max                  # 按分数范围查询
+ZCOUNT key min max                         # 统计分数范围内成员数
+ZREMRangeBYSCORE key min max               # 删除分数范围内成员
+```
+
+### 事务
+
+```shell
+MULTI                 # 开启事务
+EXEC                  # 执行事务
+DISCARD               # 取消事务
+WATCH key [key ...]   # 乐观锁：监视键，如果被修改则事务失败
+
+
+WATCH balance
+MULTI
+DECRBY balance 100
+INCRBY spent 100
+EXEC                  # 如果 balance 被其他客户端修改，EXEC 返回 nil
+```
+
+### 服务器与持久化
+
+```shell
+INFO                  # 查看服务器信息 (内存, CPU, 客户端连接等)
+INFO memory           # 只看内存信息
+CONFIG GET *          # 获取所有配置
+CONFIG SET key value  # 临时修改配置 (重启失效)
+SAVE                  # 同步保存 RDB (阻塞)
+BGSAVE                # 后台异步保存 RDB
+FLUSHDB               # 清空当前数据库 (危险!)
+FLUSHALL              # 清空所有数据库 (极度危险!)
+MONITOR               # 实时监控所有命令 (性能开销大，调试时用)
+SLOWLOG GET 10        # 获取慢查询日志
+DBSIZE                # 当前数据库键数量
+```
+
+### 连接与认证
+
+```shell
+PING                  # 测试连接 (返回 PONG)
+AUTH password         # 密码认证 (6.0+ 支持 AUTH username password)
+SELECT index          # 切换数据库 (0-15，默认 0)
+QUIT                  # 关闭连接
+```
+
+### CLIENT 命令
+
+```shell
+# 查看所有连接 (在 redis-cli 中执行)
+CLIENT LIST
+# 查看当前客户端自己的信息
+CLIENT INFO
+# 查看当前连接 ID
+CLIENT ID
+# 给当前连接设置名称 (方便在 CLIENT LIST 中识别)
+CLIENT SETNAME myapp-server-1
+# 查看当前连接名称
+CLIENT GETNAME
+# 关闭指定连接 (按 ID)
+CLIENT KILL ID 3
+# 关闭指定 IP 的连接
+CLIENT KILL ADDR 172.18.0.1:54321
+# 按用户名关闭 (6.0+)
+CLIENT KILL USER old_user
+# 关闭所有连接 (危险!)
+CLIENT KILL TYPE normal
+```

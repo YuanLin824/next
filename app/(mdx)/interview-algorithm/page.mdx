@@ -1,0 +1,847 @@
+# Algorithm
+
+## JavaScript 数据结构
+
+什么是数据结构:
+
+- 数据结构是计算机存储, 组织数据的方式
+- 数据结构意味着接口或封装
+- 一个数据结构可被视为两个函数之间的接口
+
+常见的数据结构:
+
+- 数组 (Array)
+- 栈 (Stack)
+- 队列 (Queue)
+- 链表 (Linked List)
+- 字典
+- 散列表 (Hash Table)
+- 树 (Tree)
+- 图 (Graph)
+- 堆 (Heap)
+
+数组:
+
+- 最基本的数据类型
+- 使用一块连续的内存空间保存数据, 保存的数据个数在分配内存时就是确定的
+
+栈 (Stack):
+
+- 先进后出 (LIFO) 的有序集合
+- 新元素在栈顶, 旧元素在栈底
+- 每次 push 和 pop 都在顶点操作
+
+队列 (Queue):
+
+- 先进先出 (FIFO) 的有序集合
+- 尾部 push, 顶部 pop
+
+链表:
+
+- 链表也是一种链表
+- 已经设计了数组, 为什么还需要链表
+- JS 中的数组被设计成了对象, 与其他语言的数组对比效率很低
+- 使用条件:
+  - 几乎可以在任何使用一维数组的情况中
+  - 若需要随机访问, 数组仍是最好的选择
+
+字典:
+
+- 以键值对存储数据的数据结构, JS 中的 Object 是以字典形式设计的
+- JS 可以通过实现字典类, 让字典使用起来更加简单
+
+散列表 (哈希表):
+
+- 散列表上插入, 删除和取用数据都非常快
+- 数组或链表, 查找数据时需从头遍历
+- 散列表在 JS 中可以通过数组设计
+- 可以用于数据的插入, 删除和取用, 不适用于查找数据
+
+## 对函数式编程的理解
+
+- 函数式编程是一种编程范式
+- 主要的编程范式有三种: 命令式编程, 声明式编程, 函数式编程
+- 相比命令式编程, 函数式编程更加强调程序执行的结果而非过程
+
+基本概念:
+
+- 函数是一等公民, 通过函数封装的方式解决问题
+
+核心概念:
+
+- 纯函数: 没有任何副作用, 相同的输入得到相同的输出
+- 高阶函数: 接收函数作为参数或返回函数的函数
+- 函数柯里化: 把一个多参数转化成一个嵌套的一元函数的过程
+- 函数组合, 类似面向对象的继承
+- 不可变性
+
+优点:
+
+- 可测试, 单元测试编写更简单
+- 可维护
+- 并发
+- 简洁
+
+## 单链表
+
+```js
+// ------------------------------ 节点类 ------------------------------
+class Node {
+  constructor(data) {
+    this.data = data // 节点数据
+    this.next = null // 指向下一个节点的引用
+  }
+}
+// ------------------------------ 链表类 ------------------------------
+class LinkedList {
+  constructor() {
+    this.head = null // 链表头节点
+  }
+  // 在链表末尾添加新节点
+  append(data) {
+    const newNode = new Node(data)
+    if (this.head === null) {
+      this.head = newNode
+      return
+    }
+    let current = this.head
+    while (current.next !== null) {
+      current = current.next
+    }
+    current.next = newNode
+  }
+  // 链表开头添加新节点
+  prepend(data) {
+    const newNode = new Node(data)
+    newNode.next = this.head
+    this.head = newNode
+  }
+  // 删除链表中的一个节点
+  deleteWithValue(data) {
+    if (this.head === null) return
+    if (this.head.data === data) {
+      this.head = this.head.next
+      return
+    }
+    let current = this.head
+    while (current.next !== null) {
+      if (current.next.data === data) {
+        current.next = current.next.next
+        return
+      }
+      current = current.next
+    }
+  }
+  // 打印链表中的所有节点
+  printList() {
+    let current = this.head
+    while (current !== null) {
+      console.log(current.data)
+      current = current.next
+    }
+  }
+}
+
+const list = new LinkedList()
+list.append(10)
+list.append(20)
+list.append(30)
+list.prepend(5)
+list.printList() // 5, 10, 20, 30
+list.deleteWithValue(20)
+list.printList() // 5, 10, 30
+```
+
+## 双链表
+
+```js
+// ------------------------------ 节点类 ------------------------------
+class Node {
+  constructor(data) {
+    this.data = data // 节点存储的数据
+    this.next = null // 指向下一个节点的引用
+    this.prev = null // 指向前一个节点的引用
+  }
+}
+// ------------------------------ 双链表类 ------------------------------
+class DoublyLinkedList {
+  constructor() {
+    this.head = null // 链表头节点
+    this.tail = null // 链表尾节点
+  }
+  // 在链表末尾添加新节点
+  append(data) {
+    const newNode = new Node(data)
+    if (this.head === null) {
+      this.head = newNode
+      this.tail = newNode
+      return
+    }
+    this.tail.next = newNode
+    newNode.prev = this.tail
+    this.tail = newNode
+  }
+  // 在链表开头添加新节点
+  prepend(data) {
+    const newNode = new Node(data)
+    if (this.head === null) {
+      this.head = newNode
+      this.tail = newNode
+      return
+    }
+    newNode.next = this.head
+    this.head.prev = newNode
+    this.head = newNode
+  }
+  // 删除链表中的一个节点
+  deleteWithValue(data) {
+    let current = this.head
+    while (current !== null) {
+      if (current.data === data) {
+        if (current.prev !== null) current.prev.next = current.next
+        else this.head = current.next
+        if (current.next !== null) current.next.prev = current.prev
+        else this.tail = current.prev
+        return
+      }
+      current = current.next
+    }
+  }
+  // 打印链表中的所有节点
+  printList() {
+    let current = this.head
+    while (current !== null) {
+      console.log(current.data)
+      current = current.next
+    }
+  }
+}
+
+const doublyList = new DoublyLinkedList()
+doublyList.append(1)
+doublyList.append(2)
+doublyList.append(3)
+doublyList.prepend(0)
+doublyList.printList() // 输出: 0, 1, 2, 3
+doublyList.deleteWithValue(2)
+doublyList.printList() // 输出: 0, 1, 3
+```
+
+## 快速排序
+
+1. 选一个基准元素 (一般选第一个元素)
+2. 左边的小于基准元素
+3. 右边的大于基准元素
+4. 再对左右两边进行排序
+
+```js
+function quickSort(arr) {
+  if (arr.length <= 1) return arr
+  let pivot = arr[0]
+  let left = []
+  let right = []
+  for (let i = 1; i < arr.length; i++) {
+    if (arr[i] < pivot) {
+      left.push(arr[i])
+    } else {
+      right.push(arr[i])
+    }
+  }
+  return quickSort(left).concat(pivot, quickSort(right))
+}
+```
+
+## 合并/归并排序
+
+1. 将元素分为两个含 n/2 个元素的序列
+2. 用合并排序对两个子序列递归排序
+3. 合并两个已排序的子序列
+
+```js
+function merge(left, right) {
+  let result = []
+  let leftIndex = 0
+  let rightIndex = 0
+  while (leftIndex < left.length && rightIndex < right.length) {
+    if (left[leftIndex] < right[rightIndex]) {
+      result.push(left[leftIndex])
+      leftIndex++
+    } else {
+      result.push(right[rightIndex])
+      rightIndex++
+    }
+  }
+  return result.concat(left.slice(leftIndex)).concat(right.slice(rightIndex))
+}
+
+function mergeSort(arr) {
+  if (arr.length <= 1) return arr
+  const middle = Math.floor(arr.length / 2)
+  const left = arr.slice(0, middle)
+  const right = arr.slice(middle)
+  return merge(mergeSort(left), mergeSort(right))
+}
+```
+
+## 交换两个变量的值
+
+```js
+// ------------------------------ 使用临时变量 ------------------------------
+let a = 1,
+  b = 2
+let temp = a
+a = b
+b = temp
+console.log(a, b) // 输出: 2 1
+
+// ------------------------------ 使用解构赋值 ------------------------------
+;[a, b] = [b, a]
+console.log(a, b) // 输出: 1 2
+
+// ------------------------------ 算数运算 ------------------------------
+a = a + b
+b = a - b
+a = a - b
+console.log(a, b) // 输出: 2 1
+
+// ------------------------------ 异或运算 ------------------------------
+a = a ^ b
+b = a ^ b // (a ^ b) ^ b
+a = a ^ b // (a ^ b) ^ (a ^ b ^ b)
+console.log(a, b) // 输出: 1 2
+```
+
+## 解析 URL 参数
+
+```js
+// https://cn.bing.com/search?qs=CT&pq=scrollTop&sk=CSYN1MT1LT1
+function getUrlParams(url) {
+  const params = {}
+  const queryStr = decodeURIComponent(url).split("?")[1]
+  if (queryStr) {
+    const keyValue = querysrt.split("&")
+    keyValue.forEach((c) => {
+      const [key, value] = cur.split("=")
+      params[key] = value
+    })
+  }
+  return params
+}
+```
+
+## 深拷贝
+
+```js
+// 是深拷贝的一种方式, 但它有一些局限性:
+// 会忽略 undefined, symbol 和函数
+JSON.parse(JSON.stringify())
+
+// 浅拷贝复制引用类型时, 复制的是引用地址, 修改新对象会影响原对象
+// 深拷贝开辟一个新的栈, 两个对象属性相同, 对应两个地址, 不互相影响
+function deepCopy(obj) {
+  if (obj === null || typeof obj !== "object") return obj
+  let res = obj.constructor()
+  for (let key in obj) {
+    if (obj.hasOwnProperty(key)) {
+      res[key] = deepCopy(obj[key])
+    }
+  }
+  return res
+}
+```
+
+## 斐波那契数列
+
+```js
+// ------------------------------ 迭代实现 ------------------------------
+function fibonacci(n) {
+  if (n <= 1) {
+    return n
+  }
+  let a = 0,
+    b = 1
+  for (let i = 2; i <= n; i++) {
+    ;[a, b] = [b, a + b]
+  }
+  return b
+}
+
+// ------------------------------ 生成器实现 ------------------------------
+function* fibonacciGenerator() {
+  let a = 0,
+    b = 1
+  while (true) {
+    yield a
+    ;[a, b] = [b, a + b]
+  }
+}
+function getFibonacci(n) {
+  const fibGen = fibonacciGenerator()
+  const numbers = []
+  for (let i = 0; i < n; i++) {
+    numbers.push(fibGen.next().value)
+  }
+  fibGen.return()
+  return numbers
+}
+
+// ------------------------------ 递归实现 ------------------------------
+// 基础版
+function fibonacci(n) {
+  if (n <= 1) {
+    return n
+  }
+  return fibonacci(n - 1) + fibonacci(n - 2)
+}
+// 尾递归
+function fibonacci(n, start = 1, total = 1) {
+  if (n <= 2) return total
+  return fibonacci(n - 1, total, total + start)
+}
+// 使用闭包记忆化缓存
+function createFibonacci() {
+  const cache = {}
+  return function fibonacci(n) {
+    if (n in cache) {
+      return cache[n]
+    }
+    if (n <= 1) {
+      return n
+    }
+    cache[n] = fibonacci(n - 1) + fibonacci(n - 2)
+    return cache[n]
+  }
+}
+// ------------------------------ 矩阵快速幂 ------------------------------
+function matrixMultiply(a, b) {
+  return [
+    [a[0][0] * b[0][0] + a[0][1] * b[1][0], a[0][0] * b[0][1] + a[0][1] * b[1][1]],
+    [a[1][0] * b[0][0] + a[1][1] * b[1][0], a[1][0] * b[0][1] + a[1][1] * b[1][1]],
+  ]
+}
+function matrixPower(matrix, n) {
+  if (n === 1) return matrix
+  if (n % 2 === 0) {
+    const half = matrixPower(matrix, n / 2)
+    return matrixMultiply(half, half)
+  } else {
+    return matrixMultiply(matrix, matrixPower(matrix, n - 1))
+  }
+}
+function fibonacci(n) {
+  if (n <= 1) return n
+  const baseMatrix = [
+    [1, 1],
+    [1, 0],
+  ]
+  const resultMatrix = matrixPower(baseMatrix, n)
+  return resultMatrix[0][1]
+}
+console.log(fibonacci(50)) // 12586269025
+```
+
+## 数组扁平化
+
+```js
+// ------------------------------ reduce + concat + isArray + 递归 ------------------------------
+function flatDeep(arr) {
+  return arr.reduce((total, cur) => {
+    total.concat(Array.isArray(cur) ? flatDeep(cur) : cur)
+  }, [])
+}
+
+// ------------------------------ for 循环 + concat + isArray + 递归 ------------------------------
+function flatDeep(arr) {
+  let res = []
+  for (let i = 0; i < arr.length; i++) {
+    if (Array.isArray(arr[i])) {
+      res = res.concat(flatDeep(arr[i]))
+    } else {
+      res.push(arr[i])
+    }
+  }
+  return res
+}
+
+// ------------------------------ 展开运算符 ------------------------------
+function flatDeep(arr) {
+  while (arr.some(Array.isArray)) {
+    arr = [].concat(...arr)
+  }
+  return arr
+}
+
+// ------------------------------ split + toString ------------------------------
+function flatDeep(arr) {
+  return arr.toString().split(",").map(Number)
+}
+
+// ------------------------------ES6 flat  ------------------------------
+function flatDeep(arr) {
+  return arr.flat(Infinity)
+}
+```
+
+## 数组去重
+
+```js
+// ------------------------------ 双重 for 循环 ------------------------------
+function unique(arr) {
+  const res = []
+  for (let i = 0; i < arr.length; i++) {
+    for (let j = 0; j < res.length; i++) {
+      if (arr[i] !== res[j]) continue
+      res.push(arr[i])
+    }
+  }
+}
+
+// ------------------------------ for 循环 + indexOf ------------------------------
+function unique(arr) {
+  let res = []
+  for (let i = 0; i < arr.length; i++) {
+    if (res.indexOf(arr[i]) === -1) {
+      res.push(arr[i])
+    }
+  }
+}
+
+// ------------------------------ for 循环 + includes ------------------------------
+function unique(arr) {
+  const res = []
+  for (let i = 0; i < arr.length; i++) {
+    if (!res.includes(arr[i])) {
+      res.push(arr[i])
+    }
+  }
+  return res
+}
+
+// ------------------------------ ES6 sort + for 循环 ------------------------------
+function unique(arr) {
+  const res = []
+  arr = arr.sort((a, b) => a - b)
+  for (let i = 0; i < arr.length; i++) {
+    if (arr[i] !== arr[i - 1]) {
+      res.push(arr[i])
+    }
+  }
+  return res
+}
+
+// ------------------------------ ES6 filter + indexOf ------------------------------
+function unique(arr) {
+  const res = []
+  arr.filter((c, i) => {
+    return arr.indexOf(c, 0) === i
+  })
+  return res
+}
+
+// ------------------------------ ES6 Set ------------------------------
+function unique(arr) {
+  return [...new Set(arr)]
+}
+function unique(arr) {
+  return Array.from(new Set(arr))
+}
+
+// ------------------------------ Map + filter ------------------------------
+function unique(arr) {
+  const map = new Map()
+  const res = arr.filter((c) => {
+    if (map.get(c)) return false
+    map.set(c, true)
+    return true
+  })
+  return res
+}
+```
+
+## 分时函数的封装
+
+```js
+// ------------------------------ 浏览器端分时 ------------------------------
+function performChunk(arr, taskHandler) {
+  if (typeof arr === "number") {
+    arr = { length: arr }
+  }
+  if (arr?.length) {
+    let i = 0
+    function _run() {
+      if (i >= arr.length) return
+      requestIdleCallback((idle) => {
+        while (idle.timeRemaining() > 0 && i < arr.length) {
+          taskHandler(arr[i], i, arr)
+          i++
+        }
+      })
+    }
+    _run()
+  }
+}
+
+// ------------------------------ 测试 ------------------------------
+performChunk([1, 2, 3], (item, index, arr) => console.log(item, index, arr))
+```
+
+## 递归 & 尾递归
+
+```js
+// 递归:
+//   在函数内部可以调用其他函数; 在一个函数内部调用函数自身, 这个函数就是递归函数
+
+// 尾递归:
+//   在函数尾位置调用自身
+//   可通过优化, 使得计算仅占用常量栈空间
+
+function fibonacci_1(n) {
+  if (n <= 1) {
+    return n
+  }
+  return fibonacci_1(n - 1) + fibonacci_1(n - 2)
+}
+
+// 尾递归实现斐波那契数列
+function fibonacci_2(n, start = 1, total = 1) {
+  if (n <= 2) return total
+  return fibonacci_2(n - 1, total, total + start)
+}
+```
+
+## 手写发布订阅者模式
+
+```js
+// 两种主体: 1. Subject 2. Observer
+
+// 观察者模式
+// 通信方式: 主题直接通知观察者
+// 耦合度: 主题需维护观察者列表
+// 关系: 一对多 (一个主题对应多个观察者)
+// 灵活度: 一般, 适合简单通知
+// 复杂度: 较低, 直接维护列表
+// 典型应用: 数据绑定, 响应式系统
+
+export default class Subject {
+  listeners = []
+
+  subscribe(listener) {
+    this.listeners.push(listener)
+
+    return () => {
+      this.unsubscribe(listener)
+    }
+  }
+
+  unsubscribe(listener) {
+    this.listeners = this.listeners.filter((l) => l !== listener)
+  }
+
+  notify(data) {
+    this.listeners.forEach((listener) => listener(data))
+  }
+}
+```
+
+## 手写实现 EventEmitter
+
+```js
+/**
+ * Event publish/subscribe class
+ *
+ * @export
+ * @class Mitter
+ * @typedef {Mitter}
+ */
+export default class Mitter {
+  /**
+   * Creates an instance of Mitter.
+   *
+   * @constructor
+   * @param {Map<string|symbol, Array<Function>>} [all]
+   */
+  constructor(all) {
+    this.all = all || new Map()
+  }
+
+  /**
+   * All event handlers, handler list as value.
+   *
+   * @type {*}
+   */
+  all
+
+  /**
+   * Register an event handler for the given type.
+   *
+   * @param {string|symbol} type Type of event to listen.
+   * @param {Function} [handler] Function to call in response to given event.
+   */
+  on(type, handler) {
+    const handlers = this.all.get(type)
+    if (handlers) handlers.push(handler)
+    else this.all.set(type, [handler])
+  }
+
+  /**
+   * Remove an event handler for the given type.
+   * If handler is omitted, all handlers of the given type are removed.
+   *
+   * @param {string|symbol} type Type of event to unregister handler.
+   * @param {Function} [handler] Handler function to remove.
+   */
+  off(type, handler) {
+    const handlers = this.all.get(type)
+    if (handlers) {
+      if (handler) {
+        const index = handlers.indexOf(handler)
+        if (index > -1) handlers.splice(index, 1)
+      } else this.all.delete(type)
+    }
+  }
+
+  /**
+   * Remove all event handlers.
+   */
+  offAll() {
+    this.all.clear()
+  }
+
+  /**
+   * Invoke all handlers for the given type.
+   *
+   * @param {string|symbol} type The event type to invoke.
+   * @param {Any} [event] Any value (object is recommended and powerful), passed to each handler.
+   */
+  emit(type, event) {
+    const handlers = this.all.get(type)
+    if (handlers) handlers.slice().forEach((handler) => handler(event))
+  }
+}
+```
+
+## 实现 Promise.all 与 Promise.race
+
+```js
+Promise.all([p1, p2, p3]) // 全部 fulfilled 才 resolve，一个 rejected 即 reject
+Promise.race([p1, p2, p3]) // 取最先 settled 的结果（fulfilled 或 rejected）
+```
+
+**问：** 手写实现两者，并额外实现 `Promise.allSettled`。
+
+<details>
+<summary>参考答案</summary>
+
+```js
+Promise.myAll = function (promises) {
+  return new Promise((resolve, reject) => {
+    const results = []
+    let count = 0
+    const len = promises.length
+
+    if (len === 0) return resolve([])
+
+    promises.forEach((p, i) => {
+      Promise.resolve(p)
+        .then((val) => {
+          results[i] = val
+          if (++count === len) resolve(results)
+        })
+        .catch(reject)
+    })
+  })
+}
+
+Promise.myRace = function (promises) {
+  return new Promise((resolve, reject) => {
+    promises.forEach((p) => {
+      Promise.resolve(p).then(resolve).catch(reject)
+    })
+  })
+}
+
+Promise.myAllSettled = function (promises) {
+  return new Promise((resolve) => {
+    const results = []
+    let count = 0
+    const len = promises.length
+
+    if (len === 0) return resolve([])
+
+    promises.forEach((p, i) => {
+      Promise.resolve(p).then(
+        (value) => {
+          results[i] = { status: "fulfilled", value }
+          if (++count === len) resolve(results)
+        },
+        (reason) => {
+          results[i] = { status: "rejected", reason }
+          if (++count === len) resolve(results)
+        }
+      )
+    })
+  })
+}
+```
+
+</details>
+
+## 实现函数柯里化
+
+```js
+const add = curry((a, b, c) => a + b + c)
+
+add(1)(2)(3) // 6
+add(1, 2)(3) // 6
+add(1)(2, 3) // 6
+```
+
+**问：** 实现通用 `curry` 函数。
+
+<details>
+<summary>参考答案</summary>
+
+```js
+function curry(fn) {
+  return function curried(...args) {
+    if (args.length >= fn.length) {
+      return fn.apply(this, args)
+    }
+    return function (...moreArgs) {
+      return curried.apply(this, args.concat(moreArgs))
+    }
+  }
+}
+```
+
+**`fn.length`** 是函数声明时具名参数的个数，用此判断是否已收集够参数。
+
+**扩展 — 占位符版本：**
+
+```js
+function curry(fn) {
+  const _ = Symbol("placeholder")
+
+  return function curried(...args) {
+    const realArgs = args.filter((a) => a !== _)
+    const missingCount = fn.length - realArgs.length
+
+    if (missingCount <= 0) {
+      return fn.apply(
+        this,
+        args.map((a) => (a === _ ? undefined : a))
+      )
+    }
+    return function (...moreArgs) {
+      const merged = args.map((a) => (a === _ && moreArgs.length ? moreArgs.shift() : a))
+      return curried(...merged, ...moreArgs)
+    }
+  }
+}
+
+// 使用
+const add = curry((a, b, c) => a + b + c)
+add(_, 2)(1)(3) // 6
+```
+
+</details>

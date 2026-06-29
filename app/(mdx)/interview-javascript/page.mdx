@@ -1,0 +1,1397 @@
+# JavaScript
+
+## JavaScript 数据类型
+
+- JS 数据类型主要分为两大类
+- 两者主要区别是存储位置不同
+- 简单数据类型存储在栈中 (复制时, 是创建一份新的数据)
+- 复杂数据类型存储在堆中 (堆中的数据只有一份, 复制时, 复制的是指向数据的地址)
+
+### 简单数据类型
+
+- Number, String, Boolean, Undefined, Null, Symbol
+
+### 复杂/引用数据类型
+
+- Object, Array, Function
+
+## == & === & Object.is()
+
+```js
+// == 和 === 的区别
+
+// ==
+// boolean 和其他比较, 转换为数值再比较
+// 字符串和数值比较, 将字符串转换为数值
+// 对象和其他比较, 调用对象的 valueOf() 方法, 再比较
+// NaN 和其他比较, 返回 false
+// 两个对象, 比较是否为同一个对象
+
+// ===
+// 类型和数值都相等才返回 true
+
+// Object.is()
+// 和 === 类似, 但处理了一些特殊情况
+// +0 和 -0, 返回 false
+// NaN 和 NaN, 返回 true
+
+// == 的隐士类型转换
+"" == "0" // false
+0 == "" // true
+0 == "0" // true
+false == "false" // false
+false == "0" // true
+false == undefined // false
+false == null // false
+null == undefined // true
+;+0 === -0 // false
+NaN === NaN // false
+null === undefined // false
+```
+
+## typeof & instanceof
+
+```js
+// typeof: 返回一个字符串, 表示未经计算的操作数的类型
+typeof 123 // 'number
+typeof "1" // 'string'
+typeof undefined // 'undefined'
+typeof true // 'boolean'
+typeof Symbol() // 'symbol'
+typeof null // 'object'
+typeof [] // 'object'
+typeof {} // 'object'
+typeof console.log // 'function'
+
+// instanceof: 检测构造函数的 prototype 属性是否出现在某个实例对象的原型链上
+let Car = function () {}
+let benz = new Car()
+benz instanceof Car // true
+let car = new String("xxx")
+car instanceof String // true
+let str = "xxx"
+str instanceof String // false
+
+// 区别
+// typeof 和 instanceof 都是判断数据类型的方法
+// typeof 返回一个字符串, instanceof 返回一个布尔值
+// instanceof 可以准确的判断引用数据类型, 不能正确判断基础数据类型
+// typeof 不能判断引用数据类型
+
+// instanceof 实现原理
+function myInstanceof(left, right) {
+  // 基础数据类型直接返回 false
+  if (typeof left !== "object" || left === null) return false
+  // getPrototypeOf 是 Object 对象自带的 API, 能够拿到参数的原型对象
+  let proto = Object.getPrototypeOf(left)
+  while (true) {
+    if (proto === null) return false
+    // 找到相同原型对象, 返回 true
+    if (proto === right.prototype) return true
+    proto = Object.getPrototypeOf(proto)
+  }
+}
+
+// 通用的数据类型判断方法
+function getType(obj) {
+  let type = typeof obj
+  if (type !== "object") {
+    return type
+  }
+  return Object.prototype.toString.call(obj).replace(/^\[object (\S+)\]/, "$1")
+}
+```
+
+## JavaScript 的类型转换
+
+```js
+// 强制转化 (显示转换)
+// 自动转换 (隐式转换)
+
+// 显示转换
+Number() //Undefined => NaN; Null => 0; true => 1; false => 0; Symbol => Thorw s TypeError exception; Object => 调用 toPrimitive, 再调用 toNumber
+parseInt()
+String()
+Boolean()
+
+// 隐式转换
+//   比较运算
+//   算术运算
+```
+
+## 原型 & 原型链
+
+- 对象有 \_\_proto\_\_ 属性, 指向它构造函数的原型对象
+- 函数有 prototype 属性, 指向函数的原型对象
+
+- 构造函数: Person
+- 实例: person
+- 原型: Person.prototype
+
+- person = new Person()
+- Person === Person.prototype.constructor
+- person.\_\_proto\_\_ === Person.prototype
+
+- person.\_\_proto\_\_ === Person.prototype
+- Person.prototype.\_\_proto\_\_ === Object.prototype
+- Object.prototype.\_\_proto\_\_ === null
+- 这样形成的链式结构是原型链
+
+## var & let & const
+
+### 声明
+
+- var: 可以重复声明, 变量的值会被更新
+- let: 不能重复声明
+- const: 不能重复声明, 且生命时必须初始化
+
+### 变量提升
+
+- var: 声明的变量会被提升到作用域顶部, 但初始化不会提升 (即可以在声明之前访问, 但值是 undefined)
+- let, const: 声明的变量也会被提升, 在初始化之前处于 "暂时性死区"(Temporal Dead Zone, TDZ); 即在声明之前访问会报错
+
+### 作用域
+
+- var: 全局作用域, 函数作用域
+- let, const: 全局作用域, 函数作用域, 块作用域
+
+## 作用域 & 作用域链
+
+### 作用域: 变量 (变量作用域又称上下文) 和函数生效 (能被访问) 的区域集合
+
+### 作用域分类
+
+- 全局作用域
+- 函数作用域
+- 块作用域
+
+访问一个变量时, 从当前作用域向外部作用域查找, 直到全局作用域, 这样形成的一个链式结构称为作用域链
+
+## JavaScript 中的执行上下文和执行栈
+
+### 执行上下文 (即作用域)
+
+- 全局执行上下文: 只有一个, 浏览器中的全局对象是 window 对象, this 指向这个全局对象
+- 函数执行上下文: 存在无数个, 只有函数被调用时才会创建, 每次调用都会创建一个新的执行上下文
+- Eval 函数执行上下文: 指 eval 函数中的代码 (不建议使用)
+
+### 执行栈 (调用栈)
+
+- LIFO (后进先出) 结构, 用于存储代码执行期间创建的所有执行上下文
+- JS 引擎执行第一行代码时, 会创建一个全局执行上下文并压入执行栈
+- JS 引擎碰到一个函数时, 会创建一个函数执行上下文并压入执行栈; 函数执行结束后, 对应的上下文会被弹出
+
+## 对 this 的理解
+
+- 谁调用, this 指向谁
+- 箭头函数没有自己的 this
+- 通过 apply, call, bind 绑定 this
+
+## new 操作符
+
+```js
+// new 操作符做了那些工作
+export function myNew(Func, ...args) {
+  // 1. 创建一个空对象
+  const obj = {}
+  // 2. 将新对象的 __proto__ 属性指向构造函数的原型
+  Object.setPrototypeOf(obj, Func.prototype)
+  // 3. 将构造函数的 this 指向新对象
+  const result = Func.apply(obj, args)
+  // 4. 根据返回值判断
+  return result instanceof Object ? result : obj
+}
+
+// ------------------------------ 测试 ------------------------------
+function Person(name, age) {
+  return {
+    name,
+    age,
+    greet() {
+      return `Hello, I'm ${this.name}`
+    },
+  }
+}
+// 使用自定义 new
+const p = myNew(Person, "Alice", 25)
+console.log(p.name) // "Alice"
+console.log(p.age) // 25
+console.log(p.greet()) // "Hello, I'm Alice"
+console.log(p instanceof Person) // true
+```
+
+## apply & call & bind
+
+- apply(this, args[]) 改变 this 后, 立即执行, 临时改变
+- call(this, ...args) 改变 this 后, 立即执行, 临时改变
+- bind(this, ...args) 返回改变 this 后的函数, args 可以分多次传入
+
+| 特性     | call               | apply                | bind                 |
+| -------- | ------------------ | -------------------- | -------------------- |
+| 执行时机 | 立即执行           | 立即执行             | 返回新函数, 延迟执行 |
+| 参数形式 | 展开参数 `1, 2, 3` | 数组参数 `[1, 2, 3]` | 展开参数, 可柯里化   |
+| 支持 new | ❌                 | ❌                   | ✅                   |
+
+```js
+// ------------------------------ apply ------------------------------
+Function.prototype.myApply = function (thisArg, argsArray) {
+  const fn = this
+  thisArg = thisArg || globalThis
+  const symbolKey = Symbol("fn")
+  thisArg[symbolKey] = fn
+  // apply 的参数是数组形式
+  const result = argsArray ? thisArg[symbolKey](...argsArray) : thisArg[symbolKey]()
+  delete thisArg[symbolKey]
+  return result
+}
+
+// ------------------------------ call ------------------------------
+Function.prototype.myCall = function (thisArg, ...args) {
+  // 1. 获取要执行的函数
+  const fn = this
+  // 2. 处理 thisArg (null/undefined 指向 window/global)
+  thisArg = thisArg || globalThis
+  // 3. 将函数作为对象的临时方法
+  const symbolKey = Symbol("fn")
+  thisArg[symbolKey] = fn
+  // 4. 执行并获取结果
+  const result = thisArg[symbolKey](...args)
+  // 5. 清理临时属性
+  delete thisArg[symbolKey]
+  return result
+}
+
+// ------------------------------ bind ------------------------------
+Function.prototype.myBind = function (thisArg, ...bindArgs) {
+  const fn = this
+  // 返回一个绑定函数
+  function boundFn(...callArgs) {
+    // 判断是否是 new 调用
+    const isNew = this instanceof boundFn
+    // new 调用时 this 指向实例, 否则指向绑定的 thisArg
+    const context = isNew ? this : thisArg
+    // 合并参数: bind 时的参数 + 调用时的参数
+    return fn.apply(context, [...bindArgs, ...callArgs])
+  }
+  // 维护原型链, 使 boundFn 能被 new
+  boundFn.prototype = Object.create(fn.prototype)
+  return boundFn
+}
+
+// ------------------------------ 测试 ------------------------------
+const obj = { name: "Alice" }
+function greet(greeting, punctuation) {
+  return `${greeting}, ${this.name}${punctuation}`
+}
+// === apply 测试 ===
+console.log(greet.myApply(obj, ["Hi", "?"])) // "Hi, Alice?"
+// === call 测试 ===
+console.log(greet.myCall(obj, "Hello", "!")) // "Hello, Alice!"
+// === bind 测试 ===
+const boundGreet = greet.myBind(obj, "Hey")
+console.log(boundGreet("!!!")) // "Hey, Alice!!!"
+// bind + new 测试
+function Person(name, age) {
+  this.name = name
+  this.age = age
+}
+const BoundPerson = Person.myBind(null, "Bob")
+const p = new BoundPerson(25)
+console.log(p.name, p.age) // "Bob" 25
+console.log(p instanceof Person) // true
+```
+
+## JavaScript 中的事件模型 & 事件代理
+
+### 事件流经过三个阶段
+
+- 捕获阶段
+- 目标阶段
+- 冒泡阶段
+
+### 事件模型
+
+- 原始事件模型 (DOM0 级)
+- 标准事件模型 (DOM2 级)
+- IE 事件模型 (基本不用)
+
+### 原始事件模型
+
+```html
+<!-- 绑定速度快 -->
+<!-- DOM0 级事件有很好的跨浏览器优势 -->
+<!-- 只支持冒泡, 不支持捕获 -->
+<!-- 同一个类型的事件只能绑定一次 -->
+<!-- 删除 DOM0 级事件处理程序只需要将事件属性设置为 null 即可 -->
+
+<!-- HTML 中直接绑定 -->
+<input type="button" onclick="fun()"></input>
+<!-- 通过 JS 代码绑定 -->
+<script>
+  var btn = document.getElementById('btn');
+  btn.onclick = fun
+</script>
+```
+
+### 标准事件模型
+
+```js
+// 捕获阶段: 事件从 document 到目标元素
+// 处理阶段: 事件到达目标元素
+// 冒泡阶段: 时间从目标元素到 document
+
+// 可以在一个 DOm 上绑定多个事件
+
+addEventListener(eventType, handler, useCapture)
+removeEventListener(eventType, handler, useCapture)
+// eventType: 事件类型, 如 'click'
+// handler: 事件处理函数
+// useCapture: 布尔值, true表示捕获阶段调用, false表示冒泡阶段调用; 一般设置为 false, 与 IE 保持一致
+```
+
+### IE 事件模型
+
+```js
+// 处理阶段: 事件到达目标元素, 触发目标元素的监听函数
+// 冒泡阶段: 目标元素到 document
+attachEvent(eventType, handler) // 绑定
+detachEvent(eventType, handler) // 移除
+```
+
+事件代理/委托:
+
+- 事件委托会把一个或一组元素的事件委托到它的父级或更外层元素上, 真正绑定事件的是外层元素, 而不是目标元素
+
+优点:
+
+- 减少整个页面所需内存, 提升整体性能
+- 动态绑定, 减少重复工作
+
+局限性:
+
+- focus, blur 这些事件没有事件冒泡机制, 所以无法委托
+- mousemove, mouseout 等事件, 虽然有事件冒泡, 但只能不断通过位置去计算定位, 对性能消耗高, 也不适用于事件委托
+
+## JavaScript 中的闭包
+
+```js
+// 一个函数, 返回一个函数
+// 返回的函数使用外部函数中定义的变量
+
+// 使用场景:
+//   创建私有变量
+//   延长变量生命周期
+//   函数柯里化
+```
+
+## JavaScript 实现函数缓存 & 应用场景
+
+- 函数缓存就是将函数运算结果进行缓存
+- 利用空间换时间
+- 函数缓存依靠闭包, 柯里化, 高阶函数
+
+### 使用场景
+
+- 昂贵的函数计算
+- 纯函数
+- 重复输入值的递归函数
+- 有限且重复输入范围的函数
+
+```js
+// ------------------------------ 闭包 ------------------------------
+// 内部函数访问外部函数的变量
+;(function () {
+  let a = 1
+  function add() {
+    const b = 2
+    let sum = b + a
+    console.log(sum)
+  }
+  add()
+})()
+// ------------------------------ 柯里化 ------------------------------
+// 将多参数函数转换为一系列单参数函数
+function add(x, y) {
+  return x + y
+}
+function add2(x) {
+  return function (y) {
+    return x + y
+  }
+}
+// ------------------------------ 高阶函数 ------------------------------
+// 接收函数作为参数或返回其他函数的函数
+function foo() {
+  let a = 2
+  function bar() {
+    console.log(a)
+  }
+  return bar
+}
+let baz = foo()
+baz() // 输出 2
+```
+
+## JavaScript 字符串
+
+JS 字符串常用方法
+
+```js
+let str = "hello world  "
+// 增 (先创建一个副本再操作)
+let str1 = str.concat("!")
+// 删 (先创建一个副本再操作)
+let str2 = str.slice(0, 5)
+let str3 = str.substring(3)
+let str4 = str.substr(3)
+// 改 (先创建一个副本再操作)
+let str5 = str.trim()
+let str6 = str.trimLeft()
+let str7 = str.trimRight()
+let str8 = str.repeat(2) // 复制字符串, 返回拼接后的新字符串
+let str9 = str.padEnd(2, " ") // 复制字符串, 小于指定长度, 填充字符 (默认填充空格)
+let str9 = str.padStart(2, " ") // 复制字符串, 小于指定长度, 填充字符 (默认填充空格)
+let str10 = str.toUpperCase()
+let str11 = str.toLowerCase()
+// 查
+let str12 = str.charAt(1) // e
+let num = str.indexOf("e") // 1
+let num2 = str.lastIndexOf("e") // 1
+let bool1 = str.startsWith("h") // true
+let bool2 = str.endsWith("d") // true
+let bool3 = str.includes("hell") // true
+// 转换
+let str13 = str.split(" ") // ["hello", "world"]
+// 模板匹配方法
+let matches1 = str.match(/e/)
+let pos = str.search(/e/) // 1
+let str14 = str.replace(/e/, "a") // hallo
+```
+
+## JavaScript 数组
+
+JS 数组常用方法
+
+```js
+let arr = [1, 2, 3]
+// 增
+let num1 = arr.push(4, 5) // 5, [1, 2, 3, 4, 5]; 尾部加入两项, 返回数组最新长度
+let num2 = arr.unshift(0) // 6, [0, 1, 2, 3, 4, 5]; 前面加入一项, 返回数组最新长度
+let removed1 = arr.splice(start, deleteCount[, ...args]) // 返回被截取的元素组成的数组; 开始位置, 删除个数, 要添加的元素
+const arr1 = arr.concat(9, [12, 18]) // 返回[0, 6, 8, 1, 2, 3, 4, 5, 9, 12, 18]; 连接数组
+// 删
+let num3 = arr.pop() // 返回 5, [0, 6, 8, 1, 2, 3, 4]; 删除最后一个元素, 返回被删除项
+let num3 = arr.shift() // 返回 0, [6, 8, 1, 2, 3, 4]; 删除第一个元素, 返回被删除项
+let arr2 = arr.splice(start, deleteCount) // 返回被删除的元素组成的数组, 从索引 start 开始删除 deleteCount 个元素
+let arr3 = arr.slice(start, end) // 返回被截取的元素组成的数组, 从索引 start 开始, 到索引 end 结束 (不包括 end)
+// 改
+let arr4 = arr.splice(start, deleteCount[, ...args]) // 返回被删除的元素组成的数组, 从索引 start 开始删除 deleteCount 个元素, 并从 start 开始插入 args
+// 查
+arr.indexOf()
+arr.includes()
+arr.find(callback)
+// 排序
+arr.reverse()
+arr.sort(callback)
+// 转换
+arr.join()
+// 迭代
+arr.some(callback)
+arr.every(callback)
+arr.forEach(callback)
+arr.filter(callback)
+arr.map(callback)
+```
+
+## JavaScript 对象
+
+## JavaScript 函数
+
+函数柯里化
+
+- 柯里化的目的在于避免频繁调用具有相同参数函数的同时, 又能轻松重用
+
+## ES6 Class
+
+```js
+class Parent {
+  constructor(name) {
+    this.name = name
+  }
+  printName() {
+    console.log(this.name)
+  }
+}
+
+class Child extends Parent {
+  constructor(name, age) {
+    super(name)
+    this.age = age
+  }
+  printAge() {
+    console.log(this.age)
+  }
+}
+```
+
+## ES6 Set & Map
+
+## ES6 Proxy
+
+## ES6 Promise
+
+## ES6 Module
+
+## ES6 Generator
+
+## ES6 Decorator
+
+## JavaScript 任务队列 & 事件循环
+
+### 任务队列
+
+宏任务队列
+
+- 全局代码, setTimeout, setInterval, setImmediate, I/O (Node.js), UI rendering
+
+微任务队列
+
+- Promise.then, MutationObserver, process.nextTick(Node.js 环境)
+
+### 事件循环
+
+1. 执行一个宏任务
+2. 执行过程, 遇到宏任务放到宏任务队列, 遇到微任务放到微任务队列
+3. 当前宏任务执行完毕, 检查微任务队列, 并执行所有微任务
+4. 微任务执行完毕, 开始下一轮事件循环, 执行下一个宏任务
+
+## JavaScript 本地存储
+
+### cookie
+
+- 不超过 4KB
+- 由 name, value 和其他几个用于控制 cookie 有效期, 安全性, 使用范围
+- 每次请求都会携带在 HTTP 头部
+
+### sessionStorage
+
+- 与 localStorage 不同的是, 页面关闭自动清除
+
+### localStorage
+
+- HTML5 新方法, IE8 及以上浏览器兼容
+- 持久化本地存储
+- 大小: 5MB 左右
+- 受同源策略限制
+- 本质对字符串读取, 存储内容过多会消耗内存空间, 导致页面变卡
+
+### indexDB
+
+- 一种低级 API, 用于客户端存储大量结构化数据(包括文件/Blob)
+- 存储量理论无上限
+- 所有操作都是异步的
+- 原生支持存储 JS 对象
+
+## 防抖 (debounce) & 节流 (throttle)
+
+```js
+// 防抖: 执行最后一次
+function debounce(func, wait) {
+  let timeout
+  return function (...args) {
+    const context = this
+    clearTimeout(timeout)
+    timeout = setTimeout(() => func.apply(context, args), wait)
+  }
+}
+// 节流: 执行第一次
+function throttle(func, wait) {
+  let timeout
+  return function (...args) {
+    if (timeout) return
+    clearTimeout(timeout)
+    func.apply(this, args)
+    timeout = setTimeout(() => (timeout = 0), wait)
+  }
+}
+```
+
+## JavaScript 正则
+
+### 设计思想
+
+- 用一种描述性的语言定义一个规则, 凡是符合规则的字符串, 就认为是符合条件的, 反之则不符合
+- JS 中, 正则表达式也是对象
+
+### 创建方式
+
+- const re = /\d+/g
+- const re = new RegExp('\\d+', 'g')
+
+## 对 DOM 的理解
+
+- DOM (文档对象模型) 是 HTML 和 XML 文档的编程接口
+- 任何 HTML 或 XML 文档都可以用 DOM 表示为一个由节点构成的层级结构
+- DOM 的顶级对象是 document
+
+### 常见 DOM 操作
+
+- 创建
+- 查询
+- 更新
+- 添加
+- 删除
+
+```js
+// 创建
+document.creteElement("div")
+document.createTextNode("content")
+document.createDocumentFragment()
+document.createAttribute("custom")
+// 获取
+document.querySelector(".element")
+document.querySelectorAll("p") // 返回一个 NodeList (伪数组)
+document.getElementById("id")
+document.getElementsByClassName("className")
+document.getElementsByTagName("div")
+document.getElementsByName("name")
+document.documentElement // 获取页面的 html 标签
+document.body // 获取页面的 body 标签
+Element.parentNode
+Element.childNodes
+Element.firstChild
+Element.lastChild
+Element.nextSibling
+Element.previousSibling
+// 更新
+Element.innerHtml = "12312"
+Element.innerText = "123" // 不返回隐藏元素的文本
+Element.textContent = "1234" // 返回所有文本
+Element.style.color = "#f00"
+// 添加
+Element.innerHtml = "<span>child</span>"
+Element.appendChild(document.creteElement("div"))
+Element.insertBefore(newElement, referenceElement)
+Element.setAttribute("class", "white")
+// 删除
+Element.parentElement.remove(Element)
+```
+
+## AJAX 原理 & 实现
+
+AJAX (Async JavaScript and XML/异步 JS 和 XML)
+
+### AJAX 原理
+
+1. 通过 XMLHttpRequest 对象来向服务器发异步请求
+2. 获取服务器数据
+3. 用 JS 操作 DOM 更新页面
+
+### 实现过程
+
+1. 创建 AJAX 的核心对象 XMLHttpRequest 对象
+2. 通过 XMLHttpRequest 对象的 open() 方法与服务端建立连接
+3. 构建请求所需的数据内容, 通过 XMLHttpRequest 对象的 send() 方法发送给服务器
+4. 通过 XMLHttpRequest 对象的 onreadystatechange 事件监听服务器的通信状态
+5. 接受并处理服务端向客户端响应的数据
+6. 将结果更新到 HTML 页面中
+
+```js
+// 封装 AJAX
+function ajax(options) {
+  // 创建 XMLHttpRequest 对象
+  const xhr = new XMLHttpRequest()
+  // 初始化参数内容
+  options = options || {}
+  options.type = (options.type || "GET").toUpperCase()
+  options.dataType = options.dataType || "json"
+  const params = options.data
+  // 发送请求
+  if (options.type === "GET") {
+    xhr.open("GET", options.url + "?" + params, true)
+    xhr.send(null)
+  } else if (options.type === "POST") {
+    xhr.open("POST", options.url, true)
+    xhr.send(params)
+  }
+  xhr.onreadystatechange = function () {
+    if (xhr.readyState === 4) {
+      let status = xhr.status
+      if (status >= 200 && status < 300) {
+        options.success && options.success(xhr.responseText, xhr.responseXML)
+      } else {
+        options.fail && options.fail(status)
+      }
+    }
+  }
+}
+// 使用 ajax
+ajax({
+  type: "post",
+  dataType: "json",
+  data: {},
+  url: "https://xxxx",
+  success(text, xml) {
+    // 成功的回调
+    console.log(text)
+  },
+  fail(status) {
+    // 失败的回调
+    console.log(status)
+  },
+})
+```
+
+## JavaScript 内存泄露的几种情况
+
+- 意外的全局变量
+- 定时器
+- 没有清理的 DOM 元素引用
+
+### 垃圾回收机制
+
+- 标记清除
+- 引用计数
+
+### 标记清除
+
+- 变量进入执行环境时, 被标记为进入环境
+- 变量离开执行环境时, 被标记为离开环境
+- 回收那些被标记为离开环境的变量
+
+### 引用计数
+
+- 跟踪记录每个值被引用的次数
+- 如果引用次数为 0, 则回收其占用的内存空间
+- 如果引用次数不为 0, 则不回收其占用的内存空间
+
+## JavaScript 实现继承
+
+继承是面向对象中的一个概念
+
+### 继承的优点
+
+- 继承可以使子类具有父类的各种属性和方法
+
+### 继承的实现方式
+
+- 原型链继承
+- 构造函数继承
+- 组合继承
+- 原型式继承
+- 寄生式继承
+- 寄生组合式继承
+
+```js
+// ------------------------------ 原型链继承 ------------------------------
+// 实例共享一个原型对象, 内存空间共享
+function Parent1() {
+  this.name = "parent1"
+  this.play = [1, 2, 3]
+}
+function Child1() {
+  this.type = "child1"
+}
+Child1.prototype = new Parent1()
+const child1_1 = new Child1()
+console.log(child1_1) // Child1 { type: 'child' }
+console.log(child1_1.name) // parent
+const child1_2 = new Child1()
+const child1_3 = new Child1()
+child1_2.play.push(4)
+// 改变 child1_2 的 play 属性, child1_3 也跟着变化了
+console.log(child1_2.play, child1_3.play) // [ 1, 2, 3, 4 ] [ 1, 2, 3, 4 ]
+
+// ------------------------------ 构造函数继承 ------------------------------
+// 借助 call 调用 Parent 函数
+// 父类的引用属性不会被共享
+// 只能继承父类的实例属性和方法, 不能继承原型属性和方法
+function Parent2() {
+  this.name = "parent2"
+  this.play = [1, 2, 3]
+}
+Parent2.prototype.getName = function () {
+  return this.name
+}
+function Child2() {
+  Parent1.call(this)
+  this.type = "child2"
+}
+let child2_1 = new Child2()
+console.log(child2_1)
+console.log(child2_1.getName()) // 报错
+
+// ------------------------------ 组合继承 ------------------------------
+// 原型链继承结合构造函数继承
+// Parent3() 执行了两次, 造成了多构造一次的性能开销
+function Parent3() {
+  this.name = "parent3"
+  this.play = [1, 2, 3]
+}
+Parent3.prototype.getName = function () {
+  return this.name
+}
+function Child3() {
+  Parent1.call(this) // 第二次调用 Parent3()
+  this.type = "child3"
+}
+Child3.prototype = new Parent3() // 第一次调用 Parent3()
+Child3.prototype.constructor = Child3
+const child3_1 = new Child3()
+const child3_2 = new Child3()
+child3_1.play.push(4)
+console.log(child3_1.play, child3_2.play) // [1, 2, 3, 4], [1, 2, 3]
+console.log(child3_1.getName()) // parent3
+
+// ------------------------------ 原型式继承 ------------------------------
+// 借助 Object.create 实现普通对象的继承
+// Object.create 方法实现的是浅拷贝, 多个实例的引用类型属性指向相同的内存, 存在篡改的可能
+let parent4 = {
+  name: "parent4",
+  friends: ["p1", "p2", "p3"],
+  getName() {
+    return this.name
+  },
+}
+let person4_1 = Object.create(parent4)
+person4_1.name = "tom"
+person4_1.friends.push("jerry")
+let person4_2 = Object.create(parent4)
+person4_2.friends.push("lucy")
+console.log(person4_2.name) // parent4
+console.log(person4_2.friends) // ['p1', 'p2', 'p3', 'jerry', 'lucy']
+
+// ------------------------------ 寄生式继承 ------------------------------
+// Object.create 方法实现的是浅拷贝, 多个实例的引用类型属性指向相同的内存, 存在篡改的可能
+let parent5 = {
+  name: "parent5",
+  friends: ["p1", "p2", "p3"],
+  getName() {
+    return this.name
+  },
+}
+function clone(original) {
+  let clone = Object.create(original)
+  clone.getFriends = function () {
+    return this.friends
+  }
+  return clone
+}
+let person5 = clone(parent5)
+console.log(person5.getName()) // parent5
+console.log(person5.getFriends()) // ['p1', 'p2', 'p3']
+
+// ------------------------------ 寄生组合式继承 ------------------------------
+// 相对最优的继承方式
+// ES6 的 extends 关键字也是使用寄生组合式实现的
+function clone(parent, child) {
+  child.prototype = Object.create(parent.prototype)
+  child.prototype.constructor = child
+}
+function Parent6() {
+  this.name = "parent6"
+  this.friends = ["p1", "p2", "p3"]
+}
+Parent6.prototype.getName = function () {
+  return this.name
+}
+function Child6() {
+  Parent6.call(this)
+  this.friends = "child6"
+}
+clone(Parent6, Child6)
+Child6.prototype.getFriends = function () {
+  return this.friends
+}
+let person6 = new Child6()
+console.log(person6)
+console.log(person6.getName())
+console.log(person6.getFriends())
+```
+
+## 判断一个元素是否在可视区域
+
+### 实现方式
+
+- offsetTop, scrollTop
+- getBoundingClientRect
+- IntersectionObserver
+
+```js
+// offsetTop, scrollTop
+function isInViewport(el) {
+  const viewportHeight =
+    window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight
+  const offsetTop = el.offsetTop
+  const scrollTop = document.documentElement.scrollTop || document.body.scrollTop
+  const top = offsetTop - scrollTop
+  return top <= viewportHeight
+}
+
+// getBoundingClientRect
+function isInViewport(element) {
+  const rect = element.getBoundingClientRect()
+  return (
+    rect.top >= 0 &&
+    rect.left >= 0 &&
+    rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+    rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+  )
+}
+
+// IntersectionObserver
+const observe = new IntersectionObserver(
+  (entries, observe) => {
+    entries.forEach((entry) => {
+      entry.time // 触发时间
+      entry.rootBounds // 根元素的位置矩形, 这种情况下为视窗位置
+      entry.boundingClientRect // 目标元素的位置矩形
+      entry.intersectionRatio // 目标元素与根元素的交集区域占目标元素的比例
+      entry.target // 目标元素
+      entry.intersectionRect // 目标元素与根元素的交集区域
+    })
+  },
+  {
+    // 表示重叠面积占被观察者的比例, 从 0-1, 1表示被完全包容
+    threshold: 1.0,
+    root: document.querySelector("#scrollArea"),
+  }
+)
+observe.observe(document.querySelector("#targetElement"))
+```
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+---
+
+## 对 BOM 的理解
+
+```js
+// BOM (Browser Object Model: 浏览器对象模型) <br/>
+// 提供了独立于内容与浏览器窗口进行交互的对象 <br/>
+// 浏览器的交互效果, 页面的前进 & 后退 & 刷新, 浏览器窗口变化, 滚动条滚动, 客户端信息等 <br/>
+// BOM 的顶级对象是 window
+
+// 常见 BOM 对象
+//   window
+//   location
+//   navigator
+//   screen
+//   history
+
+// window
+// BOM 的核心对象是 window, 它表示一个浏览器实例
+// 浏览器中, window 对象既是浏览器窗口的一个接口, 又是全局对象
+// 全局作用域中声明的变量 & 函数都会变成 window 对象的属性和方法
+let name = "BOM"
+function lookName() {
+  alert(this.name)
+}
+
+console.log(window.name) // BOM
+lookName() // BOM
+window.lookName() // BOM
+// 窗口控制
+window.moveBy(x, y)
+window.moveTo(x, y)
+window.resizeBy(w, h)
+window.resizeTo(w, h)
+window.scrollTo(x, y)
+window.scrollBy(x, y)
+// 可以导航到一个特定的 url, 也可以打开一个新的浏览器窗口
+// 如果 window.open() 传递了第二个参数, 且该参数是已有窗口或框架的名称, 那么就会在目标窗口加载第一个参数指定的 URL
+// window.open() 会返回新窗口的引用, 也就是新窗口的 window 对象
+const myWin = window.open("http://www.vue3js.cn", "myWin")
+// 新创建的 window 对象有一个 opener 属性, 该属性指向打开他的原始窗口对象
+window.close() // 仅用于通过 window.open() 打开的窗口
+
+// location
+// 除了 hash 之外, 只要修改 location 的一个属性就会导致页面重新加载
+// http://foouser:barpassword@wwww.wrox.com:80/WileyCDA/?q=javascript#contents
+// location 属性描述
+// hash          #contents          url 中 # 后面的字符, 没有则返回空串
+// host          www.wrox.com:80    域名和端口号
+// hostname      www.wrox.com       域名, 不带端口
+// href                             完整 url
+// pathname      /WileyCDA/         服务器下面的文件路径
+// port          80                 url 的端口号, 没有则为空
+// protocol      http:              使用的协议
+// search        ?q=javascript      url 的查询字符串, 通常为 ? 后面的内容
+
+// navigator
+// 主要用来获取浏览器的属性, 区分浏览器类型, 属性较多, 且兼容性比较复杂
+
+// screen
+// 客户端显示器信息
+
+// history
+// 主要用来操作浏览器的 URL 历史记录
+history.go() // 跳转到指定页面或前进/后退
+history.forward() // 向前跳转
+history.back() // 向后跳转
+history.length // 获取历史记录数
+```
+
+## window 对象频繁绑定内容的风险
+
+### 全局变量污染
+
+- 命名冲突
+
+### 内存泄露
+
+- 阻止垃圾回收
+
+### 安全风险
+
+- XSS 攻击向量
+
+### 性能问题
+
+- 查找性能下降
+- 内存占用增加
+
+### 维护困难
+
+- 全局状态难以管理
+
+### 优化方案
+
+- 命名空间
+- 立即执行函数
+- 使用模块化开发
+- 严格模式
+- 使用 Storage API 缓存数据
+- 使用 WeakMap 避免内存泄露
+
+## 浏览器 URL 变化到页面渲染的过程
+
+1. 解析 URL 是否合法
+2. DNS 解析
+3. TCP 连接 (三次握手)
+4. TCP 连接成功, 发送请求
+5. 服务器收到请求, 处理请求并返回响应
+6. 浏览器收到 http 响应
+7. TCP 连接关闭 (四次挥手)
+8. 浏览器解析响应
+9. 渲染页面
+
+<details>
+<summary>参考答案</summary>
+
+1. **URL 解析**：浏览器判断输入是搜索词还是 URL
+2. **DNS 解析**：
+   - 浏览器 DNS 缓存 → OS 缓存 → hosts 文件 → 本地 DNS → 根域名服务器 → 顶级域名 → 权威域名
+   - 预解析：`<link rel="dns-prefetch">` 提前解析
+3. **TCP 连接**：三次握手 (SYN → SYN+ACK → ACK)
+4. **TLS 握手** (HTTPS) ：
+   - TLS 1.2：RSA 密钥交换或 ECDHE, 2-RTT
+   - TLS 1.3：1-RTT, 支持 0-RTT 恢复
+5. **发送 HTTP 请求**：
+   - 请求行 + 请求头 (Cookie、Cache-Control、If-Modified-Since 等)
+6. **服务器处理 & 响应**：
+   - 协商缓存命中 → 304 Not Modified
+   - 强缓存命中 (Expires / Cache-Control max-age 未过期) → 浏览器直接使用本地缓存, 不发送请求
+7. **浏览器解析渲染**：
+   - **HTML → DOM Tree**：字节 → 字符 → Token → Node → DOM
+   - **CSS → CSSOM**：并行解析, 但 CSS 阻塞渲染
+   - **JS 执行**：阻塞 DOM 解析 (`<script>` 默认同步) , `defer` / `async` 改变时机
+   - **Render Tree**：DOM + CSSOM 合并, `display: none` 的元素不进入
+   - **Layout (回流)**：计算几何信息 (位置、大小)
+   - **Paint (重绘)**：像素化
+   - **Composite (合成)**：GPU 合成层, `transform` / `opacity` 可跳过 Layout 和 Paint
+8. **事件绑定 & 交互就绪**
+
+</details>
+
+## TCP 连接 (三次握手, 四次挥手)
+
+### TCP连接: 三次握手
+
+1. 第一次握手: 客户端发送 SYN 报文
+2. 第二次握手: 服务器发送 SYN ACK 报文
+3. 第三次握手: 客户端发送 ACK 报文
+
+### TCP连接关闭: 四次挥手
+
+1. 第一次挥手: 客户端发送 FIN 报文
+2. 第二次挥手: 服务器发送 ACK 报文
+3. 第三次挥手: 服务器发送 FIN 报文
+4. 第四次挥手: 客户端发送 ACK 报文
+
+## 对 DNS 协议的理解
+
+DNS (domain name system): 将域名映射到 IP 上
+
+### 域名解析过程
+
+1. 用户输入域名
+2. 检查自身 DNS 缓存
+3. 操作系统 DNS 缓存
+4. 本地域名服务器
+5. 根据本地 DNS 服务器去找根 DNS 服务器, 顶级域名服务器 (TLD), 权威 DNS 服务器
+6. 返回结果, 浏览器缓存并向 IP 发送请求
+
+### DNS 记录类型
+
+- A 记录: 将域名映射到 IPv4 域名
+- AAAA记录: 将域名映射到 IPv6 地址
+- CNAME 记录: 将域名映射到另一个域名
+- MX 记录: 指定邮件服务器
+- TXT 记录: 文本信息存储, 域名验证 SPF 记录
+
+### DNS 常见问题
+
+- DNS 解析慢: DNS 预解析; 使用 CDN; 减少外部资源请求; 自己的域名 + OSS + CDN
+- DNS 劫持: HTTPS 协议; DESSEC (DNS 安全拓展)
+
+### 优化
+
+- DNS 缓存
+- nslookup
+- dig
+
+## 浏览器渲染流程
+
+1. 通过网络请求获取 HTML 文件
+2. 解析 HTML, 构建 DOM 树
+3. 解析 CSS, 构建 CSSOM 树
+4. 执行 JS, 可能修改 DOM 树和 CSSOM 树
+5. 合并 DOM 树和 CSSOM 树 => 生成渲染树
+6. 布局: 计算每个元素的位置和大小
+7. 绘制: 将元素绘制到屏幕上
+
+## 跨域解决方案
+
+```js
+// 浏览器的一种安全机制, 保护用户数据安全 <br/>
+// 同源: 协议, 域名, 端口号全都相同
+// 跨域解决方案:
+//   1. JSONP
+//   2. CORS
+//   3. 反向代理
+
+// JSONP
+// 跨域早期解决方案
+// 通过 script 标签的 src 属性不受同源策略限制实现跨域请求
+// JSONP 的基本原理: 服务器返回一个 JavaScript 函数调用, 客户端通过动态创建 script 标签来执行这个函数
+
+// CORS
+// 现代跨域的解决方案
+// 通过在服务器端设置特定的 HTTP 头, 来允许浏览器进行跨域请求
+// Access-Control-Allow-Origin: 允许的域名
+// Access-Control-Allow-Methods: 允许的请求方法
+// Access-Control-Allow-Headers: 允许的请求头
+
+// 反向代理
+// 原理: 跨域是浏览器的安全策略, 服务器与服务器之间不存在跨域
+```
+
+## Cookie 携带
+
+```js
+// 前端
+fetch(url, { credentials: 'include' })
+axios.defaults.withCredentials = true
+
+// 后端
+Access-Control-Allow-Origin: http://localhost:3000  // 不能用 *
+Access-Control-Allow-Credentials: true
+Set-Cookie: token=xxx; SameSite=None; Secure; Path=/
+```
+
+## Token 刷新并发处理
+
+```js
+let isRefreshing = false
+let pendingRequests = []
+
+async function request(config) {
+  try {
+    return await axios(config)
+  } catch (err) {
+    if (err.response?.status === 401) {
+      if (!isRefreshing) {
+        isRefreshing = true
+        const newToken = await refreshToken()
+        isRefreshing = false
+        pendingRequests.forEach((cb) => cb(newToken))
+        pendingRequests = []
+        config.headers.Authorization = `Bearer ${newToken}`
+        return axios(config)
+      }
+      // 并发请求等待
+      return new Promise((resolve) => {
+        pendingRequests.push((token) => {
+          config.headers.Authorization = `Bearer ${token}`
+          resolve(axios(config))
+        })
+      })
+    }
+    throw err
+  }
+}
+```
+
+## 前端安全 (Web 常见攻击方式 & 防御)
+
+```js
+// 确保网页应用程序在客户端的安全性, 防止各种攻击和漏洞利用
+// 常见攻击方式:
+//   跨站脚本攻击 (XSS)
+//   跨站请求伪造 (CSRF)
+//   点击劫持 (ClickJacking)
+
+// 跨站脚本攻击 (XSS)
+// 原理:
+//   通过在网页中注入恶意脚本, 窃取用户信息
+// 防护措施:
+//   输入验证 & 输出编码: 对用户输入进行验证; 对输出到页面的内容进行编码
+//   内容安全策略 (CSP): 设置 HTTP 头 Content-Security-Policy, 限制页面中可执行的脚本来源
+
+// 跨站请求伪造 (CSRF)
+// 原理:
+//   伪造用户请求
+// 防护措施:
+//   使用 CSRF 令牌: 每个表单或请求中加入唯一的 CSRF 令牌, 并在服务端验证, 确保请求是合法用户发起的
+//   SameSite Cookie 属性: 设置 Cookie 的 SameSite 属性为 Strict 或 Lax, 限制 Cookie 在跨站请求中的发送
+
+// 点击劫持 (ClickJacking)
+// 原理:
+//   通过在页面覆盖透明的 iframe, 诱使用户点击
+// 防护措施:
+//   使用 X-Frame-Options 头: 设置 HTTP 头 X-Frame-Options: DENY; 使用 Content Security Policy, 设置 frame-ancestors, 指定页面可以被嵌入的来源
+```
+
+## 前端路由模式
+
+### hash 模式
+
+原理:
+
+- URL 结构: Hash 模式的 URL 形如: http://example.com/#/path, # 后面的部分称为哈希值
+- 事件监听: 浏览器提供了 hashChange 事件, URL 中的哈希值变化时, 触发该事件 (前端通过监听这个事件实现路由功能)
+- 路由匹配: 哈希值变化时, 前端路由会解析新的哈希值, 并根据预定义的路由表来匹配相应的组件或页面
+- Hash 模式利用 URL 中的哈希符号 (#) 模拟一个完整的 URL, 实现页面的导航而不重新加载页面
+- 哈希值不被包含在 http 请求中 (即哈希值变化, 页面不会重加载, 但浏览器的 URL 会发生变化)
+
+优点:
+
+- 兼容性高, 支持低版本浏览器和 IE 浏览器
+- 无需服务端配置 (因为哈希值不会被发送到服务器)
+
+缺点:
+
+- URL 不美观 (URL 中包含 #, 影响 URl 的美观性)
+- SEO 不友好 (哈希值不被包含在 http 请求中, 不会被发送到服务器, 搜索引擎爬虫可能无法正确索引这些页面)
+
+### history 模式
+
+原理:
+
+- popState(): 历史记录改变时, 会触发 popState 事件 (监听这个事件实现路由功能)
+- pushState(stateObject, title, url): 将新的状态推入历史记录栈, 并可选的改变当前 URL
+- replaceState(stateObject, title, url): 替换当前的历史记录栈的状态, 而不是新增一个记录
+
+优点:
+
+- URL 美观: URL 中没有 #
+- 更好的用户体验: 用户可以使用浏览器的前进和后退按钮, 不会导致页面重新加载
+- SEO 友好: URL 是标准的路径格式, 容易被搜索引擎索引
+
+缺点:
+
+- 需要服务端支持: URl 是真实路径, 服务器需要进行相应配置
+- 兼容性问题: 现代浏览器都支持 History API, 部分浏览器可能不支持
+
+## SEO 优化
+
+- 页面结构优化: 语义化标签
+- meta, title 优化
+- 内容优化: 保证页面中关键词的覆盖率
+- 技术项 SEO 优化: robots.txt, 结构化数据, 移动端兼容处理
+
+## clientWidth & clientHeight & clientLeft & clientTop
+
+### clientWidth
+
+- 只读; 元素的内部宽度, 单位为像素
+- 包含 content, padding; 不包含 border, margin 及垂直滚动条
+- 内联元素的 clientWidth 为 0
+
+### clientHeight
+
+- 只读; 元素的内部高度, 单位为像素
+- 包含 content, padding; 不包含 border, margin 及垂直滚动条
+- 内联元素的 clientHeight 为 0
+
+### clientLeft
+
+- 只读; 元素左边框的宽度, 单位为像素
+- 不包含 padding & margin
+- 如果元素的文本方向是从右向左 (RTL, right-to-left), 并且由于内容溢出导致左边出现了一个垂直滚动条, 则该属性包括滚动条的宽度
+
+### clientTop
+
+- 只读; 元素顶边框的宽度, 单位为像素
+- 不包含 padding & margin
+
+## offsetWidth & offsetHeight & offsetLeft & offsetTop
+
+### offsetWidth
+
+- 只读; 元素的布局宽度, 单位像素
+- 包含 CSS 设置的 width, padding, border 及竖直方向滚动条的宽度
+- 各浏览器的 offsetWidth 可能有所不同
+
+### offsetHeight
+
+- 只读; 元素的布局高度, 单位像素
+- 包含 CSS 设置的 height, padding, border 及竖直方向滚动条的宽度
+- 如果元素被隐藏则返回 0
+
+### offsetLeft
+
+- 只读; 元素左上角相对于父元素左边界的偏移
+- 如果元素被隐藏则返回 0
+
+### offsetTop
+
+- 只读; 元素相对于父元素顶部内边距的距离
+- 如果元素被隐藏则返回 0
+
+## scrollWidth & scrollHeight & scrollLeft & scrollTop
+
+### scrollWidth
+
+- 只读; 元素内容宽度的度量, 包括由于溢出导致的视图不可见内容
+- 没有水平滚动条的情况下, scrollWidth 值与元素视图填充所有内容所需要的最小值 clientWidth 相同
+
+### scrollHeight
+
+- 只读; 元素内容高度的度量, 包括由于溢出导致的视图不可见内容
+- 没有垂直滚动条的情况下, scrollHeight 值与元素视图填充所有内容所需要的最小值 clientHeight 相同
+
+### scrollLeft
+
+- 可读可设置; 一个元素的内容水平滚动的像素数 (滚动条到元素左边的距离)
+
+### scrollTop
+
+- 可读可设置; 一个元素的内容垂直滚动的像素数 (滚动条到元素上边的距离)

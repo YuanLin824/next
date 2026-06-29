@@ -1,0 +1,119 @@
+# Mongo
+
+## 使用 Docker 命令创建 Mongo 容器
+
+```shell
+# 拉取镜像
+docker pull mongo:7-jammy
+
+mkdir /mongo
+mkdir /mongo/conf
+mkdir /mongo/data
+mkdir /mongo/log
+
+docker run -d -p '27017:27017' --name mongo -e TZ=Asia/Shanghai -e PGTZ=Asia/Shanghai -e MONGO_INITDB_DATABASE=admin -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=mongo123 - /mongo/conf:/data/configdb - /mongo/data:/data/db - /mongo/log:/var/log/mongodb mongo:7-jammy
+
+# Windows 使用 Docker 创建 Mongo 容器
+mkdir C:/Soft/DockerData/mongo
+mkdir C:/Soft/DockerData/mongo/conf
+mkdir C:/Soft/DockerData/mongo/data
+mkdir C:/Soft/DockerData/mongo/log
+
+docker run -d -p '27017:27017' --name mongo -e TZ=Asia/Shanghai -e PGTZ=Asia/Shanghai -e MONGO_INITDB_DATABASE=admin -e MONGO_INITDB_ROOT_USERNAME=admin -e MONGO_INITDB_ROOT_PASSWORD=mongo123 - C:/Soft/DockerData/mongo/conf:/data/configdb - C:/Soft/DockerData/mongo/data:/data/db - C:/Soft/DockerData/mongo/log:/var/log/mongodb mongo:7-jammy
+
+# 1. 进入运行中的容器
+# 通过 db_name 参数可以指定进入的数据库
+docker exec -it mongo mongosh [db_name] -u admin -p mongo123 --authenticationDatabase admin
+docker exec -it mongo mongosh [db_name] -u nest_app -p mongo123 --authenticationDatabase nest_app_db
+# 2. 容器外测试 (不进入容器)
+docker exec -it mongo mongosh --eval "db.adminCommand('ping')"
+# 3. 测试认证 + 指定库
+docker exec -it mongo mongosh db_name -u username -p password --eval "db.getName()"
+
+mongosh "mongodb://username:password@localhost:27017/db_name?authSource=db_name"
+```
+
+## 使用 Docker-Compose 编排 Mongo 容器
+
+```sh
+# ./mongo.sh
+
+#!/bin/bash
+set -e
+
+# | 角色      | 权限                      |
+# | --------- | ------------------------- |
+# | root      | 超级管理员, 所有权限      |
+# | dbAdmin   | 数据库管理 (索引, 统计等) |
+# | readWrite | 读写权限                  |
+# | read      | 只读权限                  |
+# | userAdmin | 用户管理权限              |
+
+echo "========== MongoDB 初始化 =========="
+
+mongosh admin --eval "
+  print('========== 创建数据库 ==========')
+  db = db.getSiblingDB('${MONGO_APP_DATABASE}');
+  db.createCollection('init');
+  db.init.insertOne({ initializedAt: new Date(), db: '${MONGO_APP_DATABASE}' });
+
+  print('========== 创建读写用户 ==========')
+  db.createUser({
+    user: '${MONGO_APP_USERNAME}',
+    pwd: '${MONGO_APP_PASSWORD}',
+    roles: [
+      { role: 'readWrite', db: '${MONGO_APP_DATABASE}' },
+      { role: 'dbAdmin', db: '${MONGO_APP_DATABASE}' },
+    ],
+  });
+
+  print('========== 创建只读用户 ==========')
+  db.createUser({
+    user: '${MONGO_APP_USERNAME}_readonly',
+    pwd: '${MONGO_APP_PASSWORD}',
+    roles: [{ role: 'read', db: '${MONGO_APP_DATABASE}' }],
+  });
+"
+
+echo "========== MongoDB 初始化完成 =========="
+```
+
+```yml
+# ./docker-compose.yml
+
+# 默认自动读取 .env 中的环境变量
+# 手动指定环境变量: docker compose -f docker-compose.yml --env-file .env.dev up -d
+
+name: nest
+
+services:
+  mongo:
+    image: mongo:6-jammy
+    container_name: mongo_nest
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    environment:
+      TZ: Asia/Shanghai
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: mongo123
+      MONGO_APP_USERNAME: ${MONGO_USERNAME:-nest}
+      MONGO_APP_PASSWORD: ${MONGO_PASSWORD:-mongo123}
+      MONGO_APP_DATABASE: ${MONGO_DATABASE:-nest_db}
+    volumes:
+      - mongo_conf:/data/configdb
+      - mongo_data:/data/db
+      - mongo_log:/var/log/mongodb
+      - ./mongo.sh:/docker-entrypoint-initdb.d/mongo.sh:ro
+    restart: unless-stopped
+
+volumes:
+  mongo_conf:
+  mongo_data:
+  mongo_log:
+```
+
+## Mongo Command
+
+```shell
+
+```

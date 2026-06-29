@@ -1,0 +1,1003 @@
+# CSS
+
+## CSS 选择器
+
+| 名称            | 权重       |
+| --------------- | ---------- |
+| 继承样式/通配符 | 0, 0, 0, 0 |
+| 元素 (标签)     | 0, 0, 0, 1 |
+| 类/伪类/属性    | 0, 0, 1, 0 |
+| ID              | 0, 1, 0, 0 |
+| 行内样式        | 1, 0, 0, 0 |
+| !important      | 无穷大     |
+
+```css
+/** 👇 基本选择器 👇 */
+/* 通配符选择器 */
+* {
+}
+/* 元素/标签选择器 */
+div {
+}
+/* 类选择器 */
+.className {
+}
+/* id 选择器 */
+#id {
+}
+/* 属性选择器 */
+[href="http://www.google.com"] {
+}
+/** 👇 CSS 伪类选择器 👇 */
+/* 顺序: link > visited > hover > active */
+a:link {
+}
+a:visited {
+}
+a:hover {
+}
+a:active {
+}
+a:focus {
+}
+/** 👇 CSS 伪元素选择器 👇 */
+/* 区块容器第一行第一个字母 */
+p::first-letter {
+}
+/* 区块容器第一行 */
+p::first-line {
+}
+/* 文档中被用户选中的部分 */
+p::selection {
+}
+/* 伪元素 */
+div::before {
+}
+/* 伪元素 */
+div::after {
+}
+/** 👇 CSS 组合选择器 👇 */
+/* 后代选择器 */
+div p {
+}
+/* 直接子代选择器 */
+div > p {
+}
+/* 兄弟选择器 */
+div ~ span {
+}
+/* 相邻兄弟选择器 */
+div + span {
+}
+/* 列选择器: 属于某个表格行的节点 */
+col||td {
+}
+/** 👇 子元素 👇 */
+/* 第一个子元素 */
+div:first-child {
+}
+/* 最后一个子元素 */
+div:last-child {
+}
+/* 第 n 个子元素 */
+div:nth-child(n) {
+}
+/* 唯一子元素 */
+div:only-child {
+}
+/* 选中第一个元素 */
+div:first-of-type {
+}
+/* 选中最后一个元素 */
+div:last-of-type {
+}
+/* 第 n 个元素 */
+div:nth-of-type(n) {
+}
+/* 唯一元素 */
+div:only-of-type {
+}
+/* 选中父元素的第 n 个子元素 */
+div:nth-last-child(n) {
+}
+/* 选中父元素的倒数第 n 个元素 */
+div:nth-last-of-type(n) {
+}
+/* 选中空元素 */
+div:empty {
+}
+/* 选中包含特定属性的元素 */
+div[title] {
+}
+/* 选中特定属性值的元素 */
+div[title="value"] {
+}
+/* 选中特定属性值的开头元素 */
+div[title^="value"] {
+}
+/* 选中特定属性值的结尾元素 */
+div[title$="value"] {
+}
+/* 选中特定属性值的包含元素 */
+div[title*="value"] {
+}
+/* 选中特定子元素的父元素 */
+div:has(p) {
+}
+/* 选中特定子元素的父元素 (至少一个)  */
+div:has(p:first-child) {
+}
+/* 选中特定子元素的父元素 (所有)  */
+div:has(p, span) {
+}
+/* 选中特定子元素的父元素 (非)  */
+div:not(:has(p)) {
+}
+/* 选中特定子元素的父元素 (非第一个)  */
+div:not(:first-child) {
+}
+/* 选中特定子元素的父元素 (非最后一个)  */
+div:not(:last-child) {
+}
+/* 选中特定子元素的父元素 (非第 n 个)  */
+div:not(:nth-child(n)) {
+}
+/* 选中特定子元素的父元素 (非空)  */
+div:not(:empty) {
+}
+/* 选中特定子元素的父元素 (非包含特定属性的)  */
+div:not([title]) {
+}
+/* 选中特定子元素的父元素 (非特定属性值的)  */
+div:not([title="value"]) {
+}
+/* 选中特定子元素的父元素 (非特定属性值的开头)  */
+div:not([title^="value"]) {
+}
+/* 选中特定子元素的父元素 (非特定属性值的结尾)  */
+div:not([title$="value"]) {
+}
+/* 选中特定子元素的父元素 (非特定属性值的包含)  */
+div:not([title*="value"]) {
+}
+```
+
+## CSS 常用属性
+
+```css
+/** 👇 font 👇 */
+/* font 简写有规定的顺序 */
+/* font: font-style font-variant font-weight font-size/line-height font-family; */
+.font {
+  font:
+    normal normal bold 16px/1.5 Helvetica,
+    Arial,
+    sans-serif;
+  font-style: italic; /* italic | oblique | naomal */
+  font-variant: normal; /* normal | bold | bolder | lighter */
+  font-weight: bold; /* normal | bold | bolder | lighter */
+  font-size: 16px;
+  line-height: 1.5;
+  font-family: Helvetica, Arial, sans-serif;
+}
+
+/** 👇 background 👇 */
+.background {
+  /* background 简写无顺序之分 */
+  /* background: color image repeat attachment position; */
+  background: #f0f url('images/pattern.gif') repeat-x fixed 0 0;
+  background-color: #f0f;
+  background-image: url('images/pattern.gif');
+  background-repeat: repeat-x; /* repeat | no-repeat | repeat-x | repeat-y */
+  background-attachment: fixed; /* scroll | fixed | inherit | local */
+  background-position: 0 0; /* x y */
+}
+
+/** 👇 border 👇 */
+.border {
+  border: 1px solid #000;
+  border-width: 1px; /* thin | medium | thick | inherit | px | <length> */
+  border-style: solid; /* none | hidden | dotted | dashed | solid | double | groove | ridge | inset | outset */
+  border-color: #000; /* color | inherit */
+}
+
+/** 👇 border-radius 👇 */
+.border-radius {
+  /* border-radius: 上左-上右-下右-下左 */
+  /* border-radius: 上左-上右 下右-下左 */
+  /* border-radius: 上左 上右-下右 下左 */
+  /* border-radius: 水平半径/垂直半径 */
+  border-radius: 5px;
+}
+
+/** 👇 box-shadow 👇 */
+.box-shadow {
+  /* box-shadow: h-shadow v-shadow blur spread color inset; */
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  box-shadow-h: 0;
+  box-shadow-v: 0;
+  box-shadow-blur: 10px;
+  box-shadow-spread: 5px;
+  box-shadow-color: rgba(0, 0, 0, 0.5);
+  box-shadow-inset: false;
+}
+
+/** 👇 文本阴影 👇 */
+.text-shadow {
+  /* text-shadow: h-shadow v-shadow blur color; */
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5)
+  text-shadow-h: 0;
+  text-shadow-v: 0;
+  text-shadow-blur: 10px;
+  text-shadow-color: rgba(0, 0, 0, 0.5);
+}
+```
+
+## CSS 盒子
+
+块元素:
+
+- 独占一行
+- width, height 直接可控
+- width 默认为父级的 100%
+
+行内元素:
+
+- 一行可以有多个
+- width, height 直接设置无效
+- width 默认为内容宽度
+
+行内块元素:
+
+- 一行多个, 相邻之间有空白间隙
+- width, height 直接可控
+- width 默认为内容宽度
+
+## 盒模型
+
+盒模型由 content, padding, border, margin 四部分组成:
+
+- content: 内容区域
+- padding: 内边距
+- border: 边框
+- margin: 外边距
+
+3D 视图:
+
+- 顶 => 底: content, padding, border => background-image => background-color => margin
+
+W3C 盒模型/标准盒模型 (浏览器默认盒模型):
+
+- width = content
+- height = content
+
+IE 盒模型/怪异盒模型:
+
+- width = content + padding + border
+- height = content + padding + border
+
+## BFC & IFC
+
+|          | BFC                                    | IFC                                |
+| -------- | -------------------------------------- | ---------------------------------- |
+| 定义     | 块级格式上下文, 独立的格式化区域       | 内联格式上下文, 用于内联元素的布局 |
+| 触发条件 | 通过特定 CSS 属性或元素类型触发        | 通常由内联元素自然触发             |
+| 元素影响 | 垂直外边距合并被阻止, 独立布局         | 元素在同一行内显示, 自动换行       |
+| 常用场景 | 控制块级元素的布局, 解决外边距重叠问题 | 实现文本与图像的内联混排           |
+
+### BFC
+
+BFC 简介:
+
+- Block Formatting Context, 块级格式化上下文
+- 是页面中的一块渲染区域, 并且有一套自己的渲染规则
+- BFC 的目的是形成一个相对于外界完全独立的空间, 让内部子元素不会影响到外部元素
+- BFC 区域不会与浮动盒子重叠
+
+触发条件:
+
+- 根元素, 即 HTML 元素
+- 浮动元素: float 不为 none
+- overflow 不为 visible
+- display 不为 block
+- position 为 absolute 或 fixed
+
+应用场景:
+
+- 防止 margin 重叠 (塌陷)
+- 清除内部浮动
+- 自适应多栏布局
+
+### IFC
+
+IFC 简介:
+
+- Inline Formatting Context, 内联元素的上下文
+- 用于控制内联元素的布局, 如文本和图片
+- IFC 允许元素在行内流动, 从而实现文本混排
+
+触发条件:
+
+- 块级元素中的内容会生成 IFC
+- 内联元素 (如 span, a) 会生成 IFC
+
+## 响应式设计
+
+简介:
+
+- 响应式网站设计 (Responsive Web Design) 是一种网络页面设计布局
+- 页面的设计与开发根据用户行为及设备环境进行相应的响应和调整
+- 响应式网站常见特点: 同时适配 PC + 手机 + 平板等
+- 响应式设计的基本原理是通过媒体查询检测不同设备屏幕尺寸做处理, 为了处理移动端, 页面头部必须有 meta 声明 viewport
+  - `<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no"></meta>`
+  - width=device-width: 自适应手机屏幕的尺寸宽度
+  - initial-scale=1: 缩放的初始化
+  - maximum-scale=1: 缩放比例的最大值
+  - user-scalable=no: 用户是否可以手动缩放
+
+响应式布局方式:
+
+1. 媒体查询
+2. 百分比
+3. vw/vh
+4. rem/em
+5. flex 布局
+6. grid 布局
+
+```css
+@media screen and (max-width: 320px) {
+  html {
+    font-size: 12px;
+  }
+}
+@media screen and (max-width: 375px) {
+  html {
+    font-size: 14px;
+  }
+}
+@media screen and (max-width: 414px) {
+  html {
+    font-size: 16px;
+  }
+}
+@media screen (min-width: 375px) and (max-width: 600px) {
+  html {
+    font-size: 18px;
+  }
+}
+```
+
+## float
+
+- float 属性指定一个盒子 (元素) 是否应该浮动
+- 绝对定位的元素忽略 float 属性
+
+## flex
+
+- Flex 是 Flexible Box 的缩写, 意为 "弹性布局", 用来为盒状模型提供最大的灵活性
+- 设为 Flex 布局以后, 子元素的 float, clear, vertical-align 属性将失效
+
+```css
+/* 弹性盒布局 */
+.flex-1 {
+  /* flex: 1 是个简写属性, 包含 flex-grow, flex-shrink, flex-basis */
+  flex: 1;
+  /* flex-grow: 弹性增长因子, 默认值为 0; 即存在剩余空间也不放大 */
+  flex-grow: 1;
+  /* flex-shrink: 弹性收缩因子, 默认值为 1; 即剩余空间不足也不缩小 */
+  flex-shrink: 1;
+  /* flex-basis: 值不是 auto 时, 比 width 的优先级更高; 值为 auto 时, 大小基于内容或自身的 width 和 height */
+  flex-basis: 0%;
+}
+
+/** 👇 flex: 1; & flex: auto; 👇 */
+.flex-auto {
+  flex: auto;
+  flex-grow: 1;
+  flex-shrink: 1;
+  flex-basis: auto;
+}
+```
+
+## grid
+
+网格:
+
+- 网格是一组相交的水平线和垂直线, 它定义了网格的列和行
+- CSS 提供了一个基于网格的布局系统, 带有行和列, 可以让我们更轻松地设计网页, 而无需使用浮动和定位
+- 当一个 HTML 元素将 display 属性设置为 grid 或 inline-grid 后, 它就变成了一个网格容器, 这个元素的所有直系子元素将成为网格元素
+
+网格轨道:
+
+- 网格容器中的每一行或每一列都是一个轨道
+- grid-template-columns 属性在网格容器中创建列
+- grid-template-rows 属性在网格容器中设置行的高度
+
+fr 单位:
+
+- 轨道可以使用任何长度单位进行定义
+- 网格引入了 fr 单位来创建灵活的网格轨道
+- 一个 fr 单位代表网格容器中可用空间的一等份
+
+网格单位:
+
+- 一个网格单元是在一个网格元素中最小的单位, 和表格的一个单元格类似
+
+网格区域:
+
+- 网格单元/元素可以向行或着列的方向扩展一个或多个单元, 并且会创建一个网格区域
+- 网格区域的形状应该是一个矩形
+
+网格列:
+
+- 网格元素的垂直线方向称为列 (Column)
+
+网格行:
+
+- 网格元素的水平线方向称为行 (Row)
+
+网格间距:
+
+- 网格间距 (Column Gap) 指的是两个网格单元之间的网格横向间距或网格纵向间距
+- grid-gap: grid-row-gap grid-column-gap (gap 简写)
+- grid-row-gap
+- grid-column-gap
+
+网格线:
+
+- 列与列, 行与行之间的交接处就是网格线
+- Grid 会为我们创建编号的网格线来让我们来定位每一个网格元素
+
+```html
+<div class="grid-container">
+  <div class="grid-item grid-item1">1</div>
+  <div class="grid-item grid-item2">2</div>
+  <div class="grid-item grid-item3">3</div>
+  <div class="grid-item grid-item4">4</div>
+  <div class="grid-item grid-item5">5</div>
+  <div class="grid-item grid-item6">6</div>
+  <div class="grid-item grid-item7">7</div>
+  <div class="grid-item grid-item8">8</div>
+  <div class="grid-item grid-item9">9</div>
+</div>
+
+<style>
+  .grid-container {
+    display: grid;
+    /* 设置行的高度 */
+    grid-template-rows: 100px 300px;
+    /* 创建四个列轨道 */
+    grid-template-columns: auto auto auto auto;
+    /* 定义一个网格容器创建三个相等宽度的轨道, 这些轨道会随着可用空间增长和收缩 */
+    grid-template-columns: 1fr 1fr 1fr;
+    background-color: #2196f3;
+    padding: 10px;
+  }
+  .grid-item {
+    border: 1px solid rgba(0, 0, 0, 0.8);
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 20px;
+    font-size: 30px;
+    text-align: center;
+  }
+  .grid-item1 {
+    /* 第一列开始, 第三列结束 */
+    grid-column: 1 / 3;
+    grid-column-start: 1;
+    grid-column-end: 3;
+  }
+  .grid-item1 {
+    /* 第一行开始, 第三行结束 */
+    grid-row: 1 / 3;
+    grid-row-start: 1;
+    grid-row-end: 3;
+  }
+</style>
+```
+
+## 等高多列布局
+
+三列布局, 左右固定宽度 200px, 中间自适应, 三列等高 (内容不等长时取最高列高度);
+
+**问:** 给出至少 3 种方案, 并比较优劣;
+
+<details>
+<summary>参考答案</summary>
+
+方案一: Flexbox (推荐)
+
+```css
+.container {
+  display: flex;
+}
+.left,
+.right {
+  flex: 0 0 200px;
+}
+.center {
+  flex: 1;
+}
+/* Flex 容器默认 align-items: stretch, 子项自动等高 */
+```
+
+方案二: Grid
+
+```css
+.container {
+  display: grid;
+  grid-template-columns: 200px 1fr 200px;
+}
+```
+
+方案三: Float + 负 margin (经典双飞翼/圣杯)
+
+```css
+* {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+.left {
+  float: left;
+  background: #ff0;
+  width: 200px;
+}
+.right {
+  float: right;
+  background: #0ff;
+  width: 200px;
+}
+.center {
+  background: #f0f;
+  padding: 0 200px;
+}
+
+/* <div class="left"></div> */
+/* <div class="right"></div> */
+/* <div class="center"></div> */
+```
+
+等高需要额外处理 (如大 `padding-bottom` + 负 `margin-bottom` 技巧) , 不如 Flex/Grid 直观;
+
+方案四: Table 布局
+
+```css
+.container {
+  display: table;
+  width: 100%;
+}
+.left,
+.right {
+  display: table-cell;
+  width: 200px;
+}
+.center {
+  display: table-cell;
+}
+/* table-cell 天然等高 */
+```
+
+| 方案  | 等高    | 语义 | 兼容性     | 复杂度 |
+| ----- | ------- | ---- | ---------- | ------ |
+| Flex  | 自动    | 好   | IE10+      | 低     |
+| Grid  | 自动    | 好   | 现代浏览器 | 低     |
+| Float | 需 hack | 一般 | 极好       | 高     |
+| Table | 自动    | 差   | 极好       | 低     |
+
+</details>
+
+## 元素水平垂直居中
+
+1. 定位 + margin: auto
+2. 定位 + margin: 负值
+3. 定位 + transform
+4. table 布局
+5. flex 布局
+6. grid 布局
+
+```html
+<style>
+  .parent {
+    border: 1px solid #000;
+    width: 600px;
+    height: 400px;
+  }
+  .child {
+    background-color: #f00;
+    width: 100px;
+    height: 100px;
+  }
+</style>
+<div class="parent">
+  <div class="child"></div>
+</div>
+
+<!-- 定位 + margin: auto -->
+<style>
+  .parent {
+    position: relative;
+  }
+  .child {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    margin: auto;
+  }
+</style>
+
+<!-- 定位 + margin: 负值 -->
+<style>
+  .parent {
+    position: relative;
+  }
+  .child {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    /* 自身高度的一半 */
+    margin-top: -50px;
+    /* 自身宽度的一半 */
+    margin-left: -50px;
+  }
+</style>
+
+<!-- 定位 + transform -->
+<style>
+  .parent {
+    position: relative;
+  }
+  .child {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+  }
+</style>
+
+<!-- table 布局 -->
+<style>
+  .parent {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: center;
+  }
+  .child {
+    display: inline-block;
+  }
+</style>
+
+<!-- flex 布局 -->
+<style>
+  .parent {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+  }
+</style>
+
+<!-- grid 布局 -->
+<style>
+  .parent {
+    display: grid;
+    justify-content: center;
+    align-items: center;
+  }
+</style>
+```
+
+## CSS 隐藏页面元素
+
+隐藏页面元素:
+
+1. display: none; 最常用
+2. visibility: hidden; 最常用
+3. opacity: 0;
+4. width, height 设为 0;
+5. position: absolute;
+6. clip-path: polygon(0px 0px, 0px 0px, 0px 0px, 0px 0px); 裁剪
+
+## 单行/多行文本溢出省略
+
+单行文本溢出省略涉及 CSS 属性:
+
+- overflow: hidden; 超出容器宽度内容隐藏
+- text-overflow: ellipsis; 文本溢出时显示省略符号; text-overflow 只有设置了 overflow: hidden 才会生效
+- white-space: nowrap; 设置文本一行显示
+
+多行文本溢出省略 (两种情况):
+
+- 基于高度截断: 伪元素 + 定位
+- 基于行数截断
+
+```html
+<!-- 单行文本溢出省略 -->
+<p>
+  长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本
+  长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本
+</p>
+<style>
+  p {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+</style>
+
+<!-- 多行文本溢出省略 -->
+<!-- 基于高度截断 -->
+<!-- 通过伪元素绝对定位到行尾并遮住文字, 再通过 overflow: hidden 隐藏多余文字 -->
+<!-- 兼容性好 -->
+<!-- 响应式截断, 根据不同宽度做出调整 -->
+<p>
+  长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本
+  长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本
+</p>
+<style>
+  p {
+    position: relative;
+    height: 40px;
+    overflow: hidden;
+    line-height: 20px;
+  }
+  p::after {
+    position: absolute;
+    right: 0;
+    bottom: 0;
+    padding: 0 20px 0 10px;
+    content: "...";
+  }
+</style>
+<!-- 基于行数截断 -->
+<!-- 使用 webkit 的 CSS 属性扩展 -->
+<!-- 兼容 PC 端 webkit 内核浏览器; 移动端大多使用 webkit -->
+<!-- 文本为一段很长的英文或数字, 则需要添加 word-wrap: break-word 属性 -->
+<p>
+  长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本
+  长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本长文本
+</p>
+<style>
+  p {
+    display: -webkit-box;
+    border-radius: 1px solid red;
+    width: 400px;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+</style>
+```
+
+## CSS 画三角形
+
+```html
+<div class="border"></div>
+<style>
+  .border {
+    position: relative;
+    border-width: 50px 50px 0 50px;
+    border-style: solid;
+    border-color: #ddd transparent transparent transparent;
+    width: 0;
+    height: 0;
+  }
+  .border::after {
+    position: absolute;
+    top: -46px;
+    left: -40px;
+    border-width: 40px 40px 0 40px;
+    border-style: solid;
+    border-color: #fff transparent transparent transparent;
+    content: "";
+  }
+</style>
+```
+
+## CSS 视差滚动
+
+视差滚动:
+
+- 多层背景以不同的速度移动, 形成立体的运动效果
+- 可以把网页解剖成: 背景层, 内容层, 悬浮层
+- 滚动鼠标时, 各个图层以不同的速度移动, 形成视觉差的效果
+
+实现方式:
+
+- background-attachment: 设置背景图是否固定或者随着页面的其余部分滚动
+- transform: translate3D
+
+```html
+<!-- background-attachment -->
+<div class="a-text">1</div>
+<div class="a-img a-img1">2</div>
+<div class="a-text">3</div>
+<div class="a-img a-img2">4</div>
+<div class="a-text">5</div>
+<style>
+  div {
+    background: rgba(0, 0, 0, 0.7);
+    height: 100vh;
+    color: #fff;
+    font-size: 20vh;
+    line-height: 100vh;
+    text-align: center;
+  }
+  .a-img {
+    background-position: center center;
+    background-size: cover;
+    background-attachment: fixed;
+  }
+  .a-img1 {
+    background-image: url(https://images.pexels.com/photos/1097491/pexels-photo-1097491.jpeg);
+  }
+  .a-img2 {
+    background-image: url(https://images.pexels.com/photos/2437299/pexels-photo-2437299.jpeg);
+  }
+</style>
+<!-- transform: translate3D -->
+<div id="app">
+  <div class="one">one</div>
+  <div class="two">two</div>
+  <div class="three">three</div>
+</div>
+<style>
+  html {
+    height: 100%;
+    overflow: hidden;
+  }
+  body {
+    transform-style: preserve-3d;
+    /* 视差元素的父级需要 3D 视角 */
+    perspective: 1px;
+    height: 100%;
+    overflow-x: hidden;
+    overflow-y: scroll;
+  }
+  #app {
+    background: skyblue;
+    padding-top: 100px;
+    width: 100vw;
+    height: 200vh;
+  }
+  .one {
+    transform: translateZ(0px);
+    margin-bottom: 150px;
+    background: #409eff;
+    width: 500px;
+    height: 200px;
+  }
+  .two {
+    transform: translateZ(-1px);
+    margin-bottom: 150px;
+    background: #67c23a;
+    width: 500px;
+    height: 200px;
+  }
+  .three {
+    transform: translateZ(-2px);
+    margin-bottom: 150px;
+    background: #e6a23c;
+    width: 500px;
+    height: 200px;
+  }
+</style>
+```
+
+## CSS3 新特性
+
+CSS 是什么:
+
+- 层叠样式表 (Cascading Style Sheets), 一种标记语言, 由浏览器解释执行用来使页面变得更美观
+- CSS3 是 CSS 的最新标准, 向后兼容
+
+CSS3 新特性:
+
+- 选择器
+- 新样式:
+  - border, border-radius, box-shadow, border-image
+  - background, background-clip, background-origin, background-size, background-break
+  - 文字: word-wrap, text-overflow, text-shadow, text-decoration, rgba, hsla
+  - transition: transform, animation, 渐变
+  - flex, grid 等
+
+## CSS3 动画
+
+CSS 动画
+
+- 指元素从一种样式逐渐过度为另一种样式的过程
+- 常见动画效果: 平移, 旋转, 缩放等
+- CSS 动画实现方式:
+  - transition: 过渡
+  - transform: 变形
+  - translate: 移动
+  - animation: 动画
+
+## 设备像素 & CSS 像素 & 设备像素 & DPR & PPI
+
+CSS 像素: 浏览器使用的逻辑像素, 是 CSS 和 JS 操作的像素单位, 单位是 px
+
+- CSS 规范中, 长度单位可以分为两类, 绝对单位及相对单位
+- px 是相对单位, 相对的是设备像素 (device pixel)
+
+设备像素 (device pixel):
+
+- 物理像素, 是显示设备中一个最微小的物理部件
+
+设备独立像素 (device-independent pixel, dip):
+
+- 与设备无关的逻辑像素, 代表可以通过程序控制使用的虚拟像素, 是一个总体概念, 包含了 CSS 像素
+
+dpr (device pixel ratio):
+
+- DPR = 设备像素 / 设备独立像素
+
+ppi (pixel per inch):
+
+- 每英寸像素
+
+总结:
+
+- 无缩放情况下, 1 个 CSS 像素等于 1 个设备独立像素
+- 设备像素屏幕生产之后就不发生改变, 设备独立像素是一个虚拟单位会发生改变
+- PC 端中, 1 个设备独立像素 = 1 个设备像素 (在 100%, 未缩放的情况下)
+- 移动端中, 标准屏幕 (160ppi) 下, 一个设备独立像素 = 1 个设备像素
+- 设备像素比 (dpr) = 设备像素 / 设备独立像素
+- 每英寸像素 (ppi), 值越大, 图像越清晰
+
+## px & em & rem & vh & vw
+
+- px: 绝对单位, 页面按精确像素展示
+- em: 相对单位, 相对于父元素的字体大小
+- rem: 相对单位, 相对于根元素的字体大小
+- vh, vw: 相对单位, 相对于视口的高度和宽度
+
+## 让 Chrome 支持小于 12px 的文字
+
+方案:
+
+- zoom
+- -webkit-transform: scale()
+- viewport 缩放
+- -webkit-text-size-adjust: none
+
+zoom:
+
+- zoom: 50%; 表示缩小到原来的一半
+- zoom 不是标准属性, 需考虑兼容性
+
+-webkit-transform: scale()
+
+- 针对 chrome 浏览器, 加 webkit 前缀, 用 transform: scale() 进行缩放
+- scale() 属性只可以对定义宽高的元素生效
+
+viewport
+
+- `<meta name="viewport" content="width=device-width, initial-scale=0.5" />`
+- 页面整体按 DPR 倒数缩放，所有 `1px` 自然映射到 1 物理像素。但影响全局，需配合 `rem` 适配。
+
+-webkit-text-size-adjust: none
+
+- 用来设定文字大小是否根据设备自动调整显示大小
+- 默认值是 auto, 也就是自动调整
+- none 表示不自动调整
+- percentage: 字体显示的大小
+
+## CSS 预处理器
+
+- CSS 作为一门标记性语言, 语法相对简单, 不方便维护及扩展, 不利于复用
+- CSS 预处理器解决以上问题
+
+CSS 预处理语言:
+
+- 增加了变量, 混合, 函数等功能
+
+## CSS 提高性能的方法
+
+1. 内联首屏关键 CSS
+2. 异步加载 CSS
+3. 资源压缩
+4. 合理使用选择器
+5. 减少昂贵属性的使用
+6. 不要使用 @import

@@ -1,0 +1,137 @@
+# MySQL
+
+## 使用 Docker 命令创建 MySQL 容器
+
+```shell
+# 拉取镜像
+docker pull mysql:8-oracle
+
+mkdir /mysql/log
+mkdir /mysql/data
+mkdir /mysql/conf
+
+# [-d]: 后台运行；
+# [--name]: 容器名字
+# [-p]: 配置端口映射 (宿主机端口:容器端口)
+# [-e]: 添加配置信息 (密码为 mysql123)
+# -v: 自定义挂载 自定义路径:容器内部路径
+# mysql:8-oracle 镜像名:版本号
+docker run -d -p 3306:3306 --name mysql -e MYSQL_ROOT_PASSWORD=mysql123 -v /mysql/conf:/etc/mysql -v /mysql/data:/var/lib/mysql -v /mysql/log:/var/log mysql:8-oracle
+
+# Windows 使用 Docker 创建 MySQL 容器
+mkdir C:/Soft/DockerData/mysql/conf
+mkdir C:/Soft/DockerData/mysql/data
+mkdir C:/Soft/DockerData/mysql/log
+
+docker run -d -p 3306:3306 --name mysql -e MYSQL_ROOT_PASSWORD=mysql123 -v C:/Soft/DockerData/mysql/conf:/etc/mysql -v C:/Soft/DockerData/mysql/data:/var/lib/mysql -v C:/Soft/DockerData/mysql/log:/var/log mysql:8-oracle
+
+# 查看运行中的容器列表
+docker ps
+```
+
+## 使用 Docker-Compose 编排 MySQL 容器
+
+```sh
+# ./mysql.sh
+
+#!/bin/bash
+set -e
+
+MYSQL_ROOT_USER="root"
+
+echo "========== MySQL 初始化 =========="
+
+echo "========== 创建用户和数据库 =========="
+mysql -u "$MYSQL_ROOT_USER" -p"${MYSQL_ROOT_PASSWORD}" <<EOF
+-- 创建用户
+CREATE USER IF NOT EXISTS '${MYSQL_APP_USERNAME}'@'%' IDENTIFIED BY '${MYSQL_APP_PASSWORD}';
+-- 创建数据库
+CREATE DATABASE IF NOT EXISTS ${MYSQL_APP_DATABASE} CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+-- 把新建的库授权给新创建的用户
+GRANT ALL ON ${MYSQL_APP_DATABASE}.* TO '${MYSQL_APP_USERNAME}'@'%';
+-- 刷新用户权限
+FLUSH PRIVILEGES;
+EOF
+
+echo "========== 创建表并插入数据 =========="
+mysql -u "$MYSQL_APP_USERNAME" -p"${MYSQL_APP_PASSWORD}" "$MYSQL_APP_DATABASE" <<EOF
+EOF
+
+echo "========== MySQL 初始化完成 =========="
+```
+
+```yml
+# ./docker-compose.yml
+
+# 默认自动读取 .env 中的环境变量
+# 手动指定环境变量: docker compose -f docker-compose.yml --env-file .env.dev up -d
+
+name: nest
+
+services:
+  mysql:
+    image: mysql:8-oracle
+    container_name: mysql_nest
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      TZ: Asia/Shanghai
+      MYSQL_ROOT_PASSWORD: mysql123
+      MYSQL_APP_USERNAME: ${MYSQL_USERNAME:-nest}
+      MYSQL_APP_PASSWORD: ${MYSQL_PASSWORD:-mysql123}
+      MYSQL_APP_DATABASE: ${MYSQL_DATABASE:-nest_db}
+    volumes:
+      - mysql_conf:/etc/mysql
+      - mysql_data:/var/lib/mysql
+      - mysql_log:/var/log
+      - ./mysql.sh:/docker-entrypoint-initdb.d/mysql.sh:ro
+    restart: unless-stopped
+
+volumes:
+  mysql_conf:
+  mysql_data:
+  mysql_log:
+```
+
+## MySQL Command
+
+```shell
+# 进入运行中的容器
+docker exec -it mysql bash
+# 进入 MySQL 命令行
+mysql -uroot -pmysql123;
+
+# 创建 mysql 用户
+# username: 创建的用户名
+# host: 指定该用户在哪个主机上可以登陆, 如果是本地用户可用localhost, 如果想让该用户可以从任意远程主机登陆, 可以使用通配符%
+# password: 该用户的登陆密码, 密码可以为空, 如果为空则该用户可以不需要密码登陆服务器
+# create user 'usernam'@'host' identified by 'password';
+# create user 'usernam'@'%' identified by 'password';
+# create user 'usernam'@'%';
+create user 'yuanlin'@'%' identified by 'mysql123';
+
+# 设置与更改用户密码
+# SET PASSWORD = PASSWORD("newPassword") # 当前登录用户
+# SET PASSWORD FOR 'username'@'host' = PASSWORD("123456"); # 指定用户
+SET PASSWORD FOR 'username'@'host' = PASSWORD('newPassword');
+
+# 删除用户
+DROP USER 'username'@'host';
+
+# MySQL 用户授权
+# privileges: 用户的操作权限, 如SELECT, INSERT, UPDATE 等, 如果要授予所的权限则使用 ALL
+# databaseName: 数据库名
+# tableName: 表名, 如果要授予该用户对所有数据库和表的相应操作权限则可用*表示, 如*.*
+GRANT SELECT, INSERT ON databaseName.tableName TO 'username'@'%';
+GRANT ALL ON *.* TO 'username'@'%';
+GRANT ALL ON databaseName.* TO 'username'@'%';
+grant ALL on databaseName.tableName to 'username'@'%';
+
+# 该命令授予用户对其他用户授权的权限
+GRANT privileges ON databaseName.tableName TO 'username'@'host' WITH GRANT OPTION;
+grant privileges on databaseName.tableName to 'username'@'host';
+
+# 撤销用户权限
+# privilege, databaseName, tableName: 同授权部分
+REVOKE privilege ON databaseName.tableName FROM 'username'@'host';
+```

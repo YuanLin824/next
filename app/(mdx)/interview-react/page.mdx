@@ -1,0 +1,1129 @@
+# React
+
+## 对 React 的理解
+
+### 是什么? 特性? 优势?
+
+- React 是一个构建用户界面的 JS 库, 只提供了 UI 层面的解决方案
+
+### 特性
+
+- 核心思想: 组件化 (React 中一切皆为组件; 可组合, 可复用, 可维护)
+- JSX 语法
+- 单向数据流
+- 虚拟 DOM
+- 声明式编程 (关注做什么, 而不是怎么做; 对应命令式编程)
+
+## state & props
+
+- 一个组件的显示由数据状态和外部参数决定
+- 数据状态: state
+- 外部参数: props
+
+### 相同点
+
+- 都是 JS 对象
+- 都用于保存信息
+- 都能触发渲染更新
+
+### 区别
+
+- props 是外部传递给组件的, state 组件自己管理的
+- props 在组件内部不能直接修改, state 可以在组件内修改
+
+### state
+
+- 一般在 constructor 中初始化
+- 通过 setState 修改状态, 并且重新调用组件 render 方法
+- `setState(state/(prevState, props) => { return {} }, callback)`
+
+### props
+
+- 组件从概念看是一个函数, 可以接受一个参数作为输入, 这个参数就是 props
+- React 单向数据流, 组件内不能直接修改 props
+
+## super() & super(props)
+
+- 始终使用 super(props) 可以避免潜在的 this.props 访问错误, 保持代码健壮性
+- super 代表父类的构造函数 constructor
+
+| super()                                       | super(props)                             |
+| --------------------------------------------- | ---------------------------------------- |
+| 调用父类构造函数                              | 调用父类构造函数并传递 props             |
+| constructor 中 this.props 为 undefined        | constructor 中 this.props 为传递的 props |
+| 其他生命周期中正常访问 (React 自动注入 props) | 其他生命周期中正常访问                   |
+
+### 底层原理
+
+- React 组件初始化流程:
+  - super(props) 将 props 传递给父类构造函数, 使得父类可以初始化 this.props
+  - 未传递 props 时, this.props 在 constructor 中为 undefined; React 会在后续流程中自动注入父组件传递的 props
+- ES6 类继承机制:
+  - 子类构造函数必须调用 super() 才能使用 this
+
+## 对 React 中类组件 & 生命周期
+
+通过 ES6 类语法编写的组件, 该类必须继承 React.Component
+
+### 挂载
+
+- constructor: 组件挂载前 (实例化前的操作)
+- static getDerivedStateFromProps: render 调用前, 用于根据 props 更新 state
+- render: 渲染组件的方法
+- componentDidMount: 组件挂载完成
+
+### 更新
+
+- static getDerivedStateFromProps: 用于根据 props 更新 state
+- shouldComponentUpdate: 组件重渲染前调用, 判断是否重渲染
+- render
+- getSnapshotBeforeUpdate: 最近一次渲染输出之前调用, 用于捕获一些信息
+- componentDidUpdate: 组件更新后立即调用, 常用于操作 DOM 或发送网络请求
+
+### 卸载
+
+- componentWillUnmount: 组件卸载及销毁之前调用, 清理资源
+
+### 完整生命周期
+
+```jsx
+import React from "react"
+
+export default class ClassComponentLifecycle extends React.Component {
+  constructor(props) {
+    // 初始化组件状态, 绑定事件
+    // 通常不做副作用操作 (如 API 请求等)
+    super(props)
+    this.state = { count: 0 }
+  }
+  static getDerivedStateFromProps(props, state) {
+    // 根据传入的 props 更新状态
+    // 是一个静态方法, 不能访问 this, 适合需要根据 props 调整 state 的场景
+    // 同样适用于更新阶段, 判断 props 变化是否需要更新 state
+  }
+  componentDidMount() {
+    // 组件首次渲染完成后触发, 适合做副作用操作, 如数据请求或设置订阅
+    // 仅在挂载时执行一次
+  }
+  shouldComponentUpdate(nextProps, nestState) {
+    // 返回一个布尔值, 控制组件是否重新渲染
+    // 用于性能优化, 避免不必要的渲染
+    return true
+  }
+  getSnapshotBeforeUpdate(prevProps, prevState) {
+    // 在更新前调用, 返回的值会传递给 componentDidUpdate
+    // 常用于在 DOM 更新前保存信息 (如滚动位置)
+  }
+  componentDidUpdate(prevProps, prevState, snapshot) {
+    // 组件更新后调用, 可处理 DOM 变化后的逻辑
+    // snapshot 来处理 getSnapshotBeforeUpdate 返回的数据
+  }
+  componentWillUnmount() {
+    // 组件从 DOM 中移除前调用, 适合清除副作用 (如取消订阅、清除定时器等)
+  }
+  getDerivedStateFromError(error) {
+    return { hasError: true }
+  }
+  componentDidCatch(error, errorInfo) {
+    // logErrorToService(error, errorInfo.componentStack)
+  }
+  render() {
+    // 返回组件的 JSX 元素
+    // 不能包含副作用, 尽量保持纯净的渲染逻辑
+    return <div>ClassComponentLifecycle</div>
+  }
+}
+```
+
+## React 函数组件 & Hooks
+
+函数组件就是通过函数编写的形式去实现一个 React 组件, 是 React 中定义组件最方便的方式
+
+### useState & useMemo & useCallback & useEffect
+
+```tsx
+import { useCallback, useEffect, useMemo, useState } from "react"
+
+export default function FuncComponentHooks() {
+  // ------------------------------ useState ------------------------------
+  const [counter, setCounter] = useState(0)
+  // ------------------------------ useCallback ------------------------------
+  const onClickBtn = useCallback(() => {
+    setCounter(counter + 1)
+  }, [counter])
+  // ------------------------------ useMemo ------------------------------
+  const counterXcounter = useMemo(() => {
+    return counter * counter
+  }, [counter])
+  // ------------------------------ useEffect ------------------------------
+  useEffect(() => {
+    // 副作用逻辑代码
+    console.log("执行副作用:", counter)
+    return () => {
+      setCounter(0)
+      // 清理逻辑, 在组件卸载或下一次 effect 执行之前运行
+      console.log("执行清理:", counter)
+    }
+  }, [counter])
+
+  return (
+    <div>
+      <p>counter: {counter}</p>
+      <p>counterXcounter: {counterXcounter}</p>
+      <button onClick={onClickBtn}>+1</button>
+    </div>
+  )
+}
+```
+
+### useContext
+
+```tsx
+import { createContext, useContext, useState } from "react"
+
+interface IThemeContext {
+  theme: "light" | "dark"
+  toggleTheme: () => void
+}
+
+const initThemeContext: Omit<IThemeContext, "toggleTheme"> = { theme: "light" }
+const ThemeContext = createContext<IThemeContext>({ ...initThemeContext, toggleTheme: () => {} })
+
+interface IPersonContext {
+  name: string
+  age: number
+  modifyPerson: (obj: Omit<IPersonContext, "modifyPerson">) => void
+}
+
+const initPersonContext: Omit<IPersonContext, "modifyPerson"> = { name: "Pater", age: 12 }
+const PersonContext = createContext<IPersonContext>({
+  ...initPersonContext,
+  modifyPerson: () => {},
+})
+
+function Child() {
+  // ------------------------------ useContext ------------------------------
+  const { theme } = useContext(ThemeContext)
+  const { name, age } = useContext(PersonContext)
+
+  return (
+    <div>
+      <p>theme: {theme}</p>
+      <p>name: {name}</p>
+      <p>age: {age}</p>
+    </div>
+  )
+}
+
+export default function FuncComponentHooks() {
+  const [theme, setTheme] = useState(initThemeContext.theme)
+  const toggleTheme: IThemeContext["toggleTheme"] = () => {
+    setTheme((prevTheme) => (prevTheme === "light" ? "dark" : "light"))
+    console.log("Theme toggled")
+  }
+
+  const [person, setPerson] = useState(initPersonContext)
+  const modifyPerson: IPersonContext["modifyPerson"] = (obj) => {
+    setPerson(obj)
+  }
+
+  return (
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <PersonContext.Provider value={{ name: person.name, age: person.age, modifyPerson }}>
+        <div>useContext</div>
+        <Child />
+      </PersonContext.Provider>
+    </ThemeContext.Provider>
+  )
+}
+```
+
+### useReducer
+
+const [state, dispatch] = useReducer(reducer, initialArg, init)
+
+reducer:
+
+- 用于更新 state 的纯函数
+- 参数为 state 和 action, 返回值是更新后的 state
+- state 与 action 可以是任意合法值
+
+initialArg:
+
+- 用于初始化 state 的任意值
+- 初始值的计算逻辑取决于接下来的 init 参数
+
+init: 用于计算初始值的函数
+
+- 如果存在, 使用 init(initialArg) 的执行结果作为初始值, 否则使用 initialArg
+
+```tsx
+import { useReducer } from "react"
+
+// 1. 定义 State 类型
+interface State {
+  count: number
+  loading: boolean
+}
+
+// 2. 定义 Action 类型（使用联合类型区分不同操作）
+type Action =
+  | { type: "increment"; payload: number }
+  | { type: "decrement"; payload: number }
+  | { type: "setLoading"; payload: boolean }
+  | { type: "reset" }
+
+// 3. 初始状态
+const initialState: State = { count: 0, loading: false }
+
+// 4. Reducer 函数
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "increment":
+      return { ...state, count: state.count + action.payload }
+    case "decrement":
+      return { ...state, count: state.count - action.payload }
+    case "setLoading":
+      return { ...state, loading: action.payload }
+    case "reset":
+      return initialState
+    default:
+      return state
+  }
+}
+
+// 5. 组件中使用
+export function Counter() {
+  const [state, dispatch] = useReducer(reducer, initialState)
+
+  return (
+    <div>
+      <p>Count: {state.count}</p>
+      <p>Loading: {state.loading ? "Yes" : "No"}</p>
+
+      <button onClick={() => dispatch({ type: "increment", payload: 1 })}>+1</button>
+      <button onClick={() => dispatch({ type: "decrement", payload: 1 })}>-1</button>
+      <button onClick={() => dispatch({ type: "reset" })}>Reset</button>
+    </div>
+  )
+}
+```
+
+### useImperativeHandle & useRef
+
+```tsx
+import { forwardRef, useImperativeHandle, useRef, type Ref } from "react"
+
+// useImperativeHandle(ref, createHandle, dependencies?)
+// 自定义由 ref 暴露出来的句柄
+// 从 React 19 开始,  ref 可作为 prop 使用
+// 在 React 18 及更早版本中, 需要通过 forwardRef 来获取 ref
+
+// ------------------------------ React18 写法 ------------------------------
+export const MyInput1 = forwardRef(function MyInput(_props, ref) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => {
+    return {
+      focus() {
+        inputRef.current?.focus()
+      },
+      scrollIntoView() {
+        inputRef.current?.scrollIntoView()
+      },
+    }
+  }, [])
+
+  return <input ref={inputRef} />
+})
+
+// ------------------------------ React19 写法 ------------------------------
+interface IMyInputRef {
+  focus: () => void
+  scrollIntoView: () => void
+}
+interface IMyInputProps {
+  ref: Ref<IMyInputRef>
+}
+
+function MyInput({ ref }: IMyInputProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => {
+    return {
+      focus() {
+        inputRef.current?.focus()
+      },
+      scrollIntoView() {
+        inputRef.current?.scrollIntoView()
+      },
+    }
+  }, [])
+
+  return <input ref={inputRef} />
+}
+
+// 改变 ref 不会触发重新渲染
+// 使用场景
+//   使用 ref 引用一个值
+//   通过 ref 操作 DOM
+export function Form() {
+  const ref = useRef<IMyInputRef>(null)
+
+  function handleClick() {
+    ref.current?.focus()
+    // 下方代码不起作用, 因为 DOM 节点并未被暴露出来:
+    // ref.current.style.opacity = 0.5;
+  }
+
+  return (
+    <form>
+      <MyInput ref={ref} />
+      <button type="button" onClick={handleClick}>
+        Edit
+      </button>
+    </form>
+  )
+}
+```
+
+### useLayoutEffect
+
+- useLayoutEffect(setup, dependencies?)
+- 能不用就不用, 只在出现视觉闪烁时才考虑使用
+
+| 特性     | useEffect                | useLayoutEffect              |
+| -------- | ------------------------ | ---------------------------- |
+| 执行时机 | 绘制之后异步执行         | 绘制之前同步执行             |
+| 阻塞渲染 | 否                       | 是 (慎用)                    |
+| 使用场景 | 数据获取、订阅、事件监听 | DOM 测量、同步重绘、防止闪烁 |
+| SSR 安全 | 是                       | 否 (需处理)                  |
+
+| 场景                                                | 使用 useLayoutEffect |
+| --------------------------------------------------- | -------------------- |
+| 读取 DOM 布局 (offsetHeight, getBoundingClientRect) | ✅                   |
+| 同步调整 DOM 防止闪烁                               | ✅                   |
+| 动画初始位置计算                                    | ✅                   |
+| 数据获取、事件订阅                                  | ❌ 用 useEffect      |
+| 复杂计算                                            | ❌ 用 useEffect      |
+| 不依赖 DOM 的操作                                   | ❌ 用 useEffect      |
+
+```tsx
+import { useEffect, useLayoutEffect, useRef, useState } from "react"
+
+// ❌ 使用 useEffect 可能导致闪烁
+export function BadExample() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [width, setWidth] = useState(0)
+
+  useEffect(() => {
+    // 绘制后才执行, 用户可能看到默认宽度一闪而过
+    setWidth(ref.current?.offsetWidth || 0)
+
+    return () => {
+      setWidth(ref.current?.offsetWidth || 0)
+    }
+  }, [])
+
+  return (
+    <div ref={ref} style={{ width }}>
+      Content
+    </div>
+  )
+}
+
+// ✅ 使用 useLayoutEffect 防止闪烁
+export function GoodExample() {
+  const [width, setWidth] = useState(0)
+  const ref = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    // 绘制前同步执行, 用户直接看到正确宽度
+    setWidth(ref.current?.offsetWidth || 0)
+
+    return () => {
+      setWidth(ref.current?.offsetWidth || 0)
+    }
+  }, [])
+
+  return (
+    <div ref={ref} style={{ width }}>
+      Content
+    </div>
+  )
+}
+```
+
+### useDebugValue
+
+- useDebugValue(value, format?)
+- 可以在 React 开发工具中为自定义 Hook 添加标签
+- value: 你想在 React 开发工具中显示的值
+- 可以是任何类型
+- format: 它接受一个格式化函数, 仅在 DevTools 打开时调用
+- 当组件被检查时, React 开发工具将用 value 作为参数来调用格式化函数, 然后显示返回的格式化值 (可以是任何类型)
+- 如果不指定格式化函数, 则会显示 value
+
+| 特性           | 说明                                         |
+| -------------- | -------------------------------------------- |
+| 仅开发环境有效 | 生产构建会自动剔除                           |
+| 延迟格式化     | 第二个参数为函数时, 只在 DevTools 打开时执行 |
+| 多值显示       | 可多次调用显示多个调试值                     |
+| 不影响功能     | 纯调试用途, 不修改 Hook 行为                 |
+
+```tsx
+import { useDebugValue, useEffect, useState } from "react"
+
+interface IUser {
+  name: string
+  id: number
+}
+
+// 自定义 Hook：获取用户数据
+function useUser(userId: number) {
+  const [user, setUser] = useState<IUser | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // 在 DevTools 中显示调试信息
+  useDebugValue(user ? `${user.name} (${user.id})` : "Loading...")
+
+  useEffect(() => {
+    setTimeout(() => {
+      setUser({ name: "ZS", id: userId })
+      setLoading(false)
+    }, 1000)
+  }, [userId])
+
+  return { user, loading }
+}
+
+// 组件中使用
+export function UserProfile({ userId }: { userId: number }) {
+  const { user, loading } = useUser(userId)
+
+  if (loading) return <div>Loading...</div>
+  return <div>Hello, {user?.name}</div>
+}
+
+// ------------------------------ 多次调用 useDebugValue 显示多个值 ------------------------------
+export default function useComplexHook() {
+  const [state, setState] = useState({ count: 0, name: "" })
+  const [cache] = useState(new Map())
+
+  useDebugValue(`Count: ${state.count}`)
+  useDebugValue(`Cache size: ${cache.size}`)
+  useDebugValue(state.name ? `User: ${state.name}` : "Anonymous")
+
+  return [state, setState] as const
+}
+```
+
+------------------------------ React18 新增 Hooks ------------------------------
+
+### useId
+
+- const id = useId()
+- 最佳实践: 专门用于可访问性属性 (id、htmlFor、aria-\*), 解决 SSR hydration 的 ID 匹配问题
+
+| 特性   | 说明                                   |
+| ------ | -------------------------------------- |
+| 唯一性 | 同一组件内多次调用生成不同 ID          |
+| 稳定性 | 服务端和客户端生成相同 ID              |
+| 格式   | r:0、r:1:0 等 (内部实现，不要依赖格式) |
+| 用途   | id、htmlFor、aria-labelledby 等        |
+
+| 注意点           | 说明                              |
+| ---------------- | --------------------------------- |
+| 不要用于 key     | key 需要稳定且可预测, 用数据库 ID |
+| 不要依赖格式     | ID 格式可能变化, 只保证唯一性     |
+| 组件内多次调用   | 每次调用生成不同 ID               |
+| 同一组件多个实例 | 每个实例有独立 ID 空间            |
+| 服务端渲染       | 自动保证服务端和客户端一致        |
+
+- 为无障碍属性生成唯一 ID
+- 为多个相关元素生成 ID
+- 为所有生成的 ID 指定共享前缀
+- 在客户端和服务端上使用相同的 ID 前缀
+
+```tsx
+import { useId } from "react"
+
+export function GoodComponent() {
+  // 服务端和客户端生成相同 ID
+  const id = useId()
+  return <div id={id}>Content</div>
+}
+```
+
+### useDeferredValue
+
+- const deferredValue = useDeferredValue(value, initialValue?)
+- deferredValue: 延迟后的值 (非紧急更新, 可能"滞后"于 value)
+- value: 你想延迟的值, 可以是任何类型
+- initialValue: 组件初始渲染时使用的值
+
+| 场景                    | 解决方案         | 代码特点                 |
+| ----------------------- | ---------------- | ------------------------ |
+| 受控组件输入 + 昂贵派生 | useDeferredValue | 延迟的是值，自动处理     |
+| 点击/交互触发状态更新   | useTransition    | 手动包裹 startTransition |
+
+```tsx
+import { useDeferredValue, useMemo, useState } from "react"
+
+interface Product {
+  id: number
+  name: string
+  price: number
+}
+
+// ------------------------------ 搜索过滤 ------------------------------
+export function ProductSearch({ products }: { products: Product[] }) {
+  const [query, setQuery] = useState("")
+
+  // query 变化时, deferredQuery 延迟更新
+  const deferredQuery = useDeferredValue(query)
+
+  // 使用延迟值进行昂贵计算
+  const filteredProducts = useMemo(() => {
+    console.log("Filtering with:", deferredQuery)
+    return products.filter((p) => p.name.toLowerCase().includes(deferredQuery.toLowerCase()))
+  }, [deferredQuery, products])
+
+  const isStale = query !== deferredQuery
+
+  return (
+    <div>
+      <input
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+        placeholder="Search products..."
+        style={{ opacity: isStale ? 0.7 : 1 }}
+      />
+
+      {/* 指示后台正在处理 */}
+      {isStale && <span>Updating...</span>}
+
+      <ul>
+        {filteredProducts.map((product) => (
+          <li key={product.id}>
+            {product.name} - ${product.price}
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+```
+
+### useSyncExternalStore
+
+const snapshot = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot?)
+
+| 场景                             | useEffect           | useSyncExternalStore   |
+| -------------------------------- | ------------------- | ---------------------- |
+| 浏览器 API (online, geolocation) | ❌ 可能导致 tearing | ✅ 保证一致性          |
+| 第三方状态管理 (Zustand, Valtio) | ❌ 需要额外封装     | ✅ 官方推荐            |
+| 简单的 DOM 操作                  | ✅ 足够             | 过度设计               |
+| SSR 支持                         | 手动处理 hydration  | 内置 getServerSnapshot |
+
+| 注意点         | 说明                                         |
+| -------------- | -------------------------------------------- |
+| 快照必须不可变 | 每次返回新对象, React 用 Object.is 比较      |
+| 订阅必须同步   | 不能在 subscribe 里用 setTimeout             |
+| SSR 必须处理   | 提供 getServerSnapshot 避免 hydration 不匹配 |
+| 全局状态通知   | 如 localStorage 示例, 需要手动触发订阅回调   |
+
+```tsx
+import { useCallback, useSyncExternalStore } from "react"
+
+// ------------------------------ 进阶示例: 订阅浏览器在线状态 ------------------------------
+type OnlineStatus = {
+  isOnline: boolean
+  since: Date | null
+}
+
+function useOnlineStatus() {
+  const subscribe = useCallback((callback: () => void) => {
+    window.addEventListener("online", callback)
+    window.addEventListener("offline", callback)
+
+    return () => {
+      window.removeEventListener("online", callback)
+      window.removeEventListener("offline", callback)
+    }
+  }, [])
+
+  const getSnapshot = useCallback(
+    (): OnlineStatus => ({
+      isOnline: navigator.onLine,
+      since: new Date(),
+    }),
+    []
+  )
+
+  const getServerSnapshot = useCallback(
+    (): OnlineStatus => ({
+      isOnline: true, // 服务端假设在线
+      since: null,
+    }),
+    []
+  )
+
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot)
+}
+
+// 使用
+export function NetworkStatus() {
+  const { isOnline } = useOnlineStatus()
+
+  return (
+    <div style={{ color: isOnline ? "green" : "red" }}>{isOnline ? "🟢 Online" : "🔴 Offline"}</div>
+  )
+}
+```
+
+### useTransition
+
+- const [isPending, startTransition] = useTransition()
+- isPending: boolean - 过渡是否进行中
+- startTransition: (callback: () => void) => void - 包裹非紧急更新
+
+| 注意点             | 说明                                                |
+| ------------------ | --------------------------------------------------- |
+| 只在状态更新中使用 | startTransition 内必须是 setState, 不能是其他副作用 |
+| 并发特性           | 需要 React 18 + createRoot                          |
+| 自动批处理         | Transition 内的多个 setState 自动批处理             |
+| 可中断             | 高优先级更新会中断 transition, 优先渲染             |
+| 没有回调           | 不像 setState 的回调, transition 完成没有通知机制   |
+
+```tsx
+import { useState, useTransition } from "react"
+
+// ------------------------------ Tab 切换 (保持当前 UI 响应) ------------------------------
+type Tab = "home" | "dashboard" | "settings"
+
+// 模拟慢组件
+function SlowDashboard() {
+  // 昂贵的渲染
+  const items = Array.from({ length: 10000 }, (_, i) => i)
+  return (
+    <div>
+      {items.map((i) => (
+        <div key={i}>Item {i}</div>
+      ))}
+    </div>
+  )
+}
+
+export default function TabContainer() {
+  const [activeTab, setActiveTab] = useState<Tab>("home")
+  const [isPending, startTransition] = useTransition()
+
+  const selectTab = (tab: Tab) => {
+    startTransition(() => {
+      setActiveTab(tab)
+    })
+  }
+
+  return (
+    <>
+      <div>
+        {(["home", "dashboard", "settings"] as Tab[]).map((tab) => (
+          <button
+            key={tab}
+            onClick={() => selectTab(tab)}
+            disabled={isPending} // 过渡期间禁用按钮
+            style={{
+              fontWeight: activeTab === tab ? "bold" : "normal",
+              opacity: isPending && activeTab !== tab ? 0.7 : 1,
+            }}
+          >
+            {tab}
+            {isPending && activeTab === tab && " (loading...)"}
+          </button>
+        ))}
+      </div>
+
+      <div>
+        {activeTab === "home" && <div>Home</div>}
+        {activeTab === "dashboard" && <SlowDashboard />}
+        {activeTab === "settings" && <div>Settings</div>}
+      </div>
+    </>
+  )
+}
+```
+
+## React 组件通信
+
+- 父 => 子: props 传值
+- 子 => 父: ref 调用方法
+- 兄弟组件之间: 状态提升
+- 父组件 => 后代组件: Context API; 事件总线 (Event Bus)
+- 非关系组件: Redux/Zustand 状态管理; PubSub 模式; URL 参数共享
+
+## React 事件机制
+
+React 基于浏览器的事件机制实现了一套事件机制 (合成事件):
+
+- 合成事件: React 模拟原生 DOM 事件所有能力的一个事件对象
+- 根据 W3C 规范来定义合成事件, 兼容所有浏览器, 拥有与浏览器原生事件相同的接口
+- React 把所有事件绑定到结构的最外层, 使用一个统一的事件去监听
+
+合成事件触发流程:
+
+- React 所有事件都挂载在 document 对象
+- 真实 DOM 触发事件 => 冒泡到 document 对象 => 处理 React 事件
+- 先执行原生事件, 再处理 React 事件
+- 最后执行 document 上挂载的事件
+
+阻止合成事件:
+
+- 阻止合成事件间的冒泡: e.stopPropagation()
+- 阻止合成事件与最外层 document 上的事件间的冒泡: e.nativeEvent.stopImmediatePropagation()
+- 阻止合成事件与除最外层 document 上的原生事件上的冒泡, 通过 e.target 来避免
+
+## React 构建组件的方式
+
+- React.createClass()
+- 继承 React.Component
+
+## React 引入 CSS 的方式
+
+- 组件内直接使用 style 属性
+- 组件中引入 .css 文件
+- 组件中引入 .module.css 文件
+- CSS in JS
+
+## React 高阶组件
+
+高阶函数: 至少满足下面一个条件的函数
+
+- 接受一个或多个函数作为输入
+- 输出一个函数
+
+高阶组件:
+
+- 接受一个或多个组件作为参数
+- 返回一个组件
+
+## React 实现过渡动画
+
+- react-transition-group
+- react-motion
+- animated
+
+### react-transition-group
+
+| 阶段   | 对应 CSS 类     | 说明             |
+| ------ | --------------- | ---------------- |
+| 进入前 | \*-enter        | 初始状态         |
+| 进入中 | \*-enter-active | 动画执行状态     |
+| 退出前 | \*-exit         | 退出初始状态     |
+| 退出中 | \*-exit-active  | 退出动画执行状态 |
+
+```jsx
+import { CSSTransition, TransitionGroup } from 'react-transition-group'
+// ------------------------------ 基础过度动画 ------------------------------
+function App() {
+  const [show, setShow] = useState(true)
+  return (
+    <>
+      <style jsx>
+        {`
+          .fade-enter {
+            transform: translateY(20px);
+            opacity: 0;
+          }
+          .fade-enter-active {
+            transform: translateY(0);
+            opacity: 1;
+            transition: all 500ms ease-in;
+          }
+          .fade-exit {
+            opacity: 1;
+          }
+          .fade-exit-active {
+            opacity: 0;
+            transition: all 500ms ease-out;
+          }
+        `}
+      </style>
+      <CSSTransition in={show} timeout={500} classNames="fade" unmountOnExit>
+        <div className="block-element">
+          <h2>Animated Block</h2>
+        </div>
+      </CSSTransition>
+    </>
+  )
+}
+
+// ------------------------------ 进阶场景 ------------------------------
+/** 👇 列表动画 (结合行内块元素特性) 👇 */
+const ListItem = styled.div`
+  display: inline-block;
+  margin: 10px;
+`
+function TodoList() {
+  return (
+    <TransitionGroup component={null}>
+      {items.map((item) => (
+        <CSSTransition key={item.id} timeout={300} classNames="list-item">
+          <ListItem>{item.text}</ListItem>
+        </CSSTransition>
+      ))}
+    </TransitionGroup>
+  )
+}
+
+/** 👇 路由切换动画 👇 */
+function AnimatedRoutes() {
+  const location = useLocation()
+  return (
+    <TransitionGroup component={null}>
+      <CSSTransition key={location.key} timeout={300} classNames="page-transition">
+        <Switch location={location}>
+          <Route path="/home" component={Home}></Route>
+          <Route path="/about" component={About}></Route>
+        </Sitc>
+      </CSSTransition>
+    </TransitionGroup>
+  )
+}
+
+/** 👇 性能优化 👇 */
+// 硬件加速
+// 在 CSS 中使用 transform 替代 top/left 移动
+// 复用已有的 CSS
+```
+
+## React 捕获错误
+
+```tsx
+import React, { Suspense } from "react"
+import { ErrorBoundary } from "react-error-boundary"
+
+// ------------------------------ 手写 ErrorBoundary ------------------------------
+export default class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+
+  // React提供了两个特殊的生命周期方法来创建错误边界:
+  // static getDerivedStateFromError(error) {}
+  // componentDidCatch(error, errorInfo) {}
+
+  static getDerivedStateFromError(error) {
+    // 更新 state 使下一次渲染能够显示降级后的 UI
+    return { hasError: true }
+  }
+
+  componentDidCatch(error, errorInfo) {
+    // 你同样可以将错误日志上报给服务器
+    logErrorToMyService(error, errorInfo)
+  }
+
+  render() {
+    return this.state.hasError ? props.fallback : this.props.children
+  }
+}
+
+// ------------------------------ 使用 react-error-boundary ------------------------------
+// | API                   | 用途                     | 场景                       |
+// | --------------------- | ------------------------ | -------------------------- |
+// | ErrorBoundary         | 组件包裹, 捕获子树错误   | 页面级、区块级错误隔离     |
+// | useErrorBoundary()    | Hook, 手动抛出错误到边界 | 异步操作、事件处理中的错误 |
+// | withErrorBoundary()   | HOC, 为组件添加错误边界  | 不方便改 JSX 结构时        |
+function ErrorFallback({ error, resetErrorBoundary }) {
+  return (
+    <div className="error-container">
+      <h2>加载失败</h2>
+      <p>{error.message}</p>
+      <button onClick={resetErrorBoundary}>重试</button>
+    </div>
+  )
+}
+
+// 加载状态
+function Loading() {
+  return <div>Loading...</div>
+}
+
+// 应用结构
+export function App() {
+  return (
+    <ErrorBoundary FallbackComponent={ErrorFallback}>
+      <Suspense fallback={<Loading />}>
+        <UserData />
+        <PostsData />
+      </Suspense>
+    </ErrorBoundary>
+  )
+}
+```
+
+## React refs
+
+- Refs: 弹性文件系统
+- React 的 refs 提供了一种访问 DOM 节点的方式
+
+## React 中的 setState
+
+setState 分为同步更新和异步更新
+
+在受 React 控制的流程中异步批量更新:
+
+- 组件生命周期
+- React 合成事件
+
+不受 React 控制的流程中同步更新:
+
+- setTimeout
+- 通过 addEventlistener 添加的原生事件
+
+## React 中的 render 方法
+
+## Real DOM & Virtual DOM
+
+## React JSX 转换成真实 DOM 的过程
+
+## React 中的 key
+
+- key 应该是唯一的
+- key 不要使用随机值
+- index 作为 key, 对性能没有优化
+
+## 说说 Fiber 架构
+
+## React diff
+
+## 如何提高组件渲染效率? 如何避免不必要的 render?
+
+类组件:
+
+- shouldComponentUpdate() {}
+- PureComponent
+- React.memo(), 只能用于函数组件
+
+## React 性能优化手段
+
+- 使用唯一 key 值
+- 避免使用内联函数
+- 使用 React Fragments 避免额外标签
+- 使用 Immutable
+- 懒加载组件
+- 服务端渲染
+
+## 对 React Router 的理解
+
+## Redux & Redux 中间件 & Zustand
+
+```ts
+import { createSlice, configureStore } from "@reduxjs/toolkit"
+import { createStore } from "redux"
+
+/** 👇 官方不再推荐这种使用方式 👇 */
+/**
+ * 这是一个 reducer 函数: 接受当前 state 值和描述“发生了什么”的 action 对象, 它返回一个新的 state 值;
+ * reducer 函数签名是: (state, action) => newState
+ *
+ * Redux state 应该只包含普通的 JS 对象、数组和原语;
+ * 根状态值通常是一个对象; 重要的是, 不应该改变 state 对象, 而是在 state 发生变化时返回一个新对象;
+ *
+ * 你可以在 reducer 中使用任何条件逻辑; 在这个例子中, 我们使用了 switch 语句, 但这不是必需的;
+ *
+ */
+function counterReducer(state = { value: 0 }, action) {
+  switch (action.type) {
+    case "counter/incremented":
+      return { value: state.value + 1 }
+    case "counter/decremented":
+      return { value: state.value - 1 }
+    default:
+      return state
+  }
+}
+// 创建一个包含应用程序 state 的 Redux store;
+// 它的 API 有 { subscribe, dispatch, getState }.
+let store = createStore(counterReducer)
+// 可以使用 subscribe() 来更新 UI 以响应 state 的更改;
+// 通常你会使用视图绑定库 (例如 React Redux) 而不是直接使用 subscribe();
+// 可能还有其他用例对 subscribe 也有帮助;
+store.subscribe(() => console.log(store.getState()))
+// 改变内部状态的唯一方法是 dispatch 一个 action;
+// 这些 action 可以被序列化、记录或存储, 然后再重放;
+store.dispatch({ type: "counter/incremented" })
+// {value: 1}
+store.dispatch({ type: "counter/incremented" })
+// {value: 2}
+store.dispatch({ type: "counter/decremented" })
+// {value: 1}
+
+/** 👇 Redux 官方推荐使用方式 👇 */
+const counterSlice = createSlice({
+  name: "counter",
+  initialState: {
+    value: 0,
+  },
+  reducers: {
+    incremented: (state) => {
+      // Redux Toolkit 允许在 reducers 中编写 "mutating" 逻辑;
+      // 它实际上并没有改变 state, 因为使用的是 Immer 库, 检测到“草稿 state”的变化并产生一个全新的
+      // 基于这些更改的不可变的 state;
+      state.value += 1
+    },
+    decremented: (state) => {
+      state.value -= 1
+    },
+  },
+})
+export const { incremented, decremented } = counterSlice.actions
+const store = configureStore({
+  reducer: counterSlice.reducer,
+})
+// 可以订阅 store
+store.subscribe(() => console.log(store.getState()))
+// 将我们所创建的 action 对象传递给 `dispatch`
+store.dispatch(incremented())
+// {value: 1}
+store.dispatch(incremented())
+// {value: 2}
+store.dispatch(decremented())
+// {value: 1}
+
+/** 👇 Zustand 👇 */
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+
+export interface IUseCounter {
+  number: number
+  increment: (n?: number) => void
+  decrement: (n?: number) => void
+}
+const useCounter = create<IUseCounter>()(
+  persist(
+    (set) => ({
+      number: 0,
+      increment: (n) =>
+        set((state) => {
+          if (n) return { number: state.number + n }
+          if (n === 0) return { number: state.number }
+          return { number: state.number + 1 }
+        }),
+      decrement: (n) =>
+        set((state) => {
+          if (n) return { number: state.number - n }
+          if (n === 0) return { number: state.number }
+          return { number: state.number - 1 }
+        }),
+    }),
+    { name: "zustand_counter" }
+  )
+)
+export default useCounter
+```
+
+## 对 immutable 的理解 & 如何在 React 中使用
+
+## React 服务端渲染 & 原理

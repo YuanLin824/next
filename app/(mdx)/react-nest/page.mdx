@@ -1,0 +1,1268 @@
+# NestJS
+
+NestJS 项目开发准则:
+
+1. 每个文件只定义一样东西
+2. 文件代码限制在 400 行内
+3. 定义简单函数 (代码在 75 行之内)
+4. 所有符号使用一致的命名规则
+5. 遵循同一个模式来描述符号的特性和类型
+6. 使用中横线和点分割文件名
+
+课程设计:
+
+1. 多租户设计
+2. 微服务架构
+3. 多 ORM 技术 (对接大部分数据库), 扩展性强
+4. 容器化部署
+5. 通用业务应用场景: 配合框架设计 + 扩展性设计
+6. 满足复杂业务场景下的企业应用场景需求
+
+微服务架构设计:
+
+1. Consul 实现服务发现与配置管理
+2. 结合 gRPC 通信, 提供注册, 鉴权和限流等核心功能
+
+核心:
+
+1. 复杂业务逻辑:
+   1. 多租户
+   2. 菜单权限
+   3. CMS 实例
+   4. 多种 ORM 多数据库
+2. 高并发高可用
+   1. 微服务架构
+   2. Consul 注册中心
+   3. 容灾被封与切换
+   4. gRPC 通信
+3. 安全与权限
+   1. JWT 鉴权
+   2. 完整 RBAC 实现
+   3. CASL 策略权限
+   4. 安全头
+   5. 请求限制
+   6. 接口版本控制
+4. 扩展与继承能力
+   1. Redis 缓存
+   2. Cache
+   3. 短信 / 右键
+   4. SSH
+   5. 定时任务
+   6. monorepo 开发
+   7. nx 云构建
+   8. pnpm-workspace
+   9. 多环境配置
+
+## Node.js 服务端库/框架
+
+库: 提供基础功能, 不约束开发方式 (路由, 中间件等需要自己写)
+
+1. Express
+2. Kao
+3. Fastify
+
+框架: 具备完整的开发约束 (提供一整套开发工具)
+
+1. Egg (基于 Kao 封装)
+2. NestJS (默认使用 Express, 可切换 Fastify, 下一代会基于 Kao 开发)
+
+企业级开发特点:
+
+1. 聚焦于业务逻辑, 高开发效率
+2. 良好的扩展性, 代码复用性
+3. 可维护, 可发展
+
+## NestJS (借鉴 SpringBoot)
+
+借鉴 SpringBoot
+
+基石: IoC (控制反转), DI (依赖注入)
+
+NestJS 一个用于构建高效, 可扩展的 Node.js 服务端的应用框架
+
+NestJS 特点:
+
+1. 模块化: 通过将应用程序组织成独立的模块来简化维护
+2. 可扩展: 全面路由功能设计, 多配置/日志
+3. 依赖注入: 使用复杂的依赖关系注入系统提升可测试性
+4. 类型安全: TS
+5. 微服务: 内置微服务
+6. Web 应用
+7. 开箱即用: 官方 CLI / REST 模板
+8. 生态丰富: GraphQL / 任务 / 队列 / 缓存 / WS / ORM
+9. 生态: 学习曲线平缓, 统一技术栈, 高质量文档与社区支持
+
+## 核心概念
+
+1. 控制器: 处理请求
+2. 服务: 数据访问与核心逻辑
+3. 模块: 组合所有的逻辑代码
+4. 管道: 核验请求的数据
+5. 过滤器: 处理请求时的错误
+6. 守卫: 鉴权与认证相关
+7. 拦截器: 给请求与响应加入额外的逻辑
+8. 存储库: 处理数据库中的数据
+
+## NestJS 生命周期
+
+```txt
+客户端请求 => Middleware => Guards => Interceptor(前置) => Pipes => Controller => Interceptor(后置) => 响应客户端
+                                                      ↓
+                        Exception Filters (任何阶段出错都会走到对应的 Execption Filter)
+```
+
+中间件:
+
+1. 全局中间件
+2. 模块中间件
+
+守卫: 鉴权与认证相关
+
+1. 全局守卫
+2. 控制器守卫
+3. 路由守卫
+
+前置拦截器:
+
+1. 全局拦截器
+2. 控制器拦截器
+3. 路由拦截器
+
+管道:
+
+1. 全局管道
+2. 控制器管道
+3. 路由管道
+4. 路由参数管道
+
+后置拦截器:
+
+1. 路由拦截器
+2. 控制器拦截器
+3. 全局拦截器
+
+过滤器:
+
+1. 路由过滤器
+2. 控制器过滤器
+3. 全局过滤器
+
+# Thought
+
+1. 面向对象编程思想 (封装, 继承, 多态):
+   核心思想 - 抽象 interface => 抽象类 => 具体实现
+2. 函数式编程思想 (函数是一等公民, 纯函数, 不可变数据):
+   纯函数, 函数组合, 高阶函数, 函数柯里化
+3. 面向切面编程思想 (AOP):
+   装饰器, 代理, 中间件
+4. 插件化编程思想:
+   插件, 扩展, 可插拔, 插件协议, 插件底座, 插件声明周期
+
+编程思想
+
+1. 编程范式, 即写代码的方式 & 风格
+
+## 需求分析
+
+1. 用户的痛点问题
+2. 用户的最小闭环
+3. 辅助最小闭环的实现到项目上线需要什么技术 & 方案
+
+项目分析:
+
+1. 接口服务: 稳定可靠的 Web 服务, 集成数据库 + Redis
+2. 最小闭环: 接口 CURD, 登录注册 (认证), 权限控制 (鉴权)
+3. 服务部署与测试: 提供文档 (需求, 测试, 部署, 产品...)
+4. 技术选型:
+   1. NestJS + Typescript
+   2. ORM 库: TypeORM (官方的数据库对接方案)
+
+开发: 多环境配置
+功能: 通用模块
+安全: 接口文档, 接口安全, 接口性能, 日志
+
+## OOP
+
+面向对象编程 (Object Oriented Programming)
+
+特点:
+
+1. 抽象事物的特征, 对于理解友好
+2. 封装 (高内聚, 低耦合), 继承, 多态
+3. 典型的 OOP 语言: Java, C#
+
+## FP
+
+函数式编程 (Function Programming)
+
+1. 对过程进行通用式封装
+2. 多处复用封装的函数
+
+特点:
+
+1. 函数是第一等公民
+2. 相同的输入必定有相同的输出
+3. 纯函数, 相对独立 (无副作用, 即函数内部不会影响到函数外部)
+4. 引用透明, 易于理解, 对 IDE 友好
+5. vue / react 都偏向 FP
+
+## FRP
+
+函数响应式编程 (Function Response Programming)
+
+特点:
+
+1. 适合需要对事件流进行复杂组合的应用场景
+2. 响应式多用在异步场景
+3. 典型案例: rxjs, 广告推荐
+
+## AOP
+
+面向切面编程 (Aspect Oriented Programming)
+
+特点:
+
+1. 对 OOP 的补充
+2. AOP 在不破坏封装功能的前提下, 额外增加功能
+3. 扩展功能方便, 不影响业务之间的逻辑
+4. 逻辑集中管理
+5. 代码复用
+
+```txt
+权限控制, 统一日志, 错误处理可以认为是一个个功能切片
+┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
+│                    ┌──────────────────────────────────────┐                                      │
+│  ┌────────────┐    │  ┌────────┐  ┌────────┐  ┌────────┐  │    ┌────────────┐    ┌────────────┐  │
+│  │  权限控制  │ => │  │ 业务一 │  │ 业务二 │  │ 业务三 │  │ => │  统一日志  │ => │  错误处理  │  │
+│  └────────────┘    │  └────────┘  └────────┘  └────────┘  │    └────────────┘    └────────────┘  │
+│                    └──────────────────────────────────────┘                                      │
+└──────────────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+## IOC & DI
+
+IOC: "别叫我，我会叫你" (Don't call us, we'll call you)
+DI: "告诉我你要什么, 我给你什么"
+
+控制反转 (Inversion Of Control) 和依赖注入 (Dependency Injection)是现代软件开发的一种设计模式
+
+优点 ✅
+
+1. ✅ 低耦合 - 组件之间松散耦合
+2. ✅ 易测试 - 可以注入 mock 对象
+3. ✅ 可维护 - 修改实现不影响使用方
+4. ✅ 可扩展 - 轻松替换实现
+5. ✅ 复用性 - 依赖可在多处复用
+
+缺点 ❌
+
+1. ❌ 学习曲线 - 初学者难理解
+2. ❌ 调试困难 - 对象创建过程隐藏
+3. ❌ 过度设计 - 小项目可能没必要
+4. ❌ 性能开销 - 反射和容器有一定开销
+
+IOC: (设计原则)
+
+1. 控制反转是 OOP 中的一种设计原则, 用于减少代码之间的耦合度
+2. 基本思想: 借助于第三方, 实现具有依赖关系对象之间的解耦
+3. 把对象的创建和管理控制权交给框架 / 容器
+
+DI: (实现方式)
+
+1. DI 是 IOC 一种的实现方式
+2. 允许在类外创建依赖对象, 并通过不同方式将这些对象提供给类
+3. DI 的三种注入方式：构造函数注入、属性注入、方法注入
+   1. 构造函数注入：通过构造函数传入依赖对象
+
+      ```ts
+      // ✅ 依赖明确
+      // ✅ 对象创建后立即可用
+      // ✅ 支持不可变对象
+      class EmailService {
+        sendEmail(to: string, content: string) {
+          console.log(`发送邮件到 ${to}: ${content}`)
+        }
+      }
+      class UserService {
+        // ✅ 通过构造函数注入
+        constructor(private emailService: EmailService) {}
+        registerUser(email: string) {
+          // 业务逻辑
+          this.emailService.sendEmail(email, "欢迎注册!")
+        }
+      }
+      // 使用
+      const userService = new UserService(new EmailService())
+      userService.registerUser("user@example.com")
+      ```
+
+   2. 属性注入：通过属性赋值的方式传入依赖对象
+
+      ```ts
+      // ⚠️ 依赖不明确
+      // ⚠️ 可能忘记注入
+      class UserService {
+        // ✅ 通过属性注入
+        emailService!: EmailService
+        registerUser(email: string) {
+          this.emailService.sendEmail(email, "欢迎注册!")
+        }
+      }
+      // 使用
+      const userService = new UserService()
+      userService.emailService = new EmailService() // 注入依赖
+      userService.registerUser("user@example.com")
+      ```
+
+   3. 方法注入：通过方法参数的方式传入依赖对象
+
+      ```ts
+      class UserService {
+        // ✅ 通过方法参数注入
+        registerUser(email: string, emailService: EmailService) {
+          emailService.sendEmail(email, "欢迎注册!")
+        }
+      }
+      // 使用
+      const userService = new UserService()
+      userService.registerUser("user@example.com", new EmailService())
+      ```
+
+```ts
+class Phone {
+  playGame(name: string) {
+    console.log(name)
+  }
+}
+// Person  => play => Phone 的强依赖关系
+class Person {
+  constructor(private name: string) {
+    this.name = name
+  }
+
+  play() {
+    const phone = new Phone()
+    phone.playGame(this.name)
+  }
+}
+
+// 实现依赖注入的思想就是控制反转
+// 通过依赖注入的方式解耦 Person 和 Phone 的强依赖关系
+// 类似函数传参
+interface InterfacePhone {
+  playGame(name: string): void
+}
+class IPhone implements InterfacePhone {
+  playGame(name: string): void {
+    console.log(`${name} is playing game on IPhone`)
+  }
+}
+class Android implements InterfacePhone {
+  playGame(name: string): void {
+    console.log(`${name} is playing game on Android`)
+  }
+}
+class DIPerson {
+  constructor(
+    private name: string,
+    private phone: InterfacePhone
+  ) {
+    this.name = name
+    this.phone = phone
+  }
+
+  play() {
+    this.phone.playGame(this.name)
+  }
+}
+
+// new IPhone() 和 new Android() 就是依赖注入
+const p1 = new DIPerson("Tom", new IPhone())
+p1.play() // Tom is playing game on IPhone
+const p2 = new DIPerson("Jerry", new Android())
+p2.play() // Jerry is playing game on Android
+```
+
+## MVC
+
+MVC (Model-View-Controller) 是一种软件架构模式, 广泛应用于开发 Web 应用程序
+
+1. 它将应用程序分为三个主要组件:
+   1. 模型
+   2. 视图
+   3. 控制器
+2. NestJS 实现 View 层:
+   1. pug
+   2. hus
+   3. ejs
+   4. ......
+3. NestJS 默认继承 Express 作为 Web 服务器, 可以换成 Koa, Fastify...
+4. Controller 响应前端的请求, Model 是对应的具体数据库逻辑
+
+## DTO & DAO
+
+请求 => DTO \<=\> 逻辑 \<=\> DAO => 数据库
+
+数据传输对象 (Date Transfer Object):
+
+1. 接受部分数据
+2. 对数据进行筛选
+3. 不对应实体
+4. 属性小于等于实体
+
+数据访问对象 (Date Acces Object):
+
+1. 对受数据库接口
+2. 不暴露数据库的内部信息
+3. 对应实体
+
+NestJS 中的 DTO:
+
+1. 约定了数据字段, 属性
+2. 方便数据校验
+
+NestJS 中的实体类:
+
+1. DAO 是一层逻辑, 包含:
+   1. 实体类
+   2. 数据库操作 (CURD)
+   3. 数据库校验
+   4. 错误处理等
+2. NestJS 做了一层封装:
+   1. 通过 ORM 库与数据库对接 (通过 ORM 可以对接多种数据库)
+   2. 这些 ORM 库就是 DAO 层
+
+# NestCli
+
+```shell
+npm install -g @nestjs/cli
+# 验证是否安装完成
+nest --version
+# 不安装 nestjs/cli 的情况下使用 @nestjs/cli
+npx @nestjs/cli@latest --version
+
+# 查看 nest 命令行工具帮助文档
+nest --help
+
+# 创建具有给定 <name> NestJS 项目
+# <name>
+#   新项目的名称
+# options
+#   --dry-run
+#     别名: -d; 报告将进行的更改, 但不更改文件系统
+#   --skip-git
+#     别名: -g; 跳过 git 仓库初始化
+#   --skip-install
+#     别名: -s; 跳过包安装
+#   --package-manager [package-manager]
+#     别名: -p; 指定包管理器; 使用 npm, yarn 或 pnpm; 包管理器必须全局安装
+#   --language [language]
+#     别名: -l; 指定编程语言 (TS 或 JS)
+#   --collection [collectionName]
+#     别名: -c; 指定原理集合; 使用包含原理的已安装 npm 包的包名
+#   --strict
+#     启动项目时启用以下 TypeScript 编译器标志:
+#     strictNullChecks, noImplicitAny, strictBindCallApply, forceConsistentCasingInFileNames, noFallthroughCasesInSwitch
+nest new <name> [options]
+nest n <name> [options]
+
+# 根据原理生成 / 修改文件
+# <schematic>
+#   要生成的 schematic 或 collection:schematic
+#   app
+#     在 monorepo 中生成新应用程序 (如果是标准结构, 则转换为 monorepo)
+#   library
+#     别名: lib; 在 monorepo 中生成新库 (如果是标准结构, 则转换为 monorepo)
+#   class
+#     别名: cl; 生成新类
+#   controller
+#     别名: co; 生成控制器声明
+#   decorator
+#     别名: d; 生成自定义装饰器
+#   filter
+#     别名: f; 生成过滤器声明
+#   gateway
+#     别名: ga; 生成网关声明
+#   guard
+#     别名: gu; 生成守卫声明
+#   interface
+#     别名: itf; 生成接口
+#   interceptor
+#     别名: itc; 生成拦截器声明
+#   middleware
+#     别名: mi; 生成中间件声明
+#   module
+#     别名: mo; 生成模块声明
+#   pipe
+#     别名: pi; 生成管道声明
+#   provider
+#     别名: pr; 生成提供者声明
+#   resolver
+#     别名: r; 生成解析器声明
+#   resource
+#     别名: res; 生成新的 CRUD 资源; 有关更多详细信息, 请参阅 CRUD (资源) 生成器; (仅限 TS)
+#   service
+#     别名: s; 生成服务声明
+# <name>
+#   生成的组件的名称
+# [options]
+#   --dry-run
+#     别名：-d; 报告将进行的更改, 但不更改文件系统
+#   --project [project]
+#     别名：-p; 应添加元素的项目
+#   --flat
+#     不为元素生成文件夹
+#   --collection [collectionName]
+#     别名：-c; 指定原理集合; 使用包含原理的已安装 npm 包的包名
+#   --spec
+#     强制生成 spec 文件 (默认)
+#   --no-spec
+#     禁用 spec 文件生成
+nest generate <schematic> <name> [options]
+nest g <schematic> <name> [options]
+
+# 将应用程序或工作区编译到输出文件夹
+#   通过 tsconfig-paths 映射路径 (如果使用路径别名)
+#   使用 OpenAPI 装饰器注释 DTO (如果启用了 @nestjs/swagger CLI 插件)
+#   使用 GraphQL 装饰器注释 DTO (如果启用了 @nestjs/graphql CLI 插件)
+# <name>
+#   要构建的项目名称
+# [options]
+#   --path [path]
+#     别名: -p; tsconfig 文件的路径
+#   --config [path]
+#     别名: -c; nest-cli 配置文件的路径
+#   --watch
+#     别名: -w; 在监视模式下运行 (实时重新加载)
+#     如果你使用 tsc 进行编译, 可以输入 rs 重新启动应用程序 (当 manualRestart 选项设置为 true 时)
+#   --builder [name]
+#     别名: -b; 指定用于编译的构建器 (tsc, swc 或 webpack)
+#   --webpack
+#     使用 webpack 进行编译 (已弃用：改用 --builder webpack)
+#   --webpackPath
+#     webpack 配置的路径
+#   --tsc
+#     强制使用 tsc 进行编译
+#   --watchAssets
+#     监视非 TS 文件 (如 .graphql 等资产)
+#   --type-check
+#     启用类型检查 (当使用 SWC 时)
+#   --all
+#     构建 monorepo 中的所有项目
+#   --preserveWatchOutput
+#     在监视模式下保留过时的控制台输出, 而不是清屏; (仅限 tsc 监视模式)
+nest build <name> [options]
+
+# 编译并运行应用程序 (或工作区中的默认项目)
+# <name>
+#   要运行的项目名称
+# [options]
+#   --path [path]
+#     别名: -p; tsconfig 文件的路径
+#   --config [path]
+#     别名: -c; nest-cli 配置文件的路径
+#   --watch
+#     别名: -w; 在监视模式下运行 (实时重新加载
+#   --builder [name]
+#     别名: -b; 指定用于编译的构建器 (tsc, swc 或 webpack)
+#   --preserveWatchOutput
+#     在监视模式下保留过时的控制台输出, 而不是清屏; (仅限 tsc 监视模式)
+#   --watchAssets
+#     在监视模式下运行 (实时重新加载), 监视非 TS 文件 (资产)
+#   --debug [hostport]
+#     别名: -d; 在调试模式下运行 (使用 --inspect 标志)
+#   --webpack
+#     使用 webpack 进行编译; (已弃用：改用 --builder webpack)
+#   --webpackPath
+#     webpack 配置的路径
+#   --tsc
+#     强制使用 tsc 进行编译
+#   --exec [binary]
+#     别名: -e; 要运行的二进制文件 (默认：node)
+#   --no-shell
+#     不在 shell 中生成子进程 (参见 node 的 child_process.spawn() 方法文档)
+#   --env-file
+#     从相对于当前目录的文件加载环境变量, 使它们在 process.env 上对应用程序可用
+#   -- [key=value]
+#     可以用 process.argv 引用的命令行参数
+nest start <name> [options]
+
+# 导入已打包为 nest 库的库, 运行其安装原理
+# <name>
+#   要导入的库名称
+nest add <name> [options]
+
+# 显示有关已安装的 nest 包和其他有用的系统信息
+nest info
+```
+
+# Controller
+
+1. 控制器 MVC 中的 C
+2. 控制前后端连接点
+3. 只负责请求转发, 不负责具体业务逻辑
+
+# Service / Provider
+
+提供服务, 常见服务:
+
+1. 数据库连接池: PgProvider, PgService
+2. Kafka 驱动: KafkaClientProvider, KafkaClientService
+3. ClickHouse 访问
+4. Redis 处理
+5. 文件 I/O
+6. 邮件
+7. 定时任务
+
+# Module
+
+面向对象编程: 万物皆对象
+FP: 函数式编程
+NestJS 中万物皆模块
+
+# Middleware
+
+中间件面向切面: 不改变原逻辑, 为系统提供个性化处理
+
+- 系统日志
+- 操作日志
+- 鉴权 (守卫)
+
+## Class Middleware
+
+### src/common/middlewares/log.middleware.ts
+
+```ts
+import { Inject, Injectable, Logger, NestMiddleware } from "@nestjs/common"
+import { HttpAdapterHost } from "@nestjs/core"
+import { NextFunction, Request, Response } from "express"
+import requestIp from "request-ip"
+
+@Injectable()
+export class LogMiddleware implements NestMiddleware {
+  private readonly logger = new Logger(LogMiddleware.name)
+
+  constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
+
+  use(req: Request, _res: Response, next: NextFunction) {
+    const { httpAdapter } = this.httpAdapterHost
+
+    // 异步写入日志，不 await —— 即使日志写入失败也不影响正常请求
+    logger({
+      clientIp: requestIp.getClientIp(req) ?? "unknown",
+      method: httpAdapter.getRequestMethod(req).toLocaleUpperCase(),
+      path: httpAdapter.getRequestUrl(req),
+      body: req.body ?? {},
+      params: req.params ?? {},
+      query: req.query ?? {},
+    })
+    next()
+  }
+}
+```
+
+### src/app.module.ts
+
+```ts
+import { Global, MiddlewareConsumer, Module, NestModule } from "@nestjs/common"
+import { AppController } from "./app.controller"
+import { AppService } from "./app.service"
+import { LogMiddleware } from "./common/middlewares/log.middleware"
+
+@Module({
+  imports: [],
+  controllers: [AppController],
+  providers: [AppService],
+  exports: [],
+})
+export class AppModule implements NestModule {
+  // app.use() 是 Express 原生 API, 会绕过 NestJS 的依赖注入
+  // 通过 app.use() 注册的中间件会绕过 DI 容器 — 无法正确注入依赖
+
+  // MiddlewareConsumer.apply(LogMiddleware).forRoutes('*path'), NestJS 会自动通过 DI 容器实例化中间件并注入依赖
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LogMiddleware).forRoutes("*path")
+  }
+}
+```
+
+## Function Middleware
+
+```ts
+// 函数式中间件:
+import { Request, Response, NextFunction } from "express"
+
+export function logMiddleware(req: Request, res: Response, next: NextFunction) {
+  console.log(`Request...`)
+  next()
+}
+
+import { NestFactory } from "@nestjs/core"
+import { AppModule } from "./app.module"
+import { LogMiddleware } from "./common/middlewares/log.middleware"
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule)
+
+  // app.use() 是 Express 原生 API, 会绕过 NestJS 的依赖注入
+  // 通过 app.use() 注册的中间件会绕过 DI 容器 — 无法正确注入依赖
+  app.use(logMiddleware)
+
+  await app.listen(3000)
+}
+bootstrap()
+```
+
+# Filter / Execption
+
+## src/common/exceptions/all-exception.filter.ts
+
+```ts
+import {
+  ArgumentsHost,
+  Catch,
+  ExceptionFilter,
+  HttpException,
+  HttpStatus,
+  Logger,
+} from "@nestjs/common"
+import { HttpAdapterHost } from "@nestjs/core"
+import requestIp from "request-ip"
+import { QueryFailedError } from "typeorm"
+
+const FALLBACK_DB_CODE = "__fallback__"
+
+/**
+ * PostgreSQL 错误码 → HTTP 状态码 & 中文消息
+ *
+ * Postgres 错误码分类：
+ *   Class 23 — 完整性约束（唯一、外键、非空、检查）
+ *   Class 22 — 数据异常（值超长、类型不匹配）
+ *   Class 40 — 事务/死锁
+ *
+ * 将数据库底层错误翻译为前端可读的中文消息，避免暴露数据库细节
+ */
+const DB_ERROR_MAP: Record<string, { status: number; message: string }> = {
+  // 完整性约束 (Class 23)
+  "23505": { status: HttpStatus.CONFLICT, message: "数据已存在, 违反唯一约束" },
+  "23503": { status: HttpStatus.BAD_REQUEST, message: "数据关联异常, 违反外键约束" },
+  "23502": { status: HttpStatus.BAD_REQUEST, message: "必填字段缺失, 违反非空约束" },
+  "23514": { status: HttpStatus.BAD_REQUEST, message: "数据校验失败, 违反检查约束" },
+  "23506": { status: HttpStatus.CONFLICT, message: "违反排他约束" },
+  // 数据异常 (Class 22)
+  "22001": { status: HttpStatus.BAD_REQUEST, message: "字段值超出最大长度限制" },
+  "22P02": { status: HttpStatus.BAD_REQUEST, message: "字段类型不匹配, 数据格式无效" },
+  // 死锁 (Class 40)
+  "40P01": { status: HttpStatus.CONFLICT, message: "检测到死锁, 请重试" },
+  // 兜底
+  [FALLBACK_DB_CODE]: { status: HttpStatus.INTERNAL_SERVER_ERROR, message: "数据库操作异常" },
+}
+
+/**
+ * 全局异常过滤器
+ *
+ * 统一处理三类异常：
+ * 1. HttpException — NestJS 内置及自定义业务异常，直接提取状态码与消息
+ * 2. QueryFailedError — TypeORM 数据库异常，通过 Postgres 错误码映射为友好中文提示
+ * 3. 其他未知异常 — 兜底返回 500
+ *
+ * 所有异常均记录结构化日志（含客户端 IP、路径、方法、堆栈），
+ * 响应格式统一为 { code, data, message }
+ */
+@Catch()
+export class AllExceptionFilter<T> implements ExceptionFilter {
+  private readonly logger = new Logger(AllExceptionFilter.name)
+
+  constructor(private readonly httpAdapterHost: HttpAdapterHost) {}
+
+  catch(exception: T, host: ArgumentsHost) {
+    const { httpAdapter } = this.httpAdapterHost
+    const ctx = host.switchToHttp()
+    const res = ctx.getResponse()
+    const req = ctx.getRequest()
+    const clientIp = requestIp.getClientIp(req)
+
+    let status = HttpStatus.INTERNAL_SERVER_ERROR
+    let message = "Internal Server Error"
+
+    if (exception instanceof HttpException) {
+      status = exception.getStatus()
+      message = exception.message
+    }
+
+    // 将 Postgres 错误码翻译为可读的中文消息
+    if (exception instanceof QueryFailedError) {
+      const driverError = exception.driverError as {
+        code?: string
+        detail?: string
+        table?: string
+      }
+      const pgCode = driverError?.code ?? FALLBACK_DB_CODE
+      const mapping = DB_ERROR_MAP[pgCode] ?? DB_ERROR_MAP[FALLBACK_DB_CODE]
+      status = mapping?.status
+      message = mapping?.message
+    }
+
+    this.logger.error({
+      clientIp,
+      method: httpAdapter.getRequestMethod(req),
+      path: httpAdapter.getRequestUrl(req),
+      code: status,
+      message: message,
+      stack: exception,
+      timestamp: new Date().toISOString(),
+    })
+
+    let responseData: Record<string, unknown> = {}
+    if (exception instanceof HttpException) {
+      const exceptionResponse = exception.getResponse()
+      if (typeof exceptionResponse === "object" && exceptionResponse !== null) {
+        responseData = exceptionResponse as Record<string, unknown>
+      }
+    }
+    httpAdapter.reply(res, { code: status, data: responseData, message: message }, status)
+  }
+}
+```
+
+## src/app.module.ts
+
+```ts
+import { Global, Module } from "@nestjs/common"
+import { APP_FILTER, APP_GUARD } from "@nestjs/core"
+import { AppController } from "./app.controller"
+import { AppService } from "./app.service"
+import { AllExceptionFilter } from "./common/exceptions/all-exception.filter"
+
+@Module({
+  imports: [],
+  controllers: [AppController],
+  providers: [AppService, { provide: APP_FILTER, useClass: AllExceptionFilter }],
+  exports: [],
+})
+export class AppModule {}
+```
+
+# Pipe
+
+# Guard
+
+权限控制, 模块访问处理
+
+# Interceptor
+
+# Log
+
+1. 日志
+   1. 什么时间发生的
+   2. 发生了什么
+   3. 错误信息
+2. 日志等级:
+   1. Log: 通用日志, 按需记录 / 打印
+   2. Warning: 警告日志, 需要关注
+   3. Error: 错误日志, 需要立即处理
+   4. Debug: 调试日志, 开发调试使用
+   5. Verbose: 详细日志
+3. 日志功能分类:
+   1. 错误日志: 方便定位问题, 给用户友好提示
+   2. 调试日志: 方便开发
+   3. 请求日志: 记录敏感行为
+4. 日志记录位置:
+   1. 控制台日志: 方便监看
+   2. 文件日志: 方便回溯与追踪
+   3. 数据库日志: 敏感操作, 敏感数据记录
+
+推荐使用第三方 Logger 包替换内置 Logger
+
+## Winston (recommend)
+
+### 安装 winston 相关包
+
+```shell
+npm install nest-winston winston winston-daily-rotate-file
+```
+
+### Winston Logger 配置
+
+```ts
+// ./src/config/winston.ts
+import { utilities, WinstonModule } from "nest-winston"
+import winston from "winston"
+import DailyRotateFile from "winston-daily-rotate-file"
+import { IS_PROD } from "../common/utils/global"
+
+/** 生产环境: 按小时轮转的日志文件，压缩归档，自动清理 14 天前的日志 */
+const prod_opts = {
+  dirname: "logger_prod",
+  datePattern: "YYYY-MM-DD-HH",
+  zippedArchive: true,
+  maxSize: "20m",
+  maxFiles: "14d",
+  format: winston.format.combine(
+    winston.format.timestamp(),
+    utilities.format.nestLike("NestApp", { prettyPrint: true, colors: false })
+  ),
+}
+
+/** 开发环境: 彩色控制台输出 */
+const dev_opts = {
+  format: winston.format.combine(winston.format.timestamp(), utilities.format.nestLike(undefined)),
+}
+
+/**
+ * 创建 NestJS 兼容的 Winston Logger 实例
+ *
+ * 供 NestFactory.create 使用，替换 NestJS 默认的控制台 Logger。
+ * 生产环境输出到 info/error 两个文件，开发环境输出到控制台。
+ */
+export const WINSTON_LOGGER = WinstonModule.createLogger({
+  transports: IS_PROD
+    ? [
+        new DailyRotateFile({ level: "info", filename: "%DATE%.info.log", ...prod_opts }),
+        new DailyRotateFile({ level: "error", filename: "%DATE%.error.log", ...prod_opts }),
+      ]
+    : [new winston.transports.Console({ level: "info", ...dev_opts })],
+})
+```
+
+### 使用 Winston Logger 替换内置 Logger
+
+```ts
+import { NestFactory } from "@nestjs/core"
+import { NestExpressApplication } from "@nestjs/platform-express"
+import { AppModule } from "./app.module"
+import { WINSTON_LOGGER } from "./config/winston"
+
+async function bootstrap() {
+  // 使用 Winston 日志替代默认 Logger，确保启动阶段的日志也能输出到文件
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
+    logger: WINSTON_LOGGER,
+  })
+
+  await app.listen(3000)
+}
+
+bootstrap()
+  .then(() => {
+    console.log(`应用启动成功! 接口 URL:`, `http://localhost:3000`)
+  })
+  .catch((err) => {
+    console.error("应用启动失败:", err)
+    process.exit(1)
+  })
+```
+
+### 在不同层中使用替换后的 Logger
+
+```ts
+// middleware 中使用
+import { Injectable, Logger, NestMiddleware } from "@nestjs/common"
+import { NextFunction, Request, Response } from "express"
+
+@Injectable()
+export class LoggerMiddleware implements NestMiddleware {
+  private logger = new Logger(LoggerMiddleware.name)
+
+  use(req: Request, res: Response, next: NextFunction) {
+    this.logger.log("请求方式:", req.method)
+    this.logger.log("请求地址:", req.url)
+    next()
+  }
+}
+
+// controller 中使用
+import { Controller, Inject, Logger } from "@nestjs/common"
+import { WINSTON_MODULE_NEST_PROVIDER } from "nest-winston"
+
+@Controller("cats")
+export class CatsController {
+  private logger = new Logger(CatsController.name)
+  constructor() {}
+}
+
+// service 中使用
+import { Injectable, Inject, Logger } from "@nestjs/common"
+import { WINSTON_MODULE_NEST_PROVIDER } from "nest-winston"
+
+@Injectable()
+export class CatsService {
+  private logger = new Logger(CatsService.name)
+  constructor() {}
+}
+```
+
+## Pino
+
+pino 会在请求接口时自动在控制台打印一次
+
+# 开启 SWC 优化
+
+SWC 编译速度比 tsc 快约 20 倍 (SWC 的定位是极速转译器 (Transpiler), 只做 TS → JS 的转换, 不处理类型, 不生成 .d.ts 声明文件)
+
+SWC 编译 src 外的文件:
+
+1. NestJS 中的 SWC 默认配置只会编译 src 目录下的文件
+1. 配置 .swcrc 文件的 include
+1. nest-cli.json 的 compilerOptions.builder.options.swcrcPath 项正确指向 .swcrc
+
+## 安装 SWC 相关库
+
+```shell
+npm install --save-dev @swc/cli @swc/core chokidar
+```
+
+## 修改 nest-cli.json 配置
+
+```json
+/** 👇 nest-cli.json 👇 */
+{
+  "compilerOptions": {
+    // 开启 swc 编译
+    "builder": "swc",
+    // 保留 node-tsc 的类型检查
+    "typeCheck": true
+  }
+}
+```
+
+## 修改 tsconfig.json 配置
+
+```json
+/** 👇 tsconfig.json 👇 */
+// Windows 下 SWC 要求 baseUrl 必须是绝对路径, 而 tsconfig.json 里通常是相对路径
+// 需要注释掉 baseUrl, paths
+{
+  "compilerOptions": {
+    // 需要注释掉 baseUrl, paths
+    // "baseUrl": "./",
+    // "paths": { "@/*": ["./src/*"] }
+  }
+}
+```
+
+# ORM
+
+1. 是什么:
+   1. ORM (Object Relational Mappine) 对象映射关系
+   2. 作用: 把面向对象的概念跟数据库中的概念对应起来
+   3. 示例: 定义一个对象, 对应着一张表; 对象实例, 对应着表中的一条记录
+2. 优点:
+   1. 方便维护: 数据模型定义在同一个地方, 利于重构
+   2. 代码量少, 对接多种数据库: 代码逻辑通俗易懂
+   3. 工具多, 自动化能力强: 数据库删除, 关联数据, 事务操作等
+3. 缺点:
+   1. 不能优化 SQL 语句
+4. 推荐库:
+   1. knex
+   2. prisma
+   3. sequelize
+   4. typeorm
+
+## 常见 ORM 工具
+
+1. knex
+2. prisma
+3. sequelize
+4. typeorm
+
+## 集成 TypeORM
+
+## TypeORM CLI
+
+## 关系型数据库 (SQL)
+
+1. 采用了关系模型来组织数据的数据库
+   1. Oracle
+   1. MySQL
+   1. SQLServer
+   1. Access
+   1. SQLite
+   1. ...
+2. 优点:
+   1. 易于维护
+   2. 使用方便
+   3. 复杂查询效率高
+3. 缺点:
+   1. 读写性能差
+   2. 灵活性差
+4. 场景:
+   1. 各类业务系统
+   2. 管理系统
+   3. 安全性较高的场景
+5. 关系模型本质上就是若干个存储数据的二维表
+   1. 常见关联类型:
+      1. 一对一
+      2. 一对多
+      3. 多对多
+6. ERD 设计:
+   1. Navicat
+   2. DBDesigner
+   3. QuickDBD
+   4. ...
+   5. [设计参考](https://open.yesapi.cn/list.html)
+
+## 非关系型数据库 (NoSQL)
+
+1. NoSQL 是对不同于传统关系数据库的数据库的统称
+   1. MongonDB
+   2. Redis
+   3. Hbase
+   4. Memcache
+   5. ...
+2. 优点:
+   1. 易于扩展
+   2. 大文件存储
+   3. 查询速度快
+3. 缺点:
+   1. 复杂计算, 联合查询效率低
+4. 场景:
+   1. 多格式
+   2. 海量数据
+   3. 分布式消息系统
+   4. 统计排行
+
+## 数据库相关概念
+
+1. 数据表: 数据的矩阵
+2. 表头: 所有列的名称 (字段)
+3. 行: 一行是一组相关数据
+4. 列: 一列包含了相同类型的数据
+5. 主键:
+   1. 区分, 查询, 排序数据
+   2. 一般一张表只有一个主键
+   3. 有多个主键的叫联合主键
+6. 外键: 关联两张表
+
+# NestJS 场景题
+
+## AI 全栈
+
+## 分布式锁
+
+1. 设计与实现
+   1. 分布式系统中, 为了防止多个服务实例同时访问共享资源, 导致数据不一致的问题, 分布式锁是必不可少的
+2. 常见场景
+   1. 库存扣减: 高并发秒杀场景, 确保商品不超卖
+   2. 定时任务: 多个实例运行时, 确保只有一个实例执行任务
+   3. 资源更新: 多个服务实例对同一资源进行更新时, 避免冲突
+3. 技术实现
+   1. 使用 Redis 作为分布式工具
+   2. 基于 Redis 的 SET 命令, 结合 NX 和 EX 参数实现加锁
+4. Redis 分布式锁核心命令
+   1. SET lock_key unique_value NX EX 10 # 加锁
+   2. DEL lock_key # 释放锁
+   3. NX: 表示只有当 locak_key 不存在时才设置成功
+   4. EX: 设置过期时间, 防止锁死
+   5. NestJS 实现分布式锁 (使用 Redis 实现)
+      1. Redis 模块: 创建全局 Redis 模块, 用于连接 Redis
+      2. 分布式锁服务: 封装分布式锁的核心逻辑
+      3. 使用分布式锁
+5. 注意事项:
+   1. 锁的唯一性: 锁的只 (unique_value) 需要全局唯一, 防止其他服务误删
+   2. 锁的过期时间: 设置合理的过期时间, 防止锁死
+   3. 重试机制: 在获取锁失败时, 需要有重试机制
+   4. 高性能优化: Redis 是单线程模型, 过多的锁竞争会影响性能, 可使用分布式库 (如 Redlock) 来优化锁
+
+## 架构设计一个复杂业务的后端服务 (数据持久化最佳实践)
+
+### 复杂项目服务端架构设计重点
+
+1. 复杂业务场景下, 服务端的架构设计核心需求:
+   1. 高可用: 系统能够持续稳定地运行, 即使在部分组件出现故障时也能保证服务的正常运行
+   2. 高性能: 快速响应用户请求, 支持大量用户同时访问
+   3. 可扩展: 系统能够轻松扩展以支持更大的负载
+   4. 可维护: 代码结构清晰, 逻辑分离, 方便开发和调试
+   5. 数据一致: 分布式环境中确保事务一致性
+   6. 数据容灾 (数据安全性): 支持数据备份, 容灾和加密, 快速恢复服务, 减少故障对用户的影响
+2. 关键设计问题 (并发):
+   1. 缓存设计: 快速访问频繁使用的数据, 减轻数据库压力
+   2. 数据库设计: 选择合适的数据库, 根据场景调整表结构和查询优化
+   3. 日志数据库设计: 集中式日志存储与分析, 用于调试和性能监控
+   4. 海量数据设计: 优化数据存储和查询, 降低延迟和存储成本
+   5. 实时数据流设计: 处理实时事件流和数据流计算
+
+### 数据持久化技术选型
+
+1. 业务数据: Postgresql, MySQL, Mongodb 等
+2. 秒杀, 聊天, 用户常规书: Redis 缓存 (如何提高 Redis 缓存命中)
+3. 埋点日志, 性能监控日志, 用户行为日志 (大数据相关的数据): ClickHouse
+4. 消息队列 (削峰): Kafka
+
+## 服务端高可用, 高并发实战经验 (以 Nodejs 服务端架构为例)
+
+### 最佳实践总结
+
+1.  分布式锁: 使用 Redis 分布式锁解决高并发下的资源竞争问题
+2.  读写分离: 使用 PostgreSQL 主从复制实现读写分离, 提高性能
+3.  服务解耦: 通过 Kafka 实现异步通信, 降低服务之间的耦合度
+4.  缓存层优化: 优先缓存热点数据, 避免频繁访问数据库
+5.  容器化部署: 使用 Docker 和 K8s 进行服务管理, 实现自动扩容和故障恢复
+
+### 高可用, 高并发实战经验
+
+1. 微服务架构设计:
+   1. 核心思想:
+      1. 将系统拆分为多个独立的服务, 每个服务负责特定的业务功能
+      2. 服务之间通过异步消息或 HTTP 通信 (松耦合, 易扩展)
+   2. 优势:
+      1. 独立部署, 增强可靠性: 每个服务可以独立部署, 快速迭代
+      2. 横向扩展灵活, 资源利用率高: 根据需求增加或减少服务实例
+2. 分布式系统设计:
+   1. 分布式消息队列: 使用 Kafka 处理异步任务. 解耦服务之间的依赖
+   2. 分布式数据库: 实现分片存储与主从复制
+3. 技术选型:
+   1. NestJS: 提供模块化架构, 支持微服务开发
+   2. Kafka: 分布式消息队列, 支持高吞吐和低延迟
+   3. MySQL: 关系型数据库, 支持事务和外键约束
+   4. Redis: 提供分布式缓存与分布式锁
+   5. Docker + K8s: 服务容器化和编排管理
+
+### 高可用, 高并发设计思路
+
+1. 网关层:
+   1. 使用 API Gateway (如: Nginx, NestJS Gateway) 处理所有外部请求
+   2. 实现功能:
+      1. 均衡负载: 将请求分发到多个服务实例
+      2. 限流: 防止突发流量导致系统崩溃
+      3. 鉴权与认证: 同一处理用户身份验证
+2. 微服务拆分:
+   1. 用户服务: 负责用户的注册, 登录与身份管理
+   2. 订单服务: 管理用户订单与支付逻辑
+   3. 通知服务: 使用 Kafka 发送实时通知 (短信或者右键)
+   4. 分析服务: 使用 ClickHouse 存储与分析业务数据
+3. 异步通信与事件驱动:
+   1. 使用 Kafka 实现事件驱动架构
+      1. 每个微服务向 Kafka 发布事件
+      2. 消费者服务订阅相关事件
+   2. 优势:
+      1. 消息持久化, 防止丢失
+      2. 高并发处理能力, 解耦服务依赖
+4. 数据存储:
+   1. Postgresql:
+      1. 主从复制: 实现读写分离, 提高性能
+      2. 分片存储: 支持海量数据存储与查询
+   2. Redis:
+      1. 提供缓存支持, 降低数据库压力
+      2. 实现分布式锁, 解决并发冲突
+5. 容器化与服务编排
+   1. 使用 Docker 容器化微服务, 同一部署
+   2. 使用 K8s 管理服务, 支持自动扩容与故障恢复
+
+### 基于 NestJS 的微服务架构实现
+
+1. 使用 Kafka 实现异步通信
+   1. 创建 Kafka 模块
+   2. 生产者服务
+   3. 消费者服务
+1. 使用 PostgreSQL 实现主从复制
+   1. 数据库配置
+   2. 数据库访问模块
+1. 实现全局缓存
+   1. Redis 模块
+   2. 缓存服务
+
+## 最快实现一个 AI 全栈应用 POC, 怎么做技术选型
+
+## 基于 NestJS, Docker, Prisma, LangChain.js 快速实现一个 AI Agents 应用基础架构, 说说你的核心架构与设计
+
+## 从零到一设计一个 AI Agent 开发框架, 说说架构设计与核心实现
