@@ -38,28 +38,348 @@ npm run build:h5
 ## 项目结构
 
 ```
-myApp/
-├── config/             # 编译配置
-│   ├── index.ts        # 全局配置（入口、输出、别名等）
-│   ├── dev.ts          # 开发环境配置
-│   └── prod.ts         # 生产环境配置
-├── src/
-│   ├── pages/          # 页面目录
-│   │   └── index/
-│   │       ├── index.config.ts   # 页面配置（模拟 app.json 中页面配置）
-│   │       ├── index.tsx         # 页面组件
-│   │       └── index.scss        # 页面样式
-│   ├── components/     # 公共组件
-│   ├── hooks/          # 自定义 Hooks
-│   ├── stores/         # 状态管理
-│   ├── utils/          # 工具函数
-│   ├── app.config.ts   # 全局应用配置（模拟 app.json）
-│   ├── app.tsx         # 应用入口
-│   ├── app.scss        # 全局样式
-│   └── index.html      # H5 入口 HTML
-├── project.config.json # 微信小程序项目配置
+taro/
+├── config/                     # Taro 构建配置
+│   ├── index.ts                # 主配置（designWidth: 750, compiler: vite）
+│   ├── dev.ts                  # 开发环境覆盖
+│   └── prod.ts                 # 生产环境覆盖
+├── src/                        # 源码目录
+│   ├── app.config.ts           # 应用级配置（页面路由、窗口样式）
+│   ├── app.ts                  # 应用入口组件
+│   ├── app.less                # 全局样式
+│   ├── index.html              # H5 入口 HTML
+│   └── pages/                  # 页面目录
+│       └── index/              # 首页
+│           ├── index.tsx       # 页面组件
+│           ├── index.config.ts # 页面配置
+│           └── index.less      # 页面样式
+├── types/                      # 全局类型声明
+├── .env.development            # 开发环境变量
+├── .env.production             # 生产环境变量
+├── .env.test                   # 测试环境变量
 ├── package.json
+├── project.config.json         # 微信小程序项目配置
 └── tsconfig.json
+```
+
+## 优化 tsconfig (默认的配置在高版本的 TypeScript 会报错, 对报错部分进行手动调整)
+
+```json
+{
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "target": "es2017",
+    "module": "commonjs",
+    "removeComments": false,
+    "preserveConstEnums": true,
+    "moduleResolution": "node",
+    "experimentalDecorators": true,
+    "noImplicitAny": false,
+    "allowSyntheticDefaultImports": true,
+    "outDir": "lib",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "strictNullChecks": true,
+    "sourceMap": true,
+    "rootDir": ".",
+    "jsx": "react-jsx",
+    "allowJs": true,
+    "resolveJsonModule": true,
+    "typeRoots": ["node_modules/@types"],
+    "paths": {
+      // TS5090 leading './'
+      "@/*": ["./src/*"]
+    }
+  },
+  "include": ["./src", "./types", "./config"],
+  "compileOnSave": false
+}
+```
+
+## 集成 Prettier & ESLint
+
+1. 安装 Prettier 和 ESLint 相关依赖
+
+```shell
+# 安装 Prettier
+npm install -D prettier prettier-plugin-css-order prettier-plugin-organize-imports@3 prettier-plugin-packagejson
+
+# 安装 ESLint
+npm install -D eslint eslint-config-prettier eslint-plugin-prettier eslint-plugin-vue
+```
+
+2. 创建 .prettierrc.cjs
+
+```js
+/** @type {import('prettier').Config} */
+
+module.exports = {
+  plugins: [
+    "prettier-plugin-css-order",
+    // "prettier-plugin-tailwindcss",
+    "prettier-plugin-organize-imports",
+    "prettier-plugin-packagejson",
+  ],
+  printWidth: 100,
+  tabWidth: 2,
+  useTabs: false,
+  semi: false,
+  singleQuote: false,
+  trailingComma: "es5",
+  quoteProps: "as-needed",
+  bracketSpacing: true,
+  arrowParens: "always",
+}
+```
+
+3. 创建 .prettierignore
+
+```
+# <!-- folders -->
+
+dist
+node_modules
+
+# <!-- files -->
+
+package-lock.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+yarn.lock
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+```
+
+4. 在 package.json 添加 scripts 脚本
+
+```json
+{
+  "scripts": {
+    "format": "prettier --write ./src",
+    "format:all": "prettier --write .",
+    "lint": "eslint ."
+  }
+}
+```
+
+5. 格式化
+
+```shell
+# 仅格式化 ./src
+npm run format
+# 格式化项目全部文件
+npm run format:all
+
+# 检查 eslint 格式化
+npm run lint
+```
+
+## 集成 commitlint
+
+1. 安装 commitlint 相关依赖
+
+```shell
+npm install -D @commitlint/cli @commitlint/config-conventional
+```
+
+2. 创建 commitlint.config.cjs
+
+```js
+// 建议把 commitlint.config.cjs 添加到 eslint ignore
+const fs = require("fs")
+const path = require("path")
+
+const scopes = fs
+  .readdirSync(path.resolve(__dirname, "app"), { withFileTypes: true })
+  .filter((dirent) => dirent.isDirectory())
+
+const TYPE_ENUM = [
+  "feat",
+  "fix",
+  "docs",
+  "style",
+  "refactor",
+  "perf",
+  "test",
+  "chore",
+  "revert",
+  "build",
+  "ci",
+  "types",
+]
+
+/** @type {import('czg').UserConfig} */
+module.exports = {
+  ignores: [],
+  extends: ["@commitlint/config-conventional"],
+  rules: {
+    // https://commitlint.js.org/reference/rules.html
+    "type-enum": [2, "always", TYPE_ENUM],
+    "type-case": [2, "always", "lower-case"],
+    "type-empty": [2, "never"],
+    "scope-empty": [0],
+    "subject-case": [2, "never"],
+    "subject-empty": [2, "never"],
+    "subject-full-stop": [2, "never"],
+    "header-max-length": [2, "always", 100],
+  },
+  prompt: {
+    messages: {
+      type: "选择提交类型:",
+      scope: "选择提交范围 [不需要时, 请选择 empty]:",
+      customScope: "请输入自定义提交范围:",
+      subject: "填写简短变更描述:",
+      body: "填写详细变更描述 [可选]; 使用 | 换行:",
+      breaking: "列举非兼容性重大变更 [可选]; 使用 | 换行:",
+      footerPrefixsSelect: "选择关联 issue 前缀 [可选]: ",
+      customFooterPrefixs: "输入自定义 issue 前缀:",
+      footer: "列举关联 issue [可选]; 例如: #31, #I3244:",
+      confirmCommit: "是否提交或修改 commit ?",
+    },
+    types: [
+      { value: "feat", name: "✨ 特性: [功能新增]", emoji: "✨" },
+      { value: "fix", name: "🐛 修复: [bug 修复]", emoji: "🐛" },
+      { value: "docs", name: "📝 文档: [文档变更]", emoji: "📝" },
+      { value: "style", name: "🎨 格式: [代码格式化; 不影响功能]", emoji: "🎨" },
+      { value: "refactor", name: "🎃 重构: [代码重构; 不影响功能]", emoji: "🎃" },
+      { value: "perf", name: "🐎 性能: [性能优化]", emoji: "🐎" },
+      { value: "test", name: "✅ 测试: [测试更改]", emoji: "✅" },
+      { value: "chore", name: "🔨 其他: [辅助工具和库的更改]", emoji: "🔨" },
+      { value: "revert", name: "⏪ 回退: [回滚 commit]", emoji: "⏪" },
+      { value: "build", name: "📦️ 构建: [构建流程更改]", emoji: "📦️" },
+      { value: "ci", name: "🍀 集成: [CI 配置, 脚本更改]", emoji: "🍀" },
+      { value: "types", name: "🏡 类型: [类型文件更改]", emoji: "🏡" },
+    ],
+    useEmoji: true,
+    scopes: [...scopes],
+    emptyScopesAlias: "empty",
+    customScopesAlias: "custom",
+    customScopesAlign: "top-bottom",
+    allowBreakingChanges: ["feat", "fix"],
+  },
+}
+```
+
+3. 在 package.json 添加 scripts 脚本
+
+```json
+{
+  "scripts": {
+    "commit": "czg"
+  }
+}
+```
+
+4. 使用 commitlint 提交代码
+
+```shell
+# 执行命令后, 根据交互式提示完善提交信息
+npm run commit
+```
+
+## 集成 husky
+
+1. 安装 husky
+
+```shell
+npm install -D husky
+```
+
+2. 在 package.json 中添加 husky 配置
+
+```json
+{
+  "scripts": {
+    "prepare": "husky"
+  }
+}
+```
+
+3. 创建 husky 钩子
+
+```sh
+# ./husky/commit-msg
+#!/usr/bin/env sh
+
+# 检查 commit message
+npx --no-install commitlint --edit "$1"
+
+
+# ./husky/pre-commit
+#!/usr/bin/env sh
+
+# 格式化代码
+npm run format
+```
+
+4. 执行 `npm run prepare`
+
+5. commit 时自动触发 husky 钩子
+
+## 添加 editorconfig
+
+```editorconfig
+# http://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line=lf
+indent_size = 2
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
+
+[.nvmdrc]
+insert_final_newline = false
+[.nvmrc]
+insert_final_newline = false
+```
+
+## 完善后的目录结构
+
+```
+taro/
+├── .husky/                     # Git hooks（Husky）
+│   ├── commit-msg              # commitlint 校验
+│   └── pre-commit              # 提交前检查
+├── config/                     # Taro 构建配置
+│   ├── index.ts                # 主配置（designWidth: 750, compiler: 'vite'）
+│   ├── dev.ts                  # 开发环境覆盖
+│   └── prod.ts                 # 生产环境覆盖
+├── src/                        # 源码目录
+│   ├── app.config.ts           # 应用级配置（页面路由注册、窗口样式）
+│   ├── app.ts                  # 应用入口组件（React）
+│   ├── app.less                # 全局样式
+│   ├── index.html              # H5 入口 HTML
+│   └── pages/                  # 页面目录
+│       └── index/              # 首页
+│           ├── index.tsx       # 页面组件
+│           ├── index.config.ts # 页面级配置
+│           └── index.less      # 页面样式
+├── types/                      # 全局类型声明
+│   └── global.d.ts
+├── .editorconfig               # 编辑器配置
+├── .env.development            # 开发环境变量
+├── .env.production             # 生产环境变量
+├── .env.test                   # 测试环境变量
+├── .eslintrc                   # ESLint 配置
+├── .gitignore
+├── .npmrc                      # npm 配置
+├── .prettierrc.cjs             # Prettier 配置
+├── babel.config.js             # Babel 配置
+├── commitlint.config.mjs       # Commitlint 配置
+├── package.json
+├── package-lock.json
+├── project.config.json         # 微信小程序项目配置
+├── stylelint.config.mjs        # Stylelint 配置
+└── tsconfig.json               # TypeScript 配置
 ```
 
 ## 路由与页面配置
