@@ -1,0 +1,867 @@
+# Taro
+
+## 简介
+
+Taro 是京东开发的开放式跨端跨框架解决方案，支持使用 React / Vue / Preact 等语法来构建微信小程序、支付宝小程序、字节跳动小程序、H5、RN 等应用。
+
+- **一套代码，多端运行** — 统一开发，编译到不同平台
+- **类 React 语法** — 使用 JSX、组件化、状态管理
+- **丰富的生态** — Taro UI、社区插件、Taroify 等组件库
+
+## 环境搭建
+
+```bash
+# 安装 Taro CLI
+npm install -g @tarojs/cli
+
+# 创建项目
+taro init myApp
+
+# 选择模板: React + TypeScript
+# 选择样式方案: Sass / Less / Stylus / CSS Modules
+# 选择模板: 默认模板 / MobX / Redux / Vuex
+
+# 进入项目
+cd myApp
+
+# 编译运行（微信小程序）
+npm run dev:weapp
+
+# 编译运行（H5）
+npm run dev:h5
+
+# 生产构建
+npm run build:weapp
+npm run build:h5
+```
+
+## 项目结构
+
+```
+myApp/
+├── config/             # 编译配置
+│   ├── index.ts        # 全局配置（入口、输出、别名等）
+│   ├── dev.ts          # 开发环境配置
+│   └── prod.ts         # 生产环境配置
+├── src/
+│   ├── pages/          # 页面目录
+│   │   └── index/
+│   │       ├── index.config.ts   # 页面配置（模拟 app.json 中页面配置）
+│   │       ├── index.tsx         # 页面组件
+│   │       └── index.scss        # 页面样式
+│   ├── components/     # 公共组件
+│   ├── hooks/          # 自定义 Hooks
+│   ├── stores/         # 状态管理
+│   ├── utils/          # 工具函数
+│   ├── app.config.ts   # 全局应用配置（模拟 app.json）
+│   ├── app.tsx         # 应用入口
+│   ├── app.scss        # 全局样式
+│   └── index.html      # H5 入口 HTML
+├── project.config.json # 微信小程序项目配置
+├── package.json
+└── tsconfig.json
+```
+
+## 路由与页面配置
+
+Taro 的路由由页面配置决定：在 `app.config.ts` 中声明所有页面路径，第一个路径即为首页。
+
+```ts
+// app.config.ts
+export default defineAppConfig({
+  pages: [
+    "pages/index/index", // 首页
+    "pages/detail/index", // 详情页
+    "pages/user/index", // 用户页
+  ],
+  window: {
+    backgroundTextStyle: "light",
+    navigationBarBackgroundColor: "#fff",
+    navigationBarTitleText: "My App",
+    navigationBarTextStyle: "black",
+  },
+  tabBar: {
+    color: "#999",
+    selectedColor: "#333",
+    backgroundColor: "#fff",
+    list: [
+      {
+        pagePath: "pages/index/index",
+        text: "首页",
+        iconPath: "assets/home.png",
+        selectedIconPath: "assets/home-active.png",
+      },
+      {
+        pagePath: "pages/user/index",
+        text: "我的",
+        iconPath: "assets/user.png",
+        selectedIconPath: "assets/user-active.png",
+      },
+    ],
+  },
+})
+```
+
+```ts
+// pages/detail/index.config.ts — 单页面配置
+export default definePageConfig({
+  navigationBarTitleText: "详情",
+  enablePullDownRefresh: true,
+  enableShareAppMessage: true,
+})
+```
+
+## 组件化开发
+
+```tsx
+// 函数组件 — 与 React 写法基本一致
+import { View, Text, Button } from "@tarojs/components"
+import { useState } from "react"
+import "./index.scss"
+
+interface CounterProps {
+  initial: number
+}
+
+function Counter({ initial }: CounterProps) {
+  const [count, setCount] = useState(initial)
+
+  return (
+    <View className="counter">
+      <Text className="counter-text">{count}</Text>
+      <Button onClick={() => setCount(count + 1)}>+1</Button>
+    </View>
+  )
+}
+
+export default function Home() {
+  return (
+    <View className="home">
+      <Counter initial={0} />
+    </View>
+  )
+}
+```
+
+### 核心 Taro 组件
+
+```tsx
+import {
+  View, // 容器组件（div）
+  Text, // 文本组件（span），必须用 Text 包裹文本才能长按选中
+  Image, // 图片组件
+  Button, // 按钮
+  Input, // 输入框
+  Textarea, // 多行输入
+  ScrollView, // 可滚动容器
+  Swiper, // 滑块容器
+  SwiperItem, // 滑块子组件
+  Picker, // 选择器
+  Form, // 表单
+  Navigator, // 导航链接
+  Map, // 地图
+  Canvas, // 画布
+  WebView, // 内嵌网页
+  OpenData, // 展示平台开放数据
+  RichText, // 富文本
+  Block, // 不会渲染为 DOM 的包装元素（类似 Fragment）
+} from "@tarojs/components"
+```
+
+## 生命周期
+
+### 页面生命周期
+
+```tsx
+import {
+  useDidShow,
+  useDidHide,
+  usePullDownRefresh,
+  useReachBottom,
+  usePageScroll,
+  useShareAppMessage,
+} from "@tarojs/taro"
+
+function Page() {
+  // 对应 onLoad — 页面加载时触发
+  // 对应 onReady — 页面初次渲染完成时触发
+
+  // 页面显示 / 隐藏 — 对应 onShow / onHide
+  useDidShow(() => console.log("页面显示"))
+  useDidHide(() => console.log("页面隐藏"))
+
+  // 下拉刷新 — 对应 onPullDownRefresh
+  usePullDownRefresh(() => {
+    console.log("下拉刷新")
+    Taro.stopPullDownRefresh() // 停止下拉刷新动画
+  })
+
+  // 上拉触底 — 对应 onReachBottom
+  useReachBottom(() => console.log("触底加载更多"))
+
+  // 页面滚动
+  usePageScroll((res) => console.log(res.scrollTop))
+
+  // 分享 — 对应 onShareAppMessage
+  useShareAppMessage(() => ({
+    title: "分享标题",
+    path: "/pages/index/index",
+    imageUrl: "https://example.com/share.png",
+  }))
+
+  return <View>Page Content</View>
+}
+
+export default Page
+```
+
+### 应用生命周期
+
+```tsx
+// app.tsx — 应用入口
+import { useLaunch } from "@tarojs/taro"
+
+function App({ children }: { children: React.ReactNode }) {
+  useLaunch(() => {
+    console.log("App launched")
+    // 获取启动参数
+    const app = Taro.getApp()
+    console.log(app.config)
+  })
+
+  return children
+}
+
+export default App
+```
+
+## 路由跳转与传参
+
+```tsx
+import Taro from "@tarojs/taro"
+import { Navigator } from "@tarojs/components"
+
+// 声明式导航 — 使用 Navigator 组件
+function Page() {
+  return (
+    <>
+      {/* navigateTo — 保留当前页，跳转到新页面 */}
+      <Navigator url="/pages/detail/index?id=123">跳转到详情</Navigator>
+
+      {/* redirectTo — 关闭当前页，跳转到新页面 */}
+      <Navigator url="/pages/login/index" openType="redirect">
+        重定向
+      </Navigator>
+
+      {/* switchTab — 跳转到 tabBar 页面 */}
+      <Navigator url="/pages/index/index" openType="switchTab">
+        回首页
+      </Navigator>
+
+      {/* navigateBack — 返回上一页 */}
+      <Navigator openType="navigateBack">返回</Navigator>
+
+      {/* reLaunch — 关闭所有页面，打开新页面 */}
+      <Navigator url="/pages/index/index" openType="reLaunch">
+        重启
+      </Navigator>
+    </>
+  )
+}
+
+// 编程式导航
+async function navigateToDetail() {
+  // 保留当前页面，跳转
+  await Taro.navigateTo({ url: "/pages/detail/index?id=123" })
+}
+
+function navigateBack() {
+  Taro.navigateBack({ delta: 1 })
+}
+
+function switchToHome() {
+  Taro.switchTab({ url: "/pages/index/index" })
+}
+
+function redirectToLogin() {
+  Taro.redirectTo({ url: "/pages/login/index" })
+}
+
+function reLaunch() {
+  Taro.reLaunch({ url: "/pages/index/index" })
+}
+```
+
+### 路由传参
+
+```tsx
+// 发送方：通过 query string 传参
+Taro.navigateTo({ url: "/pages/detail/index?id=123&name=taro" })
+
+// 接收方：在目标页面的 useLoad / useDidShow 中获取参数
+import { useLoad } from "@tarojs/taro"
+
+function Detail() {
+  useLoad((options) => {
+    console.log(options.id) // "123"
+    console.log(options.name) // "taro"
+  })
+
+  // 也可以从路由历史事件中获取
+  const instance = Taro.getCurrentInstance()
+  console.log(instance.router?.params)
+}
+
+// 复杂数据传参：通过全局状态管理或全局变量
+// 或使用 Taro.setStorageSync / getStorageSync
+Taro.setStorageSync("detailData", { id: 1, items: [1, 2, 3] })
+Taro.navigateTo({ url: "/pages/detail/index" })
+// 在目标页读取
+const data = Taro.getStorageSync("detailData")
+```
+
+## 事件处理
+
+```tsx
+import { View, Input, Button } from "@tarojs/components"
+import { useState } from "react"
+
+function EventDemo() {
+  const [value, setValue] = useState("")
+
+  const handleTap = (e: any) => {
+    e.stopPropagation() // 阻止冒泡
+    console.log("tapped")
+  }
+
+  // 注意：小程序中事件回调不支持直接绑定参数，需通过箭头函数
+  const handleClick = (id: number) => () => {
+    console.log("clicked:", id)
+  }
+
+  return (
+    <View>
+      {/* 点击事件 onClick / onLongPress */}
+      <View onClick={handleTap} onLongPress={() => console.log("长按")}>
+        点击区域
+      </View>
+
+      {/* 输入事件 */}
+      <Input value={value} onInput={(e) => setValue(e.detail.value)} />
+
+      {/* 带参数的事件 */}
+      <Button onClick={handleClick(123)}>点击传参</Button>
+
+      {/* 表单提交 */}
+      <form onSubmit={(e) => console.log(e.detail.value)}>
+        <Input name="username" />
+        <Button formType="submit">提交</Button>
+      </form>
+    </View>
+  )
+}
+```
+
+## 条件渲染和列表渲染
+
+```tsx
+import { View, Text, Block } from "@tarojs/components"
+
+function ListDemo() {
+  const items = [
+    { id: 1, name: "项目一" },
+    { id: 2, name: "项目二" },
+    { id: 3, name: "项目三" },
+  ]
+  const isLoggedIn = true
+
+  return (
+    <View>
+      {/* 条件渲染 — 与 React 一致 */}
+      {isLoggedIn ? <Text>已登录</Text> : <Text>请登录</Text>}
+      {isLoggedIn && <Text>欢迎回来</Text>}
+
+      {/* 列表渲染 — 必须设置 key */}
+      {items.map((item) => (
+        <View key={item.id} className="item">
+          <Text>{item.name}</Text>
+        </View>
+      ))}
+
+      {/* Block 标签 — 不会渲染为实际 DOM，仅用于逻辑包裹 */}
+      <Block>
+        {items.map((item) => (
+          <View key={item.id}>
+            <Text>{item.name}</Text>
+          </View>
+        ))}
+      </Block>
+    </View>
+  )
+}
+```
+
+## 样式处理
+
+```scss
+// 全局样式 (app.scss)
+page {
+  font-size: 28px; // 小程序建议用 rpx 单位或 px
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+}
+
+// 页面样式 (index.scss)
+.home {
+  background-color: #f5f5f5;
+  padding: 20px;
+
+  &-title {
+    color: #333;
+    font-weight: bold;
+    font-size: 36px;
+  }
+
+  &-list {
+    margin-top: 20px;
+  }
+}
+```
+
+```tsx
+// CSS Modules — 需要配置 project.config.json
+// 文件名使用 *.module.scss
+import styles from "./index.module.scss"
+
+function Page() {
+  return <View className={styles.container}>CSS Modules 样式</View>
+}
+
+// 内联样式
+function Page() {
+  return <View style={{ padding: "20px", color: "#333" }}>内联样式</View>
+}
+
+// 动态样式
+function Page() {
+  const [active, setActive] = useState(false)
+  return <View className={`item ${active ? "item-active" : ""}`} />
+}
+```
+
+### 尺寸单位
+
+| 单位        | 说明                                               |
+| ----------- | -------------------------------------------------- |
+| `px`        | 逻辑像素                                           |
+| `rpx`       | 响应式像素，微信小程序中 750rpx = 屏幕宽度（推荐） |
+| `vw` / `vh` | H5 端可用，小程序部分支持                          |
+
+## API 调用
+
+```tsx
+import Taro from "@tarojs/taro"
+
+// 本地存储
+Taro.setStorageSync("key", "value")
+const value = Taro.getStorageSync("key")
+Taro.removeStorageSync("key")
+Taro.clearStorageSync()
+
+// 异步存储
+await Taro.setStorage({ key: "token", data: "xxx" })
+const res = await Taro.getStorage({ key: "token" })
+console.log(res.data)
+
+// 获取系统信息
+const sysInfo = await Taro.getSystemInfo()
+const { windowWidth, windowHeight, pixelRatio, platform } = sysInfo
+console.log(platform) // ios / android / devtools
+
+// 获取当前页面栈
+const pages = Taro.getCurrentPages()
+const currentPage = pages[pages.length - 1]
+console.log(currentPage?.route)
+
+// 显示提示
+Taro.showToast({ title: "操作成功", icon: "success", duration: 2000 })
+Taro.showLoading({ title: "加载中..." })
+Taro.hideLoading()
+
+// 弹窗
+Taro.showModal({
+  title: "提示",
+  content: "确定要删除吗？",
+  success: (res) => {
+    if (res.confirm) console.log("确定")
+  },
+})
+
+// 获取位置
+const location = await Taro.getLocation({ type: "gcj02" })
+
+// 拨打电话
+Taro.makePhoneCall({ phoneNumber: "13800138000" })
+
+// 扫码
+const scanRes = await Taro.scanCode({ scanType: ["qrCode"] })
+console.log(scanRes.result)
+
+// 选择图片
+const imgRes = await Taro.chooseImage({ count: 1, sizeType: ["compressed"] })
+console.log(imgRes.tempFilePaths)
+
+// 预览图片
+Taro.previewImage({
+  current: "https://example.com/img.jpg",
+  urls: ["https://example.com/img.jpg"],
+})
+```
+
+## 数据请求
+
+```tsx
+import Taro from "@tarojs/taro"
+import { useState, useEffect } from "react"
+
+// Taro.request 是对各平台网络请求的封装
+async function fetchData() {
+  const res = await Taro.request({
+    url: "https://api.example.com/data",
+    method: "GET",
+    data: { page: 1, size: 10 },
+    header: { "Content-Type": "application/json" },
+  })
+  return res.data
+}
+
+// 封装请求工具 — 添加拦截器、Token 注入、错误处理
+const request = (options: Taro.request.Option): Promise<any> => {
+  const token = Taro.getStorageSync("token")
+
+  return new Promise((resolve, reject) => {
+    Taro.request({
+      ...options,
+      url: `${BASE_URL}${options.url}`,
+      header: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.header,
+      },
+      success: (res) => {
+        if (res.statusCode === 200) {
+          resolve(res.data)
+        } else if (res.statusCode === 401) {
+          Taro.showToast({ title: "登录过期", icon: "none" })
+          Taro.reLaunch({ url: "/pages/login/index" })
+          reject(res)
+        } else {
+          Taro.showToast({ title: "请求失败", icon: "none" })
+          reject(res)
+        }
+      },
+      fail: (err) => {
+        Taro.showToast({ title: "网络异常", icon: "none" })
+        reject(err)
+      },
+    })
+  })
+}
+
+// 在组件中使用
+function UserList() {
+  const [list, setList] = useState([])
+
+  useEffect(() => {
+    request({ url: "/api/users" }).then((data) => setList(data.list))
+  }, [])
+
+  return (
+    <View>
+      {list.map((user: any) => (
+        <View key={user.id} className="user-item">
+          <Text>{user.name}</Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+```
+
+## 状态管理
+
+### 内置方式（useState + 跨页通信）
+
+```tsx
+// 简单场景：全局变量 + 事件通知
+// utils/global.ts
+class GlobalStore {
+  user: User | null = null
+  token = ""
+}
+
+export const globalStore = new GlobalStore()
+
+// 使用时
+import { globalStore } from "@/utils/global"
+globalStore.token = "xxx"
+```
+
+### Redux / Zustand
+
+```tsx
+// 与 React 中用法完全一致，直接使用 Redux Toolkit / Zustand 即可
+// 在 app.tsx 中注入 Provider
+
+// app.tsx
+import { Provider } from "react-redux"
+import { store } from "./stores/store"
+
+function App({ children }: { children: React.ReactNode }) {
+  return <Provider store={store}>{children}</Provider>
+}
+
+export default App
+```
+
+## 自定义 Hooks
+
+```tsx
+import { useState, useEffect } from "react"
+import Taro from "@tarojs/taro"
+
+// 封装下拉刷新
+function useRefresh(fetchFn: () => Promise<void>) {
+  const [refreshing, setRefreshing] = useState(false)
+
+  const onRefresh = async () => {
+    setRefreshing(true)
+    await fetchFn()
+    setRefreshing(false)
+  }
+
+  return { refreshing, onRefresh }
+}
+
+// 封装页面参数获取
+function usePageParams<T>() {
+  const [params, setParams] = useState<T>({} as T)
+
+  useEffect(() => {
+    const instance = Taro.getCurrentInstance()
+    setParams((instance.router?.params ?? {}) as T)
+  }, [])
+
+  return params
+}
+
+// 封装倒计时
+function useCountdown(seconds: number) {
+  const [count, setCount] = useState(seconds)
+  const [running, setRunning] = useState(false)
+
+  useEffect(() => {
+    if (!running || count <= 0) return
+    const timer = setInterval(() => setCount((c) => c - 1), 1000)
+    return () => clearInterval(timer)
+  }, [running, count])
+
+  const start = () => setRunning(true)
+  const reset = () => {
+    setRunning(false)
+    setCount(seconds)
+  }
+
+  return { count, running, start, reset }
+}
+
+// 使用
+function Page() {
+  const params = usePageParams<{ id: string }>()
+  const { count, start } = useCountdown(60)
+
+  return (
+    <View>
+      <Text>ID: {params.id}</Text>
+      <Text>倒计时: {count}s</Text>
+      <Button onClick={start}>开始</Button>
+    </View>
+  )
+}
+```
+
+## 条件编译
+
+```tsx
+// Taro 支持在代码中以注释语法标记平台特定代码
+// 编译时会根据目标平台移除不相关代码
+
+function Page() {
+  return (
+    <View>
+      {/* 仅微信小程序 */}
+      {/* #ifdef WEAPP */}
+      <Button openType="share">分享</Button>
+      {/* #endif */}
+
+      {/* 仅 H5 */}
+      {/* #ifdef H5 */}
+      <a href="https://example.com">外部链接</a>
+      {/* #endif */}
+
+      {/* 排除微信小程序 */}
+      {/* #ifndef WEAPP */}
+      <View>非微信小程序平台展示</View>
+      {/* #endif */}
+    </View>
+  )
+}
+
+// 也可以在 import 中使用
+// #ifdef WEAPP
+import { WxPlugin } from "./wx-plugin"
+// #endif
+```
+
+## 图片处理
+
+```tsx
+import { Image } from "@tarojs/components"
+import Taro from "@tarojs/taro"
+
+function ImageDemo() {
+  return (
+    <View>
+      {/* 本地图片 — 放在 src/assets 目录，通过路径引用 */}
+      <Image src={require("@/assets/logo.png")} />
+
+      {/* 网络图片 */}
+      <Image src="https://example.com/img.jpg" mode="aspectFill" />
+
+      {/* mode 属性 — 控制图片裁剪/缩放模式 */}
+      {/* scaleToFill / aspectFit / aspectFill / widthFix / heightFix ... */}
+
+      {/* 懒加载 */}
+      <Image src="..." lazyLoad />
+
+      {/* 图片预览 */}
+      <Image
+        src="https://example.com/img.jpg"
+        onClick={() =>
+          Taro.previewImage({
+            urls: ["https://example.com/img.jpg"],
+            current: "https://example.com/img.jpg",
+          })
+        }
+      />
+    </View>
+  )
+}
+```
+
+## 跨端兼容注意事项
+
+| 差异点            | 说明                                                                     |
+| ----------------- | ------------------------------------------------------------------------ |
+| **CSS 支持**      | 小程序不支持 CSS 动画中的某些属性；不支持 fixed 定位在 scroll-view 内    |
+| **DOM API**       | 小程序没有 DOM，不能用 `document.querySelector` / `window` / `navigator` |
+| **组件名大写**    | 自定义组件在 `app.config.ts` 中注册后才可使用（使用 `usingComponents`）  |
+| **HTML 标签**     | 小程序中不能直接用 `<div>` `<span>`，必须用 `<View>` `<Text>` 等         |
+| **React DOM API** | `ReactDOM.render`、`createPortal` 在小程序中不可用                       |
+| **长列表**        | 小程序中使用 `ScrollView`，建议开启 `enable-back-to-top`                 |
+| **包体积限制**    | 微信小程序主包 ≤ 2MB，总包 ≤ 20MB，注意分包策略                          |
+
+### 分包配置
+
+```ts
+// app.config.ts
+export default defineAppConfig({
+  pages: ["pages/index/index"], // 主包页面
+  subPackages: [
+    {
+      root: "pages-sub/user",
+      pages: ["profile/index", "settings/index"],
+    },
+    {
+      root: "pages-sub/order",
+      pages: ["list/index", "detail/index"],
+    },
+  ],
+  preloadRule: {
+    // 进入首页时预下载订单分包
+    "pages/index/index": {
+      network: "all",
+      packages: ["pages-sub/order"],
+    },
+  },
+})
+```
+
+## 常见问题
+
+### 1. Taro 与 React 的区别
+
+```tsx
+// Taro 中不能使用的 React API
+// - ReactDOM.* (createPortal, findDOMNode, render, unmountComponentAtNode)
+// - 部分事件（合成事件系统不同）
+// - dangerouslySetInnerHTML 仅在 H5 端可用
+
+// Taro 特殊的规则
+// - 不能在 render 之外写 JSX（小程序模板编译限制）
+// - 组件文件必须导出默认组件
+// - 不能在 JSX 中使用 Array.map 回调的第二个参数 index 作为 key
+```
+
+### 2. 获取元素节点
+
+```tsx
+import { createSelectorQuery } from "@tarojs/taro"
+
+function Page() {
+  const getRect = () => {
+    const query = Taro.createSelectorQuery()
+    query
+      .select("#target")
+      .boundingClientRect((rect) => {
+        console.log(rect) // { width, height, top, left, ... }
+      })
+      .exec()
+  }
+
+  return (
+    <View id="target" onClick={getRect}>
+      获取位置
+    </View>
+  )
+}
+```
+
+### 3. env 文件配置
+
+```tsx
+// 小程序中 process.env 的行为与 Web 不同
+// 通常通过 config 目录区分环境变量
+
+// config/dev.ts — 开发环境
+export default {
+  env: { API_BASE: "https://dev-api.example.com" },
+}
+
+// config/prod.ts — 生产环境
+export default {
+  env: { API_BASE: "https://api.example.com" },
+}
+
+// 使用
+import config from "@/../config"
+console.log(config.env.API_BASE)
+
+// 另一种方式：Taro 支持 .env 文件，但需要借助插件
+// 通过 defineConstants 注入常量
+// config/index.ts
+{
+  defineConstants: {
+    "process.env.API_BASE": JSON.stringify(process.env.API_BASE),
+  },
+}
+```

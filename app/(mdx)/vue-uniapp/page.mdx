@@ -1,0 +1,1227 @@
+# UniApp
+
+## 简介
+
+UniApp 是 DCloud 推出的跨端开发框架，基于 Vue.js 语法，一套代码可编译到 iOS、Android、Web（H5）以及微信/支付宝/百度/字节跳动等多个小程序平台。
+
+- **一套代码，多端运行** — 编译到 10+ 平台
+- **Vue 语法** — 支持 Vue 2 (uni-app) 和 Vue 3 (uni-app x)
+- **丰富的生态** — uni-ui 组件库、uniCloud、插件市场
+
+## 环境搭建
+
+```bash
+# 方式一：CLI 创建（推荐用于工程化项目）
+# Vue 3 + Vite + JavaScript 模板
+npx degit dcloudio/uni-preset-vue#vite my-project
+
+# Vue 3 + Vite + TypeScript 模板 (推荐, 后续配置以 ts 模板为例)
+npx degit dcloudio/uni-preset-vue#vite-ts my-project
+
+cd my-project
+npm install
+npm run dev:mp-weixin   # 微信小程序
+npm run dev:h5           # H5
+npm run dev:app          # App
+
+# 方式二：HBuilderX 创建（官方 IDE）
+# 文件 → 新建 → 项目 → uni-app
+```
+
+## 项目结构
+
+```
+uniapp/
+├── src/                     # 源码目录
+│   ├── pages/               # 页面目录
+│   │   └── index/
+│   │       └── index.vue    # 首页
+│   ├── static/              # 静态资源
+│   │   └── logo.png         # 应用图标
+│   ├── App.vue              # 根组件
+│   ├── env.d.ts             # 环境类型声明
+│   ├── main.ts              # 入口文件
+│   ├── manifest.json        # uni-app 应用配置
+│   ├── pages.json           # 页面路由配置
+│   ├── shime-uni.d.ts       # uni-app 类型补充声明
+│   └── uni.scss             # 全局 SCSS 变量
+├── .gitignore               # Git 忽略规则
+├── index.html               # 入口 HTML
+├── package.json             # 项目依赖与脚本
+├── package-lock.json        # 依赖锁定文件
+├── shims-uni.d.ts           # uni-app 类型声明
+├── tsconfig.json            # TypeScript 配置
+└── vite.config.ts           # Vite 构建配置
+```
+
+## 优化 tsconfig (默认的配置在高版本的 TypeScript 会报错, 对报错部分进行手动调整)
+
+1. 安装相关依赖
+
+```shell
+npm install -D @uni-helper/uni-app-types@0
+```
+
+2. 创建 tsconfig.vue.json
+
+```json
+{
+  // @vue/tsconfig/tsconfig.json 的部分配置已过时,
+  // 在当前文件中重写, 手动替换过时配置
+  "compilerOptions": {
+    "ignoreDeprecations": "6.0",
+    "module": "ESNext",
+    "moduleResolution": "Node",
+    "resolveJsonModule": true,
+    "useDefineForClassFields": true,
+
+    // Required in Vue projects
+    "jsx": "preserve",
+
+    // `"noImplicitThis": true` is part of `strict`
+    // Added again here in case some users decide to disable `strict`.
+    // This enables stricter inference for data properties on `this`.
+    "noImplicitThis": true,
+    "strict": true,
+
+    // Required in Vite
+    "isolatedModules": true,
+    // For `<script setup>`
+    // See <https://devblogs.microsoft.com/typescript/announcing-typescript-4-5-beta/#preserve-value-imports>
+    // "preserveValueImports": true,
+    // Enforce using `import type` instead of `import` for types
+    // "importsNotUsedAsValues": "error",
+    // preserveValueImports, importsNotUsedAsValues 在 TypeScript 5.0 中都被统一替换为 verbatimModuleSyntax
+    // verbatimModuleSyntax ensures type-only imports use 'import type' syntax
+    "verbatimModuleSyntax": true,
+
+    // A few notes:
+    // - Vue 3 supports ES2016+
+    // - For Vite, the actual compilation target is determined by the
+    //   `build.target` option in the Vite config.
+    //   So don't change the `target` field here. It has to be
+    //   at least `ES2020` for dynamic `import()`s and `import.meta` to work correctly.
+    // - If you are not using Vite, feel free to override the `target` field.
+    "target": "ESNext",
+
+    // Recommended
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    // See <https://github.com/vuejs/vue-cli/pull/5688>
+    "skipLibCheck": true
+  }
+}
+```
+
+3. 修改 tsconfig.json
+
+```json
+{
+  // @vue/tsconfig/tsconfig.json 的部分配置已过时,
+  // 在 ./tsconfig.vue..json 中重写, 手动替换过时配置
+  "extends": "./tsconfig.vue..json",
+
+  "compilerOptions": {
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["./src/*"]
+    },
+    "lib": ["esnext", "dom"],
+    // [官方 API 类型 (uni.xxx), 内置组件类型 (等)]
+    "types": ["@dcloudio/types", "@uni-helper/uni-app-types"]
+  },
+
+  // 核心: 让 Vue 官方插件能够识别 uni-app 的内置标签
+  "vueCompilerOptions": {
+    "plugins": ["@uni-helper/uni-app-types/volar-plugin"]
+  },
+
+  "include": ["src/**/*.ts", "src/**/*.d.ts", "src/**/*.tsx", "src/**/*.vue"]
+}
+```
+
+## 集成 Prettier & ESLint
+
+1. 安装 Prettier 和 ESLint 相关依赖
+
+```shell
+# 安装 Prettier
+npm install -D prettier prettier-plugin-css-order prettier-plugin-organize-imports@3 prettier-plugin-packagejson
+
+# 安装 ESLint
+npm install -D eslint eslint-config-prettier eslint-plugin-prettier eslint-plugin-vue
+```
+
+2. 创建 .prettierrc.cjs
+
+```js
+/** @type {import('prettier').Config} */
+
+module.exports = {
+  plugins: [
+    "prettier-plugin-css-order",
+    // "prettier-plugin-tailwindcss",
+    "prettier-plugin-organize-imports",
+    "prettier-plugin-packagejson",
+  ],
+  printWidth: 100,
+  tabWidth: 2,
+  useTabs: false,
+  semi: false,
+  singleQuote: false,
+  trailingComma: "es5",
+  quoteProps: "as-needed",
+  bracketSpacing: true,
+  arrowParens: "always",
+}
+```
+
+3. 创建 .prettierignore
+
+```
+# <!-- folders -->
+
+dist
+node_modules
+
+# <!-- files -->
+
+package-lock.json
+pnpm-lock.yaml
+pnpm-workspace.yaml
+yarn.lock
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+```
+
+4. 在 package.json 添加 scripts 脚本
+
+```json
+{
+  "scripts": {
+    "format": "prettier --write ./src",
+    "format:all": "prettier --write .",
+    "lint": "eslint ."
+  }
+}
+```
+
+5. 格式化
+
+```shell
+# 仅格式化 ./src
+npm run format
+# 格式化项目全部文件
+npm run format:all
+
+# 检查 eslint 格式化
+npm run lint
+```
+
+## 集成 commitlint
+
+1. 安装 commitlint 相关依赖
+
+```shell
+npm install -D @commitlint/cli @commitlint/config-conventional
+```
+
+2. 创建 commitlint.config.cjs
+
+```js
+// 建议把 commitlint.config.cjs 添加到 eslint ignore
+const fs = require("fs")
+const path = require("path")
+
+const scopes = fs
+  .readdirSync(path.resolve(__dirname, "app"), { withFileTypes: true })
+  .filter((dirent) => dirent.isDirectory())
+
+const TYPE_ENUM = [
+  "feat",
+  "fix",
+  "docs",
+  "style",
+  "refactor",
+  "perf",
+  "test",
+  "chore",
+  "revert",
+  "build",
+  "ci",
+  "types",
+]
+
+/** @type {import('czg').UserConfig} */
+module.exports = {
+  ignores: [],
+  extends: ["@commitlint/config-conventional"],
+  rules: {
+    // https://commitlint.js.org/reference/rules.html
+    "type-enum": [2, "always", TYPE_ENUM],
+    "type-case": [2, "always", "lower-case"],
+    "type-empty": [2, "never"],
+    "scope-empty": [0],
+    "subject-case": [2, "never"],
+    "subject-empty": [2, "never"],
+    "subject-full-stop": [2, "never"],
+    "header-max-length": [2, "always", 100],
+  },
+  prompt: {
+    messages: {
+      type: "选择提交类型:",
+      scope: "选择提交范围 [不需要时, 请选择 empty]:",
+      customScope: "请输入自定义提交范围:",
+      subject: "填写简短变更描述:",
+      body: "填写详细变更描述 [可选]; 使用 | 换行:",
+      breaking: "列举非兼容性重大变更 [可选]; 使用 | 换行:",
+      footerPrefixsSelect: "选择关联 issue 前缀 [可选]: ",
+      customFooterPrefixs: "输入自定义 issue 前缀:",
+      footer: "列举关联 issue [可选]; 例如: #31, #I3244:",
+      confirmCommit: "是否提交或修改 commit ?",
+    },
+    types: [
+      { value: "feat", name: "✨ 特性: [功能新增]", emoji: "✨" },
+      { value: "fix", name: "🐛 修复: [bug 修复]", emoji: "🐛" },
+      { value: "docs", name: "📝 文档: [文档变更]", emoji: "📝" },
+      { value: "style", name: "🎨 格式: [代码格式化; 不影响功能]", emoji: "🎨" },
+      { value: "refactor", name: "🎃 重构: [代码重构; 不影响功能]", emoji: "🎃" },
+      { value: "perf", name: "🐎 性能: [性能优化]", emoji: "🐎" },
+      { value: "test", name: "✅ 测试: [测试更改]", emoji: "✅" },
+      { value: "chore", name: "🔨 其他: [辅助工具和库的更改]", emoji: "🔨" },
+      { value: "revert", name: "⏪ 回退: [回滚 commit]", emoji: "⏪" },
+      { value: "build", name: "📦️ 构建: [构建流程更改]", emoji: "📦️" },
+      { value: "ci", name: "🍀 集成: [CI 配置, 脚本更改]", emoji: "🍀" },
+      { value: "types", name: "🏡 类型: [类型文件更改]", emoji: "🏡" },
+    ],
+    useEmoji: true,
+    scopes: [...scopes],
+    emptyScopesAlias: "empty",
+    customScopesAlias: "custom",
+    customScopesAlign: "top-bottom",
+    allowBreakingChanges: ["feat", "fix"],
+  },
+}
+```
+
+3. 在 package.json 添加 scripts 脚本
+
+```json
+{
+  "scripts": {
+    "commit": "czg"
+  }
+}
+```
+
+4. 使用 commitlint 提交代码
+
+```shell
+# 执行命令后, 根据交互式提示完善提交信息
+npm run commit
+```
+
+## 集成 husky
+
+1. 安装 husky
+
+```shell
+npm install -D husky
+```
+
+2. 在 package.json 中添加 husky 配置
+
+```json
+{
+  "scripts": {
+    "prepare": "husky"
+  }
+}
+```
+
+3. 创建 husky 钩子
+
+```sh
+# ./husky/commit-msg
+#!/usr/bin/env sh
+
+# 检查 commit message
+npx --no-install commitlint --edit "$1"
+
+
+# ./husky/pre-commit
+#!/usr/bin/env sh
+
+# 格式化代码
+npm run format
+```
+
+4. 执行 `npm run prepare`
+
+5. commit 时自动触发 husky 钩子
+
+## 添加 editorconfig
+
+```editorconfig
+# http://editorconfig.org
+root = true
+
+[*]
+charset = utf-8
+end_of_line=lf
+indent_size = 2
+indent_style = space
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.md]
+trim_trailing_whitespace = false
+
+[.nvmdrc]
+insert_final_newline = false
+[.nvmrc]
+insert_final_newline = false
+```
+
+## 完善后的目录结构
+
+```
+uniapp/
+├── .husky                   # commit 钩子
+├── src/                     # 源码目录
+│   ├── pages/               # 页面目录
+│   │   └── index/
+│   │       └── index.vue    # 首页
+│   ├── static/              # 静态资源
+│   │   └── logo.png         # 应用图标
+│   ├── App.vue              # 根组件
+│   ├── env.d.ts             # 环境类型声明
+│   ├── main.ts              # 入口文件
+│   ├── manifest.json        # uni-app 应用配置
+│   ├── pages.json           # 页面路由配置
+│   ├── shime-uni.d.ts       # uni-app 类型补充声明
+│   └── uni.scss             # 全局 SCSS 变量
+├── .editorconfig            # 编辑器配置
+├── .gitignore               # Git 忽略规则
+├── .npmrc                   # npm 配置
+├── .prettierignore          # Prettier 忽略规则
+├── .prettierrc.cjs          # Prettier 格式化配置
+├── commitlint.config.cjs    # Commitlint 提交规范配置
+├── eslint.config.js         # ESLint 代码检查配置
+├── index.html               # 入口 HTML
+├── package.json             # 项目依赖与脚本
+├── package-lock.json        # 依赖锁定文件
+├── shims-uni.d.ts           # uni-app 类型声明
+├── tsconfig.json            # TypeScript 配置
+├── tsconfig.vue.json        # Vue + TypeScript 配置
+└── vite.config.ts           # Vite 构建配置
+```
+
+## 页面配置与路由
+
+UniApp 的路由完全由 `pages.json` 管理，无需手动配置 vue-router。
+
+```json
+{
+  "pages": [
+    { "path": "pages/index/index", "style": { "navigationBarTitleText": "首页" } },
+    { "path": "pages/detail/index", "style": { "navigationBarTitleText": "详情" } }
+  ],
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "My App",
+    "backgroundColor": "#f5f5f5"
+  },
+  "tabBar": {
+    "color": "#999",
+    "selectedColor": "#007aff",
+    "backgroundColor": "#fff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/home.png",
+        "selectedIconPath": "static/home-active.png"
+      },
+      {
+        "pagePath": "pages/user/index",
+        "text": "我的",
+        "iconPath": "static/user.png",
+        "selectedIconPath": "static/user-active.png"
+      }
+    ]
+  },
+  "subPackages": [
+    { "root": "pages-sub/order", "pages": [{ "path": "list/index" }, { "path": "detail/index" }] }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["pages-sub/order"]
+    }
+  }
+}
+```
+
+## 组件化开发
+
+```vue
+<!-- pages/index/index.vue -->
+<template>
+  <view class="home">
+    <text class="title">{{ title }}</text>
+    <counter :initial="0" />
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue"
+import Counter from "@/components/counter.vue"
+
+const title = ref("Hello UniApp")
+</script>
+
+<style lang="scss" scoped>
+.home {
+  padding: 20px;
+}
+.title {
+  font-weight: bold;
+  font-size: 36rpx;
+}
+</style>
+```
+
+### 核心 uni-app 组件
+
+```html
+<!-- uni-app 使用 HTML 标签名（由编译器自动转换为各平台原生组件） -->
+
+<!-- 视图容器 -->
+<view>  <!-- div 等价物，基础容器 -->
+<scroll-view>  <!-- 可滚动区域 -->
+<swiper> / <swiper-item>  <!-- 滑块轮播 -->
+
+<!-- 基础内容 -->
+<text>     <!-- 文本（长按可选） -->
+<rich-text>  <!-- 富文本 -->
+<icon>      <!-- 图标 -->
+<progress>  <!-- 进度条 -->
+
+<!-- 表单 -->
+<button>  <input>  <textarea>  <picker>  <checkbox>  <radio>  <switch>
+<slider>  <form>  <label>
+
+<!-- 媒体 -->
+<image>  <video>  <audio>  <camera>
+
+<!-- 导航 -->
+<navigator>  <!-- 页面跳转链接 -->
+
+<!-- uni-ui 扩展组件（需单独安装） -->
+<uni-card>  <uni-list>  <uni-forms>  <uni-popup>  <uni-nav-bar>
+```
+
+## 生命周期
+
+### 页面生命周期
+
+```vue
+<script setup lang="ts">
+import { onLoad, onShow, onReady, onHide, onUnload } from "@dcloudio/uni-app"
+
+// onLoad — 页面加载，只触发一次，可获取路由参数
+onLoad((options) => {
+  console.log("页面加载", options)
+})
+
+// onShow — 页面显示 / 从后台切回前台（每次显示都触发）
+onShow(() => {
+  console.log("页面显示")
+})
+
+// onReady — 页面初次渲染完成
+onReady(() => {
+  console.log("页面渲染完成")
+})
+
+// onHide — 页面隐藏 / 切到后台
+onHide(() => {
+  console.log("页面隐藏")
+})
+
+// onUnload — 页面卸载（redirectTo / navigateBack / 关闭）
+onUnload(() => {
+  console.log("页面卸载")
+})
+</script>
+```
+
+### 页面事件
+
+```vue
+<script setup lang="ts">
+import {
+  onPullDownRefresh,
+  onReachBottom,
+  onPageScroll,
+  onShareAppMessage,
+} from "@dcloudio/uni-app"
+
+// 下拉刷新 — 需在 pages.json 中开启 enablePullDownRefresh
+onPullDownRefresh(async () => {
+  await refreshData()
+  uni.stopPullDownRefresh()
+})
+
+// 上拉触底
+onReachBottom(() => {
+  console.log("触底加载更多")
+})
+
+// 页面滚动
+onPageScroll((e) => {
+  console.log(e.scrollTop)
+})
+
+// 分享
+onShareAppMessage(() => ({
+  title: "分享标题",
+  path: "/pages/index/index",
+}))
+</script>
+```
+
+### 应用生命周期（App.vue）
+
+```vue
+<script setup lang="ts">
+import { onLaunch, onShow, onHide } from "@dcloudio/uni-app"
+
+onLaunch(() => {
+  console.log("App 启动")
+  // 获取启动参数
+  const app = getApp()
+  console.log(app.$options)
+})
+
+onShow(() => {
+  console.log("App 从后台进入前台")
+})
+
+onHide(() => {
+  console.log("App 从前台进入后台")
+})
+</script>
+```
+
+## 路由跳转与传参
+
+```ts
+// uni-app 路由 API（与微信小程序 API 命名一致）
+// 注意：这些是 uni.* 全局 API，不是 vue-router
+
+// 保留当前页，跳转
+uni.navigateTo({
+  url: "/pages/detail/index?id=123&name=hello",
+  success: () => console.log("跳转成功"),
+})
+
+// 关闭当前页，跳转
+uni.redirectTo({ url: "/pages/login/index" })
+
+// 关闭所有页面，打开新页面
+uni.reLaunch({ url: "/pages/index/index" })
+
+// 跳转 TabBar 页面
+uni.switchTab({ url: "/pages/user/index" })
+
+// 返回上一页
+uni.navigateBack({ delta: 1 })
+
+// 组件内跳转 — 使用 navigator 组件
+// <navigator url="/pages/detail/index?id=123" open-type="navigate">跳转</navigator>
+```
+
+### 路由传参
+
+```vue
+<!-- 发送方：通过 query string 传递 -->
+<script setup lang="ts">
+function goDetail() {
+  uni.navigateTo({ url: "/pages/detail/index?id=123&name=uni" })
+}
+// 复杂数据：通过全局事件总线、全局变量或本地存储
+function goDetailWithData() {
+  uni.setStorageSync("detailData", { id: 1, list: [1, 2, 3] })
+  uni.navigateTo({ url: "/pages/detail/index" })
+}
+</script>
+
+<!-- 接收方：onLoad 中获取 -->
+<script setup lang="ts">
+import { onLoad } from "@dcloudio/uni-app"
+
+onLoad((options) => {
+  console.log(options?.id) // "123"
+  console.log(options?.name) // "uni"
+  // 读取本地存储
+  const data = uni.getStorageSync("detailData")
+})
+</script>
+```
+
+## 条件渲染和列表渲染
+
+```vue
+<template>
+  <view>
+    <!-- 条件渲染 — v-if / v-show -->
+    <text v-if="isLoggedIn">已登录</text>
+    <text v-else>请登录</text>
+
+    <!-- 列表渲染 — v-for，必须设置 :key -->
+    <view v-for="item in items" :key="item.id" class="item">
+      <text>{{ item.name }}</text>
+    </view>
+
+    <!-- block 标签 — 不渲染为实际元素，仅用于包裹 -->
+    <block v-for="item in items" :key="item.id">
+      <view class="item-title">{{ item.title }}</view>
+      <view class="item-desc">{{ item.desc }}</view>
+    </block>
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue"
+
+const isLoggedIn = ref(true)
+const items = ref([
+  { id: 1, title: "标题1", desc: "描述1" },
+  { id: 2, title: "标题2", desc: "描述2" },
+])
+</script>
+```
+
+## 事件处理
+
+```vue
+<template>
+  <view>
+    <!-- 点击事件 @click / @tap -->
+    <view @click="handleTap">点击区域</view>
+    <view @tap="handleTap">tap 与 click 等效</view>
+
+    <!-- 长按事件 @longpress -->
+    <view @longpress="handleLongPress">长按区域</view>
+
+    <!-- 阻止事件冒泡 — 使用 @click.stop -->
+    <view @click="handleOuter">
+      <view @click.stop="handleInner">内部（不冒泡）</view>
+    </view>
+
+    <!-- 输入事件 @input -->
+    <input v-model="value" @input="onInput" />
+
+    <!-- 表单提交 -->
+    <form @submit="onSubmit">
+      <input name="username" />
+      <button form-type="submit">提交</button>
+    </form>
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue"
+
+const value = ref("")
+const handleTap = () => console.log("tapped")
+const handleLongPress = () => console.log("长按")
+const onInput = (e) => console.log(e.detail.value)
+const onSubmit = (e) => console.log(e.detail.value)
+</script>
+```
+
+## 组件通信
+
+```vue
+<!-- ===== 父 → 子：props ===== -->
+<!-- Child.vue -->
+<script setup lang="ts">
+defineProps<{ msg: string; count: number }>()
+</script>
+<template>
+  <view>{{ msg }} — {{ count }}</view>
+</template>
+
+<!-- Parent.vue -->
+<template>
+  <Child msg="Hello" :count="count" />
+</template>
+
+<!-- ===== 子 → 父：emit ===== -->
+<!-- Child.vue -->
+<script setup lang="ts">
+const emits = defineEmits<{ (e: "update", value: string): void }>()
+const sendData = () => emits("update", "子组件数据")
+</script>
+<template>
+  <button @click="sendData">子传父</button>
+</template>
+
+<!-- Parent.vue -->
+<template>
+  <Child @update="handleUpdate" />
+</template>
+<script setup lang="ts">
+const handleUpdate = (value: string) => console.log("收到:", value)
+</script>
+
+<!-- ===== v-model 双向绑定 ===== -->
+<!-- Child.vue -->
+<script setup lang="ts">
+defineProps<{ modelValue: string }>()
+const emits = defineEmits<{ (e: "update:modelValue", val: string): void }>()
+</script>
+<template>
+  <input :value="modelValue" @input="(e) => emits('update:modelValue', e.detail.value)" />
+</template>
+
+<!-- Parent.vue -->
+<template>
+  <Child v-model="text" />
+</template>
+
+<!-- ===== 跨层级：provide / inject ===== -->
+<!-- 祖先 -->
+<script setup lang="ts">
+import { provide } from "vue"
+provide("theme", "dark")
+</script>
+
+<!-- 后代 -->
+<script setup lang="ts">
+import { inject } from "vue"
+const theme = inject("theme", "light")
+</script>
+```
+
+## 样式处理
+
+```scss
+// uni.scss — 全局 SCSS 变量（自动注入到所有页面）
+$primary-color: #007aff;
+$bg-color: #f5f5f5;
+$text-color: #333;
+$border-color: #eee;
+
+// 页面样式
+<style lang="scss" scoped>
+.page {
+  padding: 20rpx;
+  background-color: $bg-color;
+}
+.title {
+  font-size: 36rpx;
+  font-weight: bold;
+  color: $text-color;
+}
+.active {
+  color: $primary-color;
+}
+</style>
+```
+
+### 单位说明
+
+| 单位        | 说明                                            |
+| ----------- | ----------------------------------------------- |
+| `rpx`       | 响应式像素，750rpx = 屏幕宽度（**推荐**）       |
+| `px`        | 逻辑像素                                        |
+| `vw` / `vh` | 视口百分比（H5 端）                             |
+| `upx`       | uni-app 旧版单位，与 rpx 作用相同，新版推荐 rpx |
+
+### CSS 变量
+
+```scss
+// uni-app 内置 CSS 变量
+// --status-bar-height: 状态栏高度
+// --window-top: 窗口顶部到内容顶部距离
+// --window-bottom: 窗口底部到内容底部距离
+
+// 安全区域适配
+.safe-area {
+  padding-top: var(--status-bar-height);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+```
+
+## API 调用
+
+```ts
+// uni-app 全局 API 以 uni.* 调用
+
+// ===== 本地存储 =====
+uni.setStorageSync("key", "value")
+const value = uni.getStorageSync("key")
+uni.removeStorageSync("key")
+uni.clearStorageSync()
+
+// 异步存储
+const res = await uni.getStorage({ key: "token" })
+
+// ===== 系统信息 =====
+const sysInfo = await uni.getSystemInfo()
+const { windowWidth, windowHeight, platform, safeAreaInsets } = sysInfo
+// platform: "ios" | "android" | "windows" | "mac"
+
+// ===== 提示 =====
+uni.showToast({ title: "操作成功", icon: "success", duration: 2000 })
+uni.showLoading({ title: "加载中..." })
+uni.hideLoading()
+uni.showModal({ title: "提示", content: "确定删除？", success: (res) => res.confirm && onDelete() })
+
+// ===== 导航栏 =====
+uni.setNavigationBarTitle({ title: "新标题" })
+uni.setNavigationBarColor({ frontColor: "#ffffff", backgroundColor: "#007aff" })
+
+// ===== 拨打电话 =====
+uni.makePhoneCall({ phoneNumber: "13800138000" })
+
+// ===== 扫码 =====
+const scanRes = await uni.scanCode({ scanType: ["qrCode"] })
+
+// ===== 选择图片 =====
+const imgRes = await uni.chooseImage({ count: 1, sizeType: ["compressed"] })
+console.log(imgRes.tempFilePaths)
+
+// ===== 获取位置 =====
+const location = await uni.getLocation({ type: "gcj02" })
+
+// ===== 预览图片 =====
+uni.previewImage({ urls: imgs, current: imgs[0] })
+
+// ===== 剪切板 =====
+uni.setClipboardData({ data: "复制内容" })
+const { data } = await uni.getClipboardData()
+
+// ===== 页面滚动到指定位置 =====
+uni.pageScrollTo({ scrollTop: 0, duration: 300 })
+```
+
+## 数据请求
+
+```ts
+// uni.request 是对各平台网络请求的封装
+async function fetchData() {
+  const [err, res] = await uni.request({
+    url: "https://api.example.com/data",
+    method: "GET",
+    data: { page: 1, size: 10 },
+    header: { "Content-Type": "application/json" },
+  })
+  if (err) return console.error(err)
+  return res.data
+}
+
+// 封装请求工具
+const BASE_URL = "https://api.example.com"
+
+const request = <T = any>(options: UniApp.RequestOptions): Promise<T> => {
+  const token = uni.getStorageSync("token")
+
+  return new Promise((resolve, reject) => {
+    uni.request({
+      ...options,
+      url: `${BASE_URL}${options.url}`,
+      header: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.header,
+      },
+      success: (res) => {
+        if (res.statusCode === 200) {
+          resolve(res.data as T)
+        } else if (res.statusCode === 401) {
+          uni.showToast({ title: "登录过期", icon: "none" })
+          uni.reLaunch({ url: "/pages/login/index" })
+        } else {
+          uni.showToast({ title: "请求失败", icon: "none" })
+          reject(res)
+        }
+      },
+      fail: (err) => {
+        uni.showToast({ title: "网络异常", icon: "none" })
+        reject(err)
+      },
+    })
+  })
+}
+
+// 文件上传
+async function uploadFile(filePath: string) {
+  const res = await uni.uploadFile({
+    url: `${BASE_URL}/upload`,
+    filePath,
+    name: "file",
+    formData: { type: "avatar" },
+  })
+  return JSON.parse(res.data)
+}
+```
+
+## 状态管理
+
+### Pinia（推荐）
+
+```ts
+// store/counter.ts
+import { defineStore } from "pinia"
+
+export const useCounterStore = defineStore("counter", {
+  state: () => ({ count: 0 }),
+  getters: {
+    doubleCount: (state) => state.count * 2,
+  },
+  actions: {
+    increment() {
+      this.count++
+    },
+    decrement() {
+      this.count--
+    },
+    async fetchAndSet() {
+      const data = await api.getCount()
+      this.count = data
+    },
+  },
+})
+
+// 组合式写法
+export const useUserStore = defineStore("user", () => {
+  const user = ref<User | null>(null)
+  const isLoggedIn = computed(() => !!user.value)
+
+  async function login(username: string, password: string) {
+    user.value = await api.login(username, password)
+  }
+  function logout() {
+    user.value = null
+  }
+
+  return { user, isLoggedIn, login, logout }
+})
+```
+
+```vue
+<!-- 在页面/组件中使用 -->
+<script setup lang="ts">
+import { useCounterStore } from "@/store/counter"
+import { storeToRefs } from "pinia"
+
+const counter = useCounterStore()
+const { count, doubleCount } = storeToRefs(counter) // 保持响应式
+
+const handleAdd = () => counter.increment()
+</script>
+
+<template>
+  <view>
+    <text>{{ count }}</text>
+    <text>翻倍: {{ doubleCount }}</text>
+    <button @click="handleAdd">+1</button>
+  </view>
+</template>
+```
+
+### 全局状态 (getApp)
+
+```ts
+// App.vue 中挂载
+// <script setup lang="ts">
+//   import { ref } from "vue"
+//   const globalData = ref({ user: null, theme: "light" })
+//   getApp().globalData = globalData
+// </script>
+
+// 其他页面中访问
+const app = getApp()
+console.log(app.globalData.user)
+```
+
+## 条件编译
+
+UniApp 通过特殊的注释语法在代码中标记平台特定内容，编译时自动移除不相关代码。
+
+```vue
+<template>
+  <view>
+    <!-- #ifdef MP-WEIXIN -->
+    <button open-type="share">微信分享</button>
+    <!-- #endif -->
+
+    <!-- #ifdef H5 -->
+    <a href="https://example.com">H5 外部链接</a>
+    <!-- #endif -->
+
+    <!-- #ifdef APP-PLUS -->
+    <view>App 端特有内容</view>
+    <!-- #endif -->
+  </view>
+</template>
+
+<script setup lang="ts">
+// #ifdef MP-WEIXIN
+import WxPlugin from "@/wx-plugin"
+// #endif
+
+// #ifdef H5
+const share = () => navigator.share({ title: "...", url: "..." })
+// #endif
+
+// 多平台组合
+// #ifdef MP-WEIXIN || MP-ALIPAY
+console.log("微信或支付宝小程序")
+// #endif
+</script>
+
+<style lang="scss">
+/* #ifdef MP-WEIXIN */
+.title {
+  font-size: 32rpx;
+}
+/* #endif */
+
+/* #ifdef H5 */
+.title {
+  font-size: 24px;
+}
+/* #endif */
+</style>
+```
+
+## 常见问题
+
+### 1. uni-app 与 Vue 的差异
+
+```ts
+// uni-app 中不能使用的 API
+// 1. DOM API — document / window / navigator（仅在 H5 端可用）
+// 2. Vue Router — 路由通过 pages.json 管理
+// 3. Web Components
+
+// 解决方案
+// - 操作 DOM → uni.createSelectorQuery()
+// - 路由跳转 → uni.navigateTo() 等
+// - 条件判断平台 → 条件编译
+
+// 获取节点信息
+const query = uni.createSelectorQuery()
+query
+  .select("#target")
+  .boundingClientRect((rect) => {
+    console.log(rect) // { width, height, top, left, ... }
+  })
+  .exec()
+```
+
+### 2. 环境判断
+
+```ts
+// 编译时：使用条件编译（推荐，不会增加包体积）
+// #ifdef MP-WEIXIN
+// 微信小程序代码
+// #endif
+
+// 运行时：使用 uni.getSystemInfoSync().platform
+const { platform } = uni.getSystemInfoSync()
+if (platform === "ios") {
+  // iOS 特殊处理
+}
+```
+
+### 3. 安全区域适配
+
+```scss
+// iPhone X 等全面屏适配
+.page {
+  padding-top: var(--status-bar-height);
+  padding-bottom: constant(safe-area-inset-bottom); /* 兼容 iOS < 11.2 */
+  padding-bottom: env(safe-area-inset-bottom); /* 兼容 iOS >= 11.2 */
+}
+```
+
+### 4. 包体积优化
+
+```json
+// pages.json — 分包配置
+{
+  "subPackages": [
+    {
+      "root": "pages-sub/user",
+      "pages": [{ "path": "profile/index" }, { "path": "settings/index" }]
+    }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["pages-sub/user"]
+    }
+  }
+}
+```
+
+### 5. easycom 自动导入
+
+```ts
+// uni-app 默认开启 easycom — 自动按路径导入组件
+// components/uni-card/uni-card.vue → 在任意页面中直接使用 <uni-card /> 无需 import
+
+// 自定义 easycom 规则（在 pages.json 中配置）
+{
+  "easycom": {
+    "autoscan": true,
+    "custom": {
+      "^my-(.*)": "@/components/my-$1/my-$1.vue"
+    }
+  }
+}
+// 使用：<my-button /> → 自动导入 @/components/my-button/my-button.vue
+```
+
+### 6. 页面间通信
+
+```ts
+// uni.$emit / uni.$on — 全局事件总线
+// 页面 A
+uni.$emit("updateData", { id: 1 })
+
+// 页面 B
+uni.$on("updateData", (data) => {
+  console.log(data)
+})
+
+// 页面 B 卸载时移除监听
+import { onUnload } from "@dcloudio/uni-app"
+onUnload(() => {
+  uni.$off("updateData")
+})
+```
+
+## 与其他跨端框架对比
+
+| 特性       | UniApp                           | Taro                   | React Native          |
+| ---------- | -------------------------------- | ---------------------- | --------------------- |
+| 语法       | Vue                              | React / Vue            | React                 |
+| 小程序支持 | 齐全                             | 齐全                   | 不支持                |
+| H5 支持    | ✓                                | ✓                      | 不支持                |
+| App 端     | ✓（WebView 渲染）                | ✓（WebView 渲染）      | ✓（原生渲染）         |
+| 组件库     | uni-ui                           | Taro UI / Taroify      | React Native Elements |
+| 生态       | DCloud 全家桶（uniCloud、uniAD） | 京东生态               | Meta + 开源社区       |
+| 学习曲线   | 低（Vue 开发者）                 | 中（需了解小程序差异） | 中（需了解原生开发）  |

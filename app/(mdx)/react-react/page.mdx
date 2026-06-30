@@ -1,0 +1,983 @@
+# React
+
+## JSX
+
+```tsx
+// JSX 是 JavaScript 的语法扩展，允许在 JS 中编写类似 HTML 的代码
+// JSX 最终会被 Babel 编译为 React.createElement() 调用
+
+const element = <h1>Hello, World!</h1>
+
+// 在 JSX 中嵌入表达式
+const name = "React"
+const greeting = <h1>Hello, {name}!</h1>
+
+// JSX 也是一个表达式，可以赋值给变量、作为函数返回值
+function getGreeting(user) {
+  if (user) return <h1>Hello, {user.name}!</h1>
+  return <h1>Hello, Stranger.</h1>
+}
+
+// JSX 属性
+const img = <img src={url} alt="image" className="avatar" />
+
+// JSX 防注入攻击 — React DOM 在渲染前会转义所有嵌入值
+```
+
+## 组件
+
+```tsx
+// React 组件本质上是一个返回 JSX 的函数
+
+// 函数组件（推荐）
+function Welcome(props: { name: string }) {
+  return <h1>Hello, {props.name}</h1>
+}
+
+// 类组件
+class Welcome extends React.Component<{ name: string }> {
+  render() {
+    return <h1>Hello, {this.props.name}</h1>
+  }
+}
+
+// 组件的使用
+function App() {
+  return (
+    <div>
+      <Welcome name="React" />
+    </div>
+  )
+}
+```
+
+## Props
+
+```tsx
+// Props 是组件的输入，是只读的
+// 父组件 → 子组件 单向数据流
+
+interface ButtonProps {
+  children: React.ReactNode
+  variant?: "primary" | "secondary"
+  disabled?: boolean
+  onClick?: () => void
+}
+
+function Button({ children, variant = "primary", disabled, onClick }: ButtonProps) {
+  return (
+    <button className={`btn btn-${variant}`} disabled={disabled} onClick={onClick}>
+      {children}
+    </button>
+  )
+}
+
+// Props 可以传递任何 JS 值：字符串、数字、对象、函数、JSX 元素
+function Parent() {
+  return (
+    <Button variant="secondary" onClick={() => console.log("clicked")}>
+      Click me
+    </Button>
+  )
+}
+```
+
+## State
+
+```tsx
+// State 是组件的内部状态，发生变化时组件会重新渲染
+import { useState } from "react"
+
+function Counter() {
+  const [count, setCount] = useState(0)
+
+  return (
+    <div>
+      <p>Count: {count}</p>
+      <button onClick={() => setCount(count + 1)}>+1</button>
+      <button onClick={() => setCount((prev) => prev - 1)}>-1</button>
+    </div>
+  )
+}
+
+// State 的更新是异步的、批量的（React 18+ 自动批处理）
+function Form() {
+  const [form, setForm] = useState({ name: "", age: 0 })
+
+  // 更新对象时需要用展开运算符保留其他字段
+  const updateName = (name: string) => setForm((prev) => ({ ...prev, name }))
+}
+```
+
+## 事件处理
+
+```tsx
+function EventDemo() {
+  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault() // 阻止默认行为
+    e.stopPropagation() // 阻止事件冒泡
+    console.log("clicked")
+  }
+
+  // React 事件是合成事件（SyntheticEvent），跨浏览器兼容
+  // 事件名使用驼峰命名：onClick, onChange, onSubmit, onKeyDown ...
+  return (
+    <>
+      <button onClick={handleClick}>Click</button>
+      <input onChange={(e) => console.log(e.target.value)} />
+      <form
+        onSubmit={(e) => {
+          e.preventDefault() /* 提交逻辑 */
+        }}
+      >
+        <button type="submit">Submit</button>
+      </form>
+    </>
+  )
+}
+```
+
+## 条件渲染
+
+```tsx
+function ConditionalDemo({ isLoggedIn }: { isLoggedIn: boolean }) {
+  // 三元运算符
+  return <div>{isLoggedIn ? <Dashboard /> : <Login />}</div>
+}
+
+function ConditionalDemo2({ user }: { user: User | null }) {
+  // && 短路
+  return <div>{user && <UserMenu user={user} />}</div>
+}
+
+function ConditionalDemo3({ role }: { role: string }) {
+  // 提前 return（无法在 JSX 中使用 if/else）
+  if (role === "admin") return <AdminPanel />
+  if (role === "editor") return <EditorPanel />
+  return <ViewerPanel />
+}
+```
+
+## 列表渲染
+
+```tsx
+function ListDemo({ items }: { items: Item[] }) {
+  return (
+    <ul>
+      {items.map((item) => (
+        <li key={item.id}>{item.name}</li>
+      ))}
+    </ul>
+  )
+}
+
+// key 的作用：帮助 React 识别哪些元素改变/新增/删除，优化 diff 算法
+// 不要用 index 作为 key（当列表顺序可能变化时）
+```
+
+## 受控组件 vs 非受控组件
+
+```tsx
+// 受控组件：表单数据由 React state 控制
+function ControlledInput() {
+  const [value, setValue] = useState("")
+  return <input value={value} onChange={(e) => setValue(e.target.value)} />
+}
+
+// 非受控组件：表单数据由 DOM 自身管理
+import { useRef } from "react"
+
+function UncontrolledInput() {
+  const inputRef = useRef<HTMLInputElement>(null)
+  const handleSubmit = () => console.log(inputRef.current?.value)
+  return (
+    <>
+      <input ref={inputRef} defaultValue="hello" />
+      <button onClick={handleSubmit}>Submit</button>
+    </>
+  )
+}
+```
+
+---
+
+## Hooks
+
+### useState
+
+```tsx
+import { useState } from "react"
+
+const [state, setState] = useState(initialState)
+
+// 函数式更新（依赖前一个 state 时使用）
+setState((prev) => prev + 1)
+
+// 惰性初始化（初始值计算昂贵时使用）
+const [data] = useState(() => expensiveComputation())
+```
+
+### useEffect
+
+```tsx
+import { useEffect } from "react"
+
+// 同步副作用到外部系统（API 请求、订阅、DOM 操作、定时器）
+// 与类组件生命周期不同——不应直接类比 componentDidMount/Update/Unmount
+
+// 每次渲染后执行
+useEffect(() => {
+  console.log("每次渲染后执行")
+})
+
+// 仅在挂载时执行一次
+useEffect(() => {
+  console.log("仅在挂载时执行一次")
+}, [])
+
+// 依赖变化时执行
+useEffect(() => {
+  console.log(`count 变为 ${count}`)
+}, [count])
+
+// 带清理函数（在下次 effect 前 / 卸载时调用）
+useEffect(() => {
+  const timer = setInterval(() => console.log("tick"), 1000)
+  return () => clearInterval(timer)
+}, [])
+```
+
+### useLayoutEffect
+
+```tsx
+// 与 useEffect 签名相同，但在浏览器绘制前同步执行
+// 用于需要同步读取/修改 DOM 的场景（避免闪烁）
+import { useLayoutEffect, useRef } from "react"
+
+function Tooltip() {
+  const ref = useRef<HTMLDivElement>(null)
+
+  useLayoutEffect(() => {
+    // 在浏览器绘制前同步测量并调整位置
+    const rect = ref.current!.getBoundingClientRect()
+    // ...
+  }, [])
+
+  return <div ref={ref}>tooltip</div>
+}
+```
+
+### useRef
+
+```tsx
+import { useRef } from "react"
+
+// useRef 返回一个可变的 ref 对象，修改不触发重渲染
+// 用途：(1) 访问 DOM (2) 保存可变值且不触发重渲染
+
+function TextInput() {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const focusInput = () => inputRef.current?.focus()
+
+  // 保存前一个值
+  const prevCountRef = useRef(0)
+  const [count, setCount] = useState(0)
+  useEffect(() => {
+    prevCountRef.current = count
+  }, [count])
+}
+```
+
+### useContext
+
+```tsx
+import { createContext, useContext, useState } from "react"
+
+// 创建 Context
+const ThemeContext = createContext<string>("light")
+
+// 提供者
+function App() {
+  const [theme, setTheme] = useState("dark")
+  return (
+    <ThemeContext.Provider value={theme}>
+      <Page />
+    </ThemeContext.Provider>
+  )
+}
+
+// 消费者
+function Page() {
+  const theme = useContext(ThemeContext)
+  return <div className={theme}>当前主题: {theme}</div>
+}
+```
+
+### useReducer
+
+```tsx
+import { useReducer } from "react"
+
+// 适用于复杂状态逻辑（多个子值、下一个状态依赖前一个状态）
+type Action = { type: "increment" } | { type: "decrement" } | { type: "reset"; payload: number }
+
+function reducer(state: number, action: Action): number {
+  switch (action.type) {
+    case "increment":
+      return state + 1
+    case "decrement":
+      return state - 1
+    case "reset":
+      return action.payload
+    default:
+      return state
+  }
+}
+
+function Counter() {
+  const [count, dispatch] = useReducer(reducer, 0)
+  return (
+    <>
+      <span>{count}</span>
+      <button onClick={() => dispatch({ type: "increment" })}>+</button>
+      <button onClick={() => dispatch({ type: "decrement" })}>-</button>
+      <button onClick={() => dispatch({ type: "reset", payload: 0 })}>Reset</button>
+    </>
+  )
+}
+```
+
+### useMemo
+
+```tsx
+import { useMemo } from "react"
+
+// 缓存计算结果，仅在依赖变化时重新计算
+function ExpensiveList({ items, filter }: Props) {
+  const filtered = useMemo(() => {
+    return items.filter((item) => item.name.includes(filter))
+  }, [items, filter])
+
+  return <List data={filtered} />
+}
+
+// 也用于缓存 JSX 对象，避免子组件不必要的重渲染
+const content = useMemo(() => <ExpensiveChild data={data} />, [data])
+```
+
+### useCallback
+
+```tsx
+import { useCallback } from "react"
+
+// 缓存函数引用，仅在依赖变化时重新创建
+// 配合 React.memo 使用，避免子组件因函数引用变化而重渲染
+
+function Parent() {
+  const [count, setCount] = useState(0)
+  const [text, setText] = useState("")
+
+  // text 变化不会导致 handleClick 重新创建
+  const handleClick = useCallback(() => setCount((c) => c + 1), [])
+
+  return (
+    <>
+      <input value={text} onChange={(e) => setText(e.target.value)} />
+      <MemoChild onClick={handleClick} count={count} />
+    </>
+  )
+}
+
+const MemoChild = React.memo(function Child({ onClick, count }: Props) {
+  console.log("Child render")
+  return <button onClick={onClick}>{count}</button>
+})
+```
+
+### useImperativeHandle
+
+```tsx
+import { forwardRef, useImperativeHandle, useRef } from "react"
+
+// 自定义暴露给父组件的 ref 值
+interface InputHandle {
+  focus: () => void
+  clear: () => void
+}
+
+const CustomInput = forwardRef<InputHandle, {}>(function CustomInput(_props, ref) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+    clear: () => {
+      if (inputRef.current) inputRef.current.value = ""
+    },
+  }))
+
+  return <input ref={inputRef} />
+})
+
+function Parent() {
+  const inputRef = useRef<InputHandle>(null)
+  return (
+    <>
+      <CustomInput ref={inputRef} />
+      <button onClick={() => inputRef.current?.focus()}>Focus</button>
+      <button onClick={() => inputRef.current?.clear()}>Clear</button>
+    </>
+  )
+}
+```
+
+### useTransition
+
+```tsx
+import { useState, useTransition } from "react"
+
+// 将状态更新标记为非阻塞转换，保持 UI 响应
+function SearchPage() {
+  const [query, setQuery] = useState("")
+  const [isPending, startTransition] = useTransition()
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // 输入框即时更新（高优先级）
+    setQuery(e.target.value)
+    // 搜索结果延迟更新（低优先级，可被中断）
+    startTransition(() => setSearchResults(filterData(e.target.value)))
+  }
+
+  return (
+    <>
+      <input value={query} onChange={handleChange} />
+      {isPending && <Spinner />}
+      <Results data={searchResults} />
+    </>
+  )
+}
+```
+
+### useDeferredValue
+
+```tsx
+import { useDeferredValue } from "react"
+
+// 延迟更新某个值，直到更紧急的更新完成
+function SearchResults({ query }: { query: string }) {
+  const deferredQuery = useDeferredValue(query)
+  // deferredQuery 会在输入停止后延迟更新，期间显示旧值
+  const results = useMemo(() => search(deferredQuery), [deferredQuery])
+
+  return (
+    <ul style={{ opacity: query !== deferredQuery ? 0.5 : 1 }}>
+      {results.map((r) => (
+        <li key={r.id}>{r.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### 自定义 Hook
+
+```ts
+// 复用有状态逻辑，命名以 use 开头
+import { useState, useEffect } from "react"
+
+// 封装数据获取逻辑
+function useFetch<T>(url: string) {
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<Error | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+
+    fetch(url)
+      .then((res) => res.json())
+      .then((json) => {
+        if (!cancelled) setData(json)
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err)
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+
+  return { data, loading, error }
+}
+
+// 封装防抖
+function useDebounce<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay)
+    return () => clearTimeout(timer)
+  }, [value, delay])
+  return debounced
+}
+```
+
+---
+
+## 组件通信
+
+| 传递方向   | 方式                             |
+| ---------- | -------------------------------- |
+| 父 → 子    | props                            |
+| 子 → 父    | 回调函数（props 传函数）         |
+| 兄弟组件   | 状态提升到公共父组件             |
+| 跨层级     | Context / 状态管理库             |
+| 子组件实例 | forwardRef + useImperativeHandle |
+
+```tsx
+// 父 → 子（props）
+function Parent() {
+  return <Child name="React" />
+}
+
+// 子 → 父（回调函数）
+function Child({ onData }: { onData: (data: string) => void }) {
+  return <button onClick={() => onData("hello from child")}>Send</button>
+}
+
+function Parent() {
+  const handleData = (data: string) => console.log(data)
+  return <Child onData={handleData} />
+}
+```
+
+---
+
+## React.memo 与性能优化
+
+```tsx
+import { memo } from "react"
+
+// React.memo：浅比较 props，props 不变时跳过重渲染
+const MemoChild = memo(function Child({ name }: { name: string }) {
+  console.log("Child render")
+  return <div>{name}</div>
+})
+
+// 自定义比较函数
+const MemoChild2 = memo(
+  function Child({ user }: { user: User }) {
+    return <div>{user.name}</div>
+  },
+  (prevProps, nextProps) => prevProps.user.id === nextProps.user.id
+)
+```
+
+---
+
+## 高阶组件 (HOC)
+
+```tsx
+// 高阶组件是一个函数，接收一个组件，返回一个新组件
+// 用于复用组件逻辑
+
+function withLogger<T extends object>(WrappedComponent: React.ComponentType<T>) {
+  return function LoggedComponent(props: T) {
+    console.log(`${WrappedComponent.displayName ?? "Component"} render`)
+    return <WrappedComponent {...props} />
+  }
+}
+
+const LoggedButton = withLogger(Button)
+```
+
+---
+
+## Render Props
+
+```tsx
+// 通过 Props 传递一个函数来共享渲染逻辑
+function MouseTracker({ render }: { render: (pos: { x: number; y: number }) => React.ReactNode }) {
+  const [pos, setPos] = useState({ x: 0, y: 0 })
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => setPos({ x: e.clientX, y: e.clientY })
+    window.addEventListener("mousemove", handler)
+    return () => window.removeEventListener("mousemove", handler)
+  }, [])
+
+  return <>{render(pos)}</>
+}
+
+function App() {
+  return (
+    <MouseTracker
+      render={({ x, y }) => (
+        <span>
+          鼠标位置: {x}, {y}
+        </span>
+      )}
+    />
+  )
+}
+```
+
+---
+
+## 生命周期（类组件）
+
+```tsx
+// 函数组件中通过 Hooks 替代，理解其阶段概念即可
+class LifecycleDemo extends React.Component {
+  // 挂载阶段
+  constructor(props) {
+    super(props)
+  } // 初始化 state / 绑定方法
+  static getDerivedStateFromProps(props, state) // 派生 state
+  render() // 渲染
+  componentDidMount() // 挂载完成 → 适合发起请求
+
+  // 更新阶段
+  static getDerivedStateFromProps(props, state) // 派生 state
+  shouldComponentUpdate(nextProps, nextState) // 是否重新渲染
+  render()
+  getSnapshotBeforeUpdate(prevProps, prevState) // 更新前捕获快照
+  componentDidUpdate(prevProps, prevState) // 更新完成
+
+  // 卸载阶段
+  componentWillUnmount() // 卸载前清理（定时器、订阅等）
+
+  // 错误处理
+  static getDerivedStateFromError(error) // 渲染备用 UI
+  componentDidCatch(error, info) // 记录错误日志
+}
+```
+
+---
+
+## Portals
+
+```tsx
+import { createPortal } from "react-dom"
+
+// 将子节点渲染到父组件 DOM 树之外的指定 DOM 节点
+// 典型场景：Modal、Tooltip、Dropdown（避免 overflow/z-index 问题）
+
+function Modal({ children, open, onClose }: ModalProps) {
+  if (!open) return null
+
+  return createPortal(
+    <div className="modal-overlay" onClick={onClose}>
+      <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+        {children}
+      </div>
+    </div>,
+    document.body
+  )
+}
+```
+
+---
+
+## Suspense 与 Error Boundary
+
+```tsx
+import { Suspense } from "react"
+import { ErrorBoundary } from "react-error-boundary" // 或自行封装
+
+// Suspense：声明式管理异步加载状态
+function App() {
+  return (
+    <ErrorBoundary fallback={<div>出错了</div>}>
+      <Suspense fallback={<Loading />}>
+        <AsyncComponent />
+      </Suspense>
+    </ErrorBoundary>
+  )
+}
+
+// 类组件 Error Boundary（必须用类组件实现）
+class ErrorBoundary extends React.Component<
+  { children: React.ReactNode; fallback: React.ReactNode },
+  { hasError: boolean }
+> {
+  constructor(props) {
+    super(props)
+    this.state = { hasError: false }
+  }
+  static getDerivedStateFromError() {
+    return { hasError: true }
+  }
+  componentDidCatch(error: Error, info: React.ErrorInfo) {
+    console.error(error, info)
+  }
+  render() {
+    return this.state.hasError ? this.props.fallback : this.props.children
+  }
+}
+```
+
+---
+
+## 路由（React Router v7）
+
+```tsx
+// react-router 通过 URL 路径映射到组件，实现 SPA 页面切换
+
+import { BrowserRouter, Routes, Route, Link, Outlet } from "react-router-dom"
+
+function App() {
+  return (
+    <BrowserRouter>
+      <nav>
+        <Link to="/">Home</Link>
+        <Link to="/about">About</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        {/* 嵌套路由 */}
+        <Route path="/users" element={<UsersLayout />}>
+          <Route index element={<UserList />} />
+          <Route path=":id" element={<UserDetail />} />
+        </Route>
+        {/* 404 */}
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+function UsersLayout() {
+  return (
+    <div>
+      <h2>Users</h2>
+      <Outlet /> {/* 子路由渲染出口 */}
+    </div>
+  )
+}
+```
+
+### 路由传参
+
+```tsx
+import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom"
+
+// URL 参数 /users/:id
+function UserDetail() {
+  const { id } = useParams<{ id: string }>()
+  return <div>User: {id}</div>
+}
+
+// Query 参数 /search?q=react
+function SearchPage() {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const query = searchParams.get("q")
+
+  const updateQuery = (q: string) => setSearchParams({ q })
+
+  return <input value={query ?? ""} onChange={(e) => updateQuery(e.target.value)} />
+}
+
+// 编程式导航
+function NavigateButton() {
+  const navigate = useNavigate()
+  const location = useLocation()
+
+  return (
+    <>
+      <button onClick={() => navigate("/about")}>Go to About</button>
+      <button onClick={() => navigate(-1)}>Go Back</button>
+      <button onClick={() => navigate("/users/123", { state: { from: location.pathname } })}>
+        View User
+      </button>
+    </>
+  )
+}
+```
+
+---
+
+## 状态管理
+
+### Redux Toolkit
+
+```ts
+// store.ts
+import { configureStore, createSlice, PayloadAction } from "@reduxjs/toolkit"
+
+const counterSlice = createSlice({
+  name: "counter",
+  initialState: { count: 0 },
+  reducers: {
+    increment(state) {
+      state.count += 1
+    },
+    decrement(state) {
+      state.count -= 1
+    },
+    incrementByAmount(state, action: PayloadAction<number>) {
+      state.count += action.payload
+    },
+  },
+})
+
+export const { increment, decrement, incrementByAmount } = counterSlice.actions
+export const store = configureStore({ reducer: { counter: counterSlice.reducer } })
+export type RootState = ReturnType<typeof store.getState>
+export type AppDispatch = typeof store.dispatch
+```
+
+```tsx
+// 在组件中使用
+import { useSelector, useDispatch } from "react-redux"
+
+function Counter() {
+  const count = useSelector((state: RootState) => state.counter.count)
+  const dispatch = useDispatch<AppDispatch>()
+
+  return (
+    <>
+      <span>{count}</span>
+      <button onClick={() => dispatch(increment())}>+</button>
+      <button onClick={() => dispatch(incrementByAmount(5))}>+5</button>
+    </>
+  )
+}
+```
+
+### Zustand
+
+```ts
+import { create } from "zustand"
+
+interface CounterStore {
+  count: number
+  increment: () => void
+  decrement: () => void
+}
+
+const useCounter = create<CounterStore>((set) => ({
+  count: 0,
+  increment: () => set((state) => ({ count: state.count + 1 })),
+  decrement: () => set((state) => ({ count: state.count - 1 })),
+}))
+
+function Counter() {
+  const { count, increment } = useCounter()
+  return <button onClick={increment}>{count}</button>
+}
+```
+
+---
+
+## ref 转发 (forwardRef)
+
+```tsx
+import { forwardRef } from "react"
+
+// 让父组件能访问子组件内部的 DOM 节点或实例
+const FancyInput = forwardRef<HTMLInputElement, { label: string }>(function FancyInput(
+  { label },
+  ref
+) {
+  return (
+    <label>
+      {label}：
+      <input ref={ref} />
+    </label>
+  )
+})
+
+function Parent() {
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    inputRef.current?.focus()
+  }, [])
+  return <FancyInput ref={inputRef} label="Name" />
+}
+```
+
+---
+
+## React 19 新特性
+
+### Actions
+
+```tsx
+// 通过 action 函数处理表单提交，支持 useActionState / useFormStatus
+
+import { useActionState, useFormStatus } from "react"
+
+async function submitForm(prevState: unknown, formData: FormData) {
+  const name = formData.get("name") as string
+  // 调用 API...
+  return { success: true, name }
+}
+
+function Form() {
+  const [state, formAction] = useActionState(submitForm, null)
+
+  return (
+    <form action={formAction}>
+      <input name="name" />
+      <SubmitButton />
+      {state?.success && <p>提交成功: {state.name}</p>}
+    </form>
+  )
+}
+
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return <button disabled={pending}>{pending ? "提交中..." : "提交"}</button>
+}
+```
+
+### useOptimistic
+
+```tsx
+// 乐观更新 — 立即更新 UI，失败时回滚
+import { useOptimistic } from "react"
+
+function TodoList({ todos }: { todos: Todo[] }) {
+  const [optimisticTodos, addOptimistic] = useOptimistic(todos, (state, newTodo: Todo) => [
+    ...state,
+    newTodo,
+  ])
+
+  async function handleAdd(formData: FormData) {
+    const title = formData.get("title") as string
+    addOptimistic({ id: Date.now(), title, completed: false })
+    await addTodo(title) // 实际 API 调用
+  }
+  // ...
+}
+```
+
+### use
+
+```tsx
+import { use } from "react"
+
+// use() 可以在渲染期间读取 Promise / Context
+// 可以在条件和循环中使用（与 Hooks 不同）
+
+function UserProfile({ userPromise }: { userPromise: Promise<User> }) {
+  const user = use(userPromise) // Suspense 会捕获 pending 状态
+  return <div>{user.name}</div>
+}
+
+// 也可以读取 Context
+const theme = use(ThemeContext)
+```
+
+### 其他改进
+
+- **`ref` 作为 prop** — 无需 `forwardRef`，直接从 props 中获取 `ref`
+- **`<Context>` 作为 Provider** — 无需 `<Context.Provider>`，直接 `<Context value={...}>...</Context>`
+- **Document Metadata** — 在组件中直接渲染 `<title>`, `<meta>`, `<link>` 标签
+- **更好的错误报告** — 错误信息中包含组件名和错误来源

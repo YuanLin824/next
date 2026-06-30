@@ -274,59 +274,59 @@ DI: (实现方式)
 3. DI 的三种注入方式：构造函数注入、属性注入、方法注入
    1. 构造函数注入：通过构造函数传入依赖对象
 
-      ```ts
-      // ✅ 依赖明确
-      // ✅ 对象创建后立即可用
-      // ✅ 支持不可变对象
-      class EmailService {
-        sendEmail(to: string, content: string) {
-          console.log(`发送邮件到 ${to}: ${content}`)
-        }
-      }
-      class UserService {
-        // ✅ 通过构造函数注入
-        constructor(private emailService: EmailService) {}
-        registerUser(email: string) {
-          // 业务逻辑
-          this.emailService.sendEmail(email, "欢迎注册!")
-        }
-      }
-      // 使用
-      const userService = new UserService(new EmailService())
-      userService.registerUser("user@example.com")
-      ```
+   ```ts
+   // ✅ 依赖明确
+   // ✅ 对象创建后立即可用
+   // ✅ 支持不可变对象
+   class EmailService {
+     sendEmail(to: string, content: string) {
+       console.log(`发送邮件到 ${to}: ${content}`)
+     }
+   }
+   class UserService {
+     // ✅ 通过构造函数注入
+     constructor(private emailService: EmailService) {}
+     registerUser(email: string) {
+       // 业务逻辑
+       this.emailService.sendEmail(email, "欢迎注册!")
+     }
+   }
+   // 使用
+   const userService = new UserService(new EmailService())
+   userService.registerUser("user@example.com")
+   ```
 
    2. 属性注入：通过属性赋值的方式传入依赖对象
 
-      ```ts
-      // ⚠️ 依赖不明确
-      // ⚠️ 可能忘记注入
-      class UserService {
-        // ✅ 通过属性注入
-        emailService!: EmailService
-        registerUser(email: string) {
-          this.emailService.sendEmail(email, "欢迎注册!")
-        }
-      }
-      // 使用
-      const userService = new UserService()
-      userService.emailService = new EmailService() // 注入依赖
-      userService.registerUser("user@example.com")
-      ```
+   ```ts
+   // ⚠️ 依赖不明确
+   // ⚠️ 可能忘记注入
+   class UserService {
+     // ✅ 通过属性注入
+     emailService!: EmailService
+     registerUser(email: string) {
+       this.emailService.sendEmail(email, "欢迎注册!")
+     }
+   }
+   // 使用
+   const userService = new UserService()
+   userService.emailService = new EmailService() // 注入依赖
+   userService.registerUser("user@example.com")
+   ```
 
    3. 方法注入：通过方法参数的方式传入依赖对象
 
-      ```ts
-      class UserService {
-        // ✅ 通过方法参数注入
-        registerUser(email: string, emailService: EmailService) {
-          emailService.sendEmail(email, "欢迎注册!")
-        }
-      }
-      // 使用
-      const userService = new UserService()
-      userService.registerUser("user@example.com", new EmailService())
-      ```
+   ```ts
+   class UserService {
+     // ✅ 通过方法参数注入
+     registerUser(email: string, emailService: EmailService) {
+       emailService.sendEmail(email, "欢迎注册!")
+     }
+   }
+   // 使用
+   const userService = new UserService()
+   userService.registerUser("user@example.com", new EmailService())
+   ```
 
 ```ts
 class Phone {
