@@ -81,6 +81,12 @@ export const HOME_FROUPS: CardGroup[] = [
     children: [
       { title: "React", icon: "atom", url: "/react-react", desc: "声明式 UI 库" },
       { title: "NextJS", icon: "triangle", url: "/react-next", desc: "React 全栈框架" },
+      {
+        title: "React-Router",
+        icon: "triangle",
+        url: "/react-react-router",
+        desc: "React 声明式路由库",
+      },
       { title: "NestJS", icon: "server", url: "/react-nest", desc: "企业级 Node.js 框架" },
       { title: "Taro", icon: "smartphone", url: "/react-taro", desc: "跨端小程序框架" },
     ],

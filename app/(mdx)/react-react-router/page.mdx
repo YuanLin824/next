@@ -1,0 +1,1425 @@
+# React-Router v7 框架模式
+
+React-Router v7 框架模式（Framework Mode）结合了 Remix 的全栈能力，提供文件路由、SSR/SSG/SPA 渲染策略、数据加载与变更、类型安全等开箱即用的特性。本文档参考官方文档结构，按学习路径编排。
+
+---
+
+## 安装
+
+### 环境要求
+
+- **Node.js** ≥ 22.22.0
+- **React** ≥ 19.0.0
+
+### 创建新项目
+
+```shell
+npx create-react-router@latest my-app
+cd my-app
+npm install
+npm run dev
+```
+
+脚手架会生成完整的项目结构：
+
+```
+my-app/
+├── app/
+│   ├── routes.ts              # 路由配置（核心文件）
+│   ├── root.tsx               # 根布局（HTML 骨架）
+│   ├── routes/                # 路由模块目录
+│   │   └── home.tsx
+│   ├── entry.client.tsx       # 客户端入口
+│   └── entry.server.tsx       # 服务端入口（SSR）
+├── react-router.config.ts     # 框架配置
+├── vite.config.ts             # Vite 配置
+├── tsconfig.json
+└── package.json
+```
+
+### 添加到已有 Vite 项目
+
+**安装依赖：**
+
+```shell
+npm install react-router @react-router/node
+npm install -D @react-router/dev
+```
+
+**替换 Vite 插件：**
+
+```ts
+// vite.config.ts
+import { reactRouter } from "@react-router/dev/vite"
+import { defineConfig } from "vite"
+
+export default defineConfig({
+  plugins: [reactRouter()],
+})
+```
+
+**创建 `react-router.config.ts`：**
+
+```ts
+import type { Config } from "@react-router/dev/config"
+
+export default {
+  appDirectory: "app", // 源码目录
+  ssr: true, // 默认开启 SSR
+} satisfies Config
+```
+
+**更新 `package.json` 脚本：**
+
+```json
+{
+  "scripts": {
+    "dev": "react-router dev",
+    "build": "react-router build",
+    "start": "react-router-serve"
+  }
+}
+```
+
+### 核心配置文件
+
+| 文件                     | 作用                                                                |
+| ------------------------ | ------------------------------------------------------------------- |
+| `app/routes.ts`          | **路由配置**：URL 路径与路由模块的映射（必需）                      |
+| `app/root.tsx`           | **根路由**：HTML 骨架、全局布局、全局错误边界                       |
+| `app/entry.client.tsx`   | **客户端入口**：`hydrateRoot` 水合 React 应用                       |
+| `app/entry.server.tsx`   | **服务端入口**：SSR 渲染流、处理请求                                |
+| `react-router.config.ts` | **框架配置**：SSR 开关、预渲染、路径别名等                          |
+| `vite.config.ts`         | **Vite 配置**：使用 `reactRouter()` 插件替代 `@vitejs/plugin-react` |
+
+---
+
+## 路由
+
+### `app/routes.ts` — 路由配置文件
+
+框架模式下使用 `app/routes.ts` 集中定义路由，通过 `@react-router/dev/routes` 提供的辅助函数声明路径与模块的映射：
+
+```ts
+// app/routes.ts
+import { type RouteConfig, route, index, layout, prefix } from "@react-router/dev/routes"
+
+export default [
+  // 首页（index 路由）
+  index("./routes/home.tsx"),
+
+  // 标准路由
+  route("about", "./routes/about.tsx"),
+
+  // 动态参数
+  route("users/:userId", "./routes/user-detail.tsx"),
+
+  // 布局路由（不增加 URL 段）
+  layout("./routes/auth/layout.tsx", [
+    route("login", "./routes/auth/login.tsx"),
+    route("register", "./routes/auth/register.tsx"),
+  ]),
+
+  // 路径前缀（共享前缀，无需父路由文件）
+  ...prefix("dashboard", [
+    index("./routes/dashboard/home.tsx"),
+    route("analytics", "./routes/dashboard/analytics.tsx"),
+    route("settings", "./routes/dashboard/settings.tsx"),
+  ]),
+
+  // 通配符（404 兜底）
+  route("*", "./routes/not-found.tsx"),
+] satisfies RouteConfig
+```
+
+### 路由辅助函数
+
+| 函数                     | 用途                                  | 示例                               |
+| ------------------------ | ------------------------------------- | ---------------------------------- |
+| `route(pattern, file)`   | 定义一个标准路由                      | `route("users/:id", "./user.tsx")` |
+| `index(file)`            | 父路径精确匹配时渲染                  | `index("./home.tsx")`              |
+| `layout(file, children)` | 布局路由，嵌套子路由（不增加 URL 段） | `layout("./layout.tsx", [...])`    |
+| `prefix(path, routes)`   | 共享路径前缀，无父布局文件            | `...prefix("admin", [...])`        |
+| `relative(dirname)`      | 在子目录中创建相对路由配置            | 见下方"拆分路由配置"               |
+
+### 动态段与通配符
+
+```ts
+route("users/:userId", "./user.tsx") // → params.userId
+route("files/*", "./files.tsx") // → params["*"]（捕获多段路径）
+route("search/:query?", "./search.tsx") // → 可选参数
+route("blog/:slug", "./blog.tsx") // → params.slug
+```
+
+### 拆分路由配置
+
+大型项目可将路由配置分散到子目录：
+
+```ts
+// app/dashboard/routes.ts
+import { type RouteConfig, route, index, relative } from "@react-router/dev/routes"
+
+const { route: r, index: i } = relative(import.meta.dirname)
+
+export default [
+  i("./home.tsx"),
+  r("analytics", "./analytics.tsx"),
+  r("settings", "./settings.tsx"),
+] satisfies RouteConfig
+```
+
+```ts
+// app/routes.ts — 根路由配置中合并
+import dashboard from "./dashboard/routes"
+import { prefix } from "@react-router/dev/routes"
+
+export default [index("./routes/home.tsx"), ...prefix("dashboard", dashboard)] satisfies RouteConfig
+```
+
+### 文件路由（约定式）
+
+如果不喜欢手动写 `routes.ts`，可以用 `@react-router/fs-routes` 的 `flatRoutes` 按文件约定自动发现路由：
+
+```ts
+// app/routes.ts
+import { type RouteConfig } from "@react-router/dev/routes"
+import { flatRoutes } from "@react-router/fs-routes"
+
+export default flatRoutes() satisfies RouteConfig
+```
+
+```txt
+app/routes/
+├── _index.tsx          → /
+├── about.tsx           → /about
+├── users.$userId.tsx   → /users/:userId
+├── dashboard._index.tsx → /dashboard
+├── dashboard.analytics.tsx → /dashboard/analytics
+└── $.tsx               → /* (404)
+```
+
+也可以将手动路由与文件路由混合使用：
+
+```ts
+export default [route("/", "./routes/home.tsx"), ...(await flatRoutes())] satisfies RouteConfig
+```
+
+---
+
+## 路由模块
+
+每个路由文件是一个**路由模块**，可导出一组特定的 API：
+
+```tsx
+// app/routes/product.tsx
+import type { Route } from "./+types/product"
+
+// ============================================================
+// 服务端数据加载 — 组件渲染前执行
+// ============================================================
+export async function loader({ params, request }: Route.LoaderArgs) {
+  const product = await fetchProduct(params.pid!)
+  if (!product) throw new Response("商品不存在", { status: 404 })
+  return { product }
+}
+
+// ============================================================
+// 服务端数据变更 — 响应 POST/PUT/DELETE
+// ============================================================
+export async function action({ request, params }: Route.ActionArgs) {
+  const formData = await request.formData()
+  await updateProduct(params.pid!, formData)
+  return { success: true }
+}
+
+// ============================================================
+// 页面组件 — loader 完成后渲染
+// ============================================================
+export default function Product({
+  loaderData, // ← loader 返回值（自动类型推断）
+  actionData, // ← action 返回值（自动类型推断）
+  params, // ← 路径参数（自动类型推断）
+}: Route.ComponentProps) {
+  return (
+    <div>
+      <h1>{loaderData.product.name}</h1>
+      <p>价格: ¥{loaderData.product.price}</p>
+    </div>
+  )
+}
+
+// ============================================================
+// SEO — 自动收集 loader 数据生成 meta 标签
+// ============================================================
+export function meta({ data }: Route.MetaArgs) {
+  return [{ title: data.product.name }, { name: "description", content: data.product.description }]
+}
+
+// ============================================================
+// 错误边界 — 仅捕获本路由及子路由的异常
+// ============================================================
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return <div className="error">加载失败: {error.message}</div>
+}
+```
+
+### 路由模块导出清单
+
+| 导出项             | 执行环境        | 用途                                      |
+| ------------------ | --------------- | ----------------------------------------- |
+| `loader`           | 服务端          | 组件渲染前获取数据（GET）                 |
+| `clientLoader`     | 客户端          | 客户端数据获取（每次导航时执行）          |
+| `action`           | 服务端          | 处理表单提交与数据变更（POST/PUT/DELETE） |
+| `clientAction`     | 客户端          | 客户端数据变更                            |
+| `default`          | 服务端 + 客户端 | 路由对应的 UI 组件（**必需**）            |
+| `meta`             | 服务端          | SEO / Open Graph 元标签                   |
+| `ErrorBoundary`    | 服务端 + 客户端 | 路由级错误边界                            |
+| `HydrateFallback`  | 客户端          | `clientLoader` 运行期间的加载 UI          |
+| `headers`          | 服务端          | HTTP 响应头                               |
+| `shouldRevalidate` | 客户端          | 控制 loader 重新验证的行为                |
+
+### TypeScript 类型安全
+
+`./+types/product` 由框架自动生成，提供完整的类型推断——无需手动声明：
+
+```tsx
+import type { Route } from "./+types/product"
+
+// Route.LoaderArgs      → { params: { pid: string }; request: Request; context: ... }
+// Route.ActionArgs      → 同上
+// Route.ComponentProps  → { loaderData: { product: Product }; actionData: ...; params: ... }
+// Route.MetaArgs        → { data: { product: Product }; params: ...; matches: ... }
+// Route.ErrorBoundaryProps → { error: unknown }
+```
+
+---
+
+## 渲染策略
+
+`react-router.config.ts` 中的 `ssr` 和 `prerender` 决定应用的渲染模式。
+
+### SSR（服务端渲染）— 默认
+
+```ts
+// react-router.config.ts
+import type { Config } from "@react-router/dev/config"
+
+export default {
+  ssr: true,
+} satisfies Config
+```
+
+- 首屏在服务端渲染完整 HTML，客户端水合接管交互
+- 每个路由的 `loader` 在服务端执行
+- 需要 Node.js / Bun / Cloudflare Workers 等支持 SSR 的部署环境
+
+### SPA（单页应用）
+
+```ts
+// react-router.config.ts
+import type { Config } from "@react-router/dev/config"
+
+export default {
+  ssr: false,
+} satisfies Config
+```
+
+- 禁用运行时 SSR，构建时生成 `index.html` 作为容器
+- 所有导航在客户端完成
+- 适用于静态文件托管（Nginx、CDN、GitHub Pages）
+
+### 预渲染 / SSG（静态站点生成）
+
+```ts
+// react-router.config.ts
+import type { Config } from "@react-router/dev/config"
+
+export default {
+  ssr: true,
+  async prerender() {
+    return ["/", "/about", "/blog/hello-world"]
+  },
+} satisfies Config
+```
+
+- **构建时**调用每个路径的 `loader`，生成静态 HTML 文件
+- 未预渲染的路由回退到运行时 SSR
+- 适合内容型网站，兼顾首屏速度与动态能力
+
+### 混合模式
+
+```ts
+// react-router.config.ts
+import type { Config } from "@react-router/dev/config"
+
+export default {
+  ssr: false,
+  async prerender() {
+    return ["/", "/about"] // 静态预渲染
+    // 其他路由回退到 SPA（__spa-fallback.html）
+  },
+} satisfies Config
+```
+
+### 策略对比
+
+| 策略     | `ssr`   | `prerender` | 适用场景                   |
+| -------- | ------- | ----------- | -------------------------- |
+| **SSR**  | `true`  | 可选        | 全栈应用、SEO 敏感页面     |
+| **SPA**  | `false` | 无          | 后台管理、需要登录的仪表盘 |
+| **SSG**  | `true`  | URL 列表    | 博客、文档站、营销页面     |
+| **混合** | `false` | 部分路径    | 首页静态 + 应用内 SPA      |
+
+---
+
+## 数据加载
+
+### loader
+
+`loader` 在服务端执行，在组件渲染前获取数据。组件渲染时数据已经就绪，消除 loading 瀑布流：
+
+```tsx
+// app/routes/products.tsx
+import type { Route } from "./+types/products"
+
+export async function loader({ request, params }: Route.LoaderArgs) {
+  const url = new URL(request.url)
+  const page = url.searchParams.get("page") ?? "1"
+  const category = url.searchParams.get("category")
+
+  const res = await fetch(
+    `https://api.example.com/products?page=${page}&category=${category}`,
+    { signal: request.signal } // ← 导航离开时自动 abort
+  )
+
+  if (!res.ok) throw new Response("加载失败", { status: res.status })
+  return { products: await res.json(), page }
+}
+
+export default function Products({ loaderData }: Route.ComponentProps) {
+  return (
+    <ul>
+      {loaderData.products.map((p) => (
+        <li key={p.id}>{p.name}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### clientLoader
+
+仅在客户端运行的数据加载（每次导航都会执行）：
+
+```tsx
+// 场景：完全在客户端获取数据（不需要 SSR）
+export async function clientLoader({ params }: Route.ClientLoaderArgs) {
+  const res = await fetch(`/api/products/${params.pid}`)
+  return res.json()
+}
+
+// 必须提供 HydrateFallback，在 clientLoader 运行期间显示
+export function HydrateFallback() {
+  return <div>加载商品信息...</div>
+}
+```
+
+**`loader` + `clientLoader` 组合：**
+
+```tsx
+// loader — 首屏 SSR 时在服务端运行
+export async function loader({ params }: Route.LoaderArgs) {
+  return fetchProduct(params.pid!)
+}
+
+// clientLoader — 后续客户端导航时运行（避免额外的服务端请求）
+export async function clientLoader({ params, serverLoader }: Route.ClientLoaderArgs) {
+  // 从缓存读取（或调用 serverLoader() 回退到服务端 loader）
+  const cached = sessionStorage.getItem(`product-${params.pid}`)
+  if (cached) return JSON.parse(cached)
+  const data = await serverLoader()
+  sessionStorage.setItem(`product-${params.pid}`, JSON.stringify(data))
+  return data
+}
+
+// 首次水合时也执行 clientLoader
+clientLoader.hydrate = true
+```
+
+### `clientLoader.hydrate` 的三种模式
+
+| 模式                                     | 行为                                                          |
+| ---------------------------------------- | ------------------------------------------------------------- |
+| 仅 `loader`（无 `clientLoader`）         | 首屏服务端渲染，后续导航通过自动 `fetch` 调用服务端 loader    |
+| `clientLoader`（默认 `hydrate = false`） | 首屏用 SSR 的 `loader` 数据，后续客户端导航用 `clientLoader`  |
+| `clientLoader.hydrate = true`            | 首屏水合期间也执行 `clientLoader`，期间显示 `HydrateFallback` |
+| 仅 `clientLoader`（无 `loader`）         | 纯客户端路由，`HydrateFallback` 在首次渲染和数据加载时显示    |
+
+### shouldRevalidate
+
+精细控制 loader 是否重新执行：
+
+```tsx
+export function shouldRevalidate({
+  currentUrl, // 当前 URL
+  nextUrl, // 即将导航到的 URL
+  currentParams, // 当前 params
+  nextParams, // 即将导航到的 params
+  formAction, // 触发的 action 路径
+  defaultShouldRevalidate, // 框架默认判断结果
+}: Route.ShouldRevalidateArgs) {
+  // 只在 id 参数变化时重新加载
+  return currentParams.id !== nextParams.id
+}
+```
+
+---
+
+## 数据变更 (Actions)
+
+### action + Form
+
+`action` 在服务端处理非 GET 请求，与 `<Form>` 组件配合实现数据变更：
+
+```tsx
+// app/routes/login.tsx
+import { Form, redirect, useActionData } from "react-router"
+import type { Route } from "./+types/login"
+
+// ============================================================
+// action — 处理 POST 提交
+// ============================================================
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData()
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+
+  // 校验
+  const errors: Record<string, string> = {}
+  if (!email) errors.email = "请输入邮箱"
+  if (!password) errors.password = "请输入密码"
+  if (Object.keys(errors).length > 0) return { errors }
+
+  // 调用 API
+  const res = await fetch("https://api.example.com/login", {
+    method: "POST",
+    body: JSON.stringify({ email, password }),
+    headers: { "Content-Type": "application/json" },
+  })
+
+  if (!res.ok) return { errors: { server: "邮箱或密码错误" } }
+
+  // 成功 → 重定向
+  return redirect("/dashboard")
+}
+
+// ============================================================
+// 组件 — 使用 <Form> 而非 <form>
+// ============================================================
+export default function Login({ actionData }: Route.ComponentProps) {
+  return (
+    <Form method="post">
+      <div>
+        <input name="email" type="email" placeholder="邮箱" />
+        {actionData?.errors?.email && <p className="error">{actionData.errors.email}</p>}
+      </div>
+
+      <div>
+        <input name="password" type="password" placeholder="密码" />
+        {actionData?.errors?.password && <p className="error">{actionData.errors.password}</p>}
+      </div>
+
+      {actionData?.errors?.server && <p className="error">{actionData.errors.server}</p>}
+
+      <button type="submit">登录</button>
+    </Form>
+  )
+}
+```
+
+### `<Form>` 组件的行为
+
+- `method="post"` → 自动阻止浏览器默认提交，调用路由的 `action`
+- `method="get"` → 等同于 `<Link>` 导航，触发搜索引擎可索引的搜索
+- action 执行完成后，**所有活跃路由的 loader 自动重新验证**
+- `<Form>` 不需要 `onSubmit`，不需要手动 `fetch`
+
+### useFetcher（非导航的数据交互）
+
+`useFetcher` 调用 loader/action **但不触发 URL 变化**：
+
+```tsx
+import { useFetcher } from "react-router"
+
+// ============================================================
+// 场景一：收藏按钮（触发 action，不导航）
+// ============================================================
+function FavoriteButton({ productId, isFavorited }: { productId: string; isFavorited: boolean }) {
+  const fetcher = useFetcher()
+
+  return (
+    <fetcher.Form method="post" action={`/products/${productId}/favorite`}>
+      <button type="submit" name="intent" value={isFavorited ? "unfavorite" : "favorite"}>
+        <fetcher.state === "idle" ? (isFavorited ? "❤️" : "🤍") : "⏳"}
+      </button>
+    </fetcher.Form>
+  )
+}
+
+// ============================================================
+// 场景二：搜索建议（调用 loader，不导航）
+// ============================================================
+function SearchSuggestions({ query }: { query: string }) {
+  const fetcher = useFetcher<{ suggestions: string[] }>()
+
+  useEffect(() => {
+    if (query.length < 2) return
+    fetcher.load(`/search-suggestions?q=${encodeURIComponent(query)}`)
+  }, [query])
+
+  if (fetcher.state === "loading") return <Spinner />
+  return (
+    <ul>
+      {fetcher.data?.suggestions.map((s) => <li key={s}>{s}</li>)}
+    </ul>
+  )
+}
+
+// ============================================================
+// 场景三：无限加载（手动拼接数据）
+// ============================================================
+function LoadMore() {
+  const fetcher = useFetcher<{ items: Item[]; nextCursor: string }>()
+  const [items, setItems] = useState<Item[]>([])
+
+  // 当 fetcher 返回新数据时，拼接到列表尾部
+  useEffect(() => {
+    if (fetcher.data) {
+      setItems((prev) => [...prev, ...fetcher.data!.items])
+    }
+  }, [fetcher.data])
+
+  const loadNext = () => {
+    const lastCursor = fetcher.data?.nextCursor
+    fetcher.load(`/items?cursor=${lastCursor}`)
+  }
+
+  return (
+    <>
+      {items.map((item) => <ItemCard key={item.id} item={item} />)}
+      <button onClick={loadNext} disabled={fetcher.state !== "idle"}>
+        {fetcher.state === "loading" ? "加载中..." : "加载更多"}
+      </button>
+    </>
+  )
+}
+```
+
+### optimistic UI（乐观更新）
+
+在 action 响应之前立即更新 UI，提升体验：
+
+```tsx
+export default function MessageList({ loaderData }: Route.ComponentProps) {
+  const fetcher = useFetcher()
+
+  // 从 fetcher.formData 实时读取用户输入，在当前列表中插入"假消息"
+  const optimisticMessage = fetcher.formData?.get("message")
+
+  const messages = optimisticMessage
+    ? [...loaderData.messages, { id: "optimistic", text: optimisticMessage }]
+    : loaderData.messages
+
+  return (
+    <>
+      <ul>
+        {messages.map((m) => (
+          <li key={m.id} style={{ opacity: m.id === "optimistic" ? 0.5 : 1 }}>
+            {m.text}
+          </li>
+        ))}
+      </ul>
+
+      <fetcher.Form method="post">
+        <input name="message" placeholder="输入消息..." />
+        <button type="submit">发送</button>
+      </fetcher.Form>
+    </>
+  )
+}
+```
+
+---
+
+## 导航
+
+### 声明式导航
+
+```tsx
+import { Link, NavLink } from "react-router"
+
+// Link — 基础导航
+<Link to="/dashboard">仪表盘</Link>
+<Link to="/users/123" state={{ from: "list" }}>用户 123</Link>
+<Link to="/login" replace>登录</Link>
+
+// NavLink — 匹配当前路由时自动高亮
+<NavLink
+  to="/dashboard"
+  className={({ isActive, isPending }) =>
+    isPending ? "pending" : isActive ? "active" : ""
+  }
+  end  // 仅精确匹配时高亮
+>
+  仪表盘
+</NavLink>
+```
+
+### 编程式导航
+
+```tsx
+import { useNavigate } from "react-router"
+
+function SomeComponent() {
+  const navigate = useNavigate()
+
+  navigate("/about") // 前进
+  navigate(-1) // 后退
+  navigate("/dashboard", { replace: true }) // 替换历史
+  navigate("/detail", { state: { id: 42 } }) // 携带状态
+}
+```
+
+### redirect（在 loader/action 中）
+
+```tsx
+import { redirect } from "react-router"
+
+// loader 中的鉴权重定向
+export async function loader({ request }: Route.LoaderArgs) {
+  const session = await getSession(request)
+  if (!session) throw redirect("/login")
+  return { user: session.user }
+}
+
+// action 中的成功后重定向
+export async function action({ request }: Route.ActionArgs) {
+  await createPost(await request.formData())
+  return redirect("/posts")
+}
+```
+
+---
+
+## 等待 UI (Pending UI)
+
+### useNavigation — 全局导航状态
+
+```tsx
+import { useNavigation } from "react-router"
+
+function GlobalLoadingBar() {
+  const navigation = useNavigation()
+
+  // navigation.state: "idle" | "loading" | "submitting"
+  if (navigation.state === "idle") return null
+
+  return <div className="loading-bar" />
+}
+```
+
+| state        | 含义                               |
+| ------------ | ---------------------------------- |
+| `idle`       | 无导航                             |
+| `loading`    | loader 正在执行                    |
+| `submitting` | action 正在执行（POST/PUT/DELETE） |
+
+### 导航期间的 UI 反馈
+
+```tsx
+// NavLink 的 isPending — 导航到该链接的加载状态
+;<NavLink to="/slow-page">{({ isPending }) => (isPending ? "加载中..." : "慢页面")}</NavLink>
+
+// useNavigation 配合 Spinner
+function SubmitButton() {
+  const navigation = useNavigation()
+  const isSubmitting = navigation.state === "submitting"
+
+  return <button disabled={isSubmitting}>{isSubmitting ? "提交中..." : "提交"}</button>
+}
+```
+
+### HydrateFallback
+
+纯客户端路由在数据加载期间显示的占位 UI：
+
+```tsx
+// 该路由仅使用 clientLoader，无服务端 loader
+export async function clientLoader({ params }: Route.ClientLoaderArgs) {
+  const res = await fetch(`/api/analytics/${params.id}`)
+  return res.json()
+}
+
+// 客户端执行 clientLoader 时，显示此组件
+export function HydrateFallback() {
+  return <AnalyticsSkeleton />
+}
+
+export default function AnalyticsPage({ loaderData }: Route.ComponentProps) {
+  return <AnalyticsDashboard data={loaderData} />
+}
+```
+
+---
+
+## 错误处理
+
+### 路由级 ErrorBoundary
+
+每个路由模块可导出 `ErrorBoundary`，捕获本路由及其子路由的 **loader 异常、action 异常、渲染异常**：
+
+```tsx
+// app/routes/product.tsx
+export async function loader({ params }: Route.LoaderArgs) {
+  const product = await fetchProduct(params.pid!)
+  if (!product) throw new Response("商品不存在", { status: 404 })
+  return { product }
+}
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  // 判断错误类型
+  if (isRouteErrorResponse(error)) {
+    return (
+      <div>
+        <h1>
+          {error.status} — {error.statusText}
+        </h1>
+        <p>{error.data}</p>
+      </div>
+    )
+  }
+
+  if (error instanceof Error) {
+    return (
+      <div>
+        <h1>出错了</h1>
+        <p>{error.message}</p>
+      </div>
+    )
+  }
+
+  return <h1>未知错误</h1>
+}
+```
+
+### 全局错误边界（root.tsx）
+
+```tsx
+// app/root.tsx
+import { Links, Meta, Outlet, Scripts, ScrollRestoration, isRouteErrorResponse } from "react-router"
+import type { Route } from "./+types/root"
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return (
+    <html lang="zh-CN">
+      <head>
+        <meta charSet="UTF-8" />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        <div className="error-container">
+          <h1>哎呀，出错了！</h1>
+          <p>{isRouteErrorResponse(error) ? error.data : "未知错误"}</p>
+          <a href="/">返回首页</a>
+        </div>
+        <Scripts />
+      </body>
+    </html>
+  )
+}
+```
+
+### 错误冒泡机制
+
+```
+root.tsx (ErrorBoundary)        ← 最终兜底
+├── dashboard/layout.tsx         ← 可在此层捕获
+│   ├── dashboard/analytics.tsx  ← 错误发生在此
+│   │   ErrorBoundary            ← 先在此捕获
+│   └── dashboard/settings.tsx   ← 不受影响（兄弟路由）
+```
+
+- 错误先在**最近的路由 ErrorBoundary** 中被捕获
+- 如果当前路由没有 `ErrorBoundary`，错误向上冒泡到父路由
+- 未被捕获的错误最终到达 `root.tsx`
+- **只有错误路由子树被替换**，兄弟路由不受影响
+
+### 在 action 中返回错误
+
+不抛异常，而是返回结构化错误数据（如 422 表单校验失败）：
+
+```tsx
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData()
+
+  const errors = validate(formData)
+  if (errors) {
+    return { errors } // ← 返回数据，不进入 ErrorBoundary
+  }
+
+  return redirect("/success")
+}
+
+// 组件中正常消费
+export default function FormPage({ actionData }: Route.ComponentProps) {
+  return <p className="error">{actionData?.errors?.email}</p>
+}
+```
+
+---
+
+## Meta / SEO
+
+### 路由级 meta
+
+每个路由模块可导出 `meta` 函数设置 SEO 标签：
+
+```tsx
+// app/routes/blog.$slug.tsx
+import type { Route } from "./+types/blog.$slug"
+
+export async function loader({ params }: Route.LoaderArgs) {
+  const post = await getPost(params.slug!)
+  return { post }
+}
+
+export function meta({ data, params }: Route.MetaArgs) {
+  return [
+    { title: data.post.title },
+    { name: "description", content: data.post.excerpt },
+    { property: "og:title", content: data.post.title },
+    { property: "og:image", content: data.post.coverUrl },
+    { name: "twitter:card", content: "summary_large_image" },
+  ]
+}
+
+export default function BlogPost({ loaderData }: Route.ComponentProps) {
+  return <article>{/* ... */}</article>
+}
+```
+
+### 全局 meta（root.tsx）
+
+```tsx
+// app/root.tsx — 所有页面的默认值
+export function meta() {
+  return [
+    { title: "我的应用" },
+    { name: "description", content: "欢迎来到我的应用" },
+    { charSet: "UTF-8" },
+    { name: "viewport", content: "width=device-width, initial-scale=1" },
+  ]
+}
+```
+
+**合并规则**：子路由的 `meta` **覆盖**父路由的同名标签，深层路由优先。
+
+### `<Links>` 与资源管理
+
+```tsx
+// 路由模块可以导出 links 函数加载特定页面的样式/字体
+export function links(): Route.LinksFunction {
+  return [{ rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=..." }]
+}
+```
+
+---
+
+## 布局与嵌套
+
+### 布局路由
+
+布局路由使用 `layout()` 包裹子路由，自身通过 `<Outlet />` 渲染子路由内容：
+
+```tsx
+// app/routes/dashboard/layout.tsx
+import { Outlet, Link } from "react-router"
+
+export default function DashboardLayout() {
+  return (
+    <div className="flex h-screen">
+      <aside className="w-64 bg-gray-100">
+        <nav>
+          <Link to="/dashboard">概览</Link>
+          <Link to="/dashboard/analytics">分析</Link>
+          <Link to="/dashboard/settings">设置</Link>
+        </nav>
+      </aside>
+      <main className="flex-1 p-6">
+        <Outlet /> {/* 子路由在此渲染 */}
+      </main>
+    </div>
+  )
+}
+```
+
+```ts
+// app/routes.ts
+layout("./routes/dashboard/layout.tsx", [
+  index("./routes/dashboard/home.tsx"),
+  route("analytics", "./routes/dashboard/analytics.tsx"),
+  route("settings", "./routes/dashboard/settings.tsx"),
+])
+```
+
+### root.tsx — 根布局
+
+```tsx
+// app/root.tsx
+import { Links, Meta, Outlet, Scripts, ScrollRestoration } from "react-router"
+import type { Route } from "./+types/root"
+import "./app.css"
+
+// Layout 组件 — 每次渲染都使用（包括 ErrorBoundary 内部）
+export function Layout({ children }: { children: React.ReactNode }) {
+  return (
+    <html lang="zh-CN">
+      <head>
+        <meta charSet="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <Meta />
+        <Links />
+      </head>
+      <body>
+        {children}
+        <ScrollRestoration />
+        <Scripts />
+      </body>
+    </html>
+  )
+}
+
+// App 组件 — 仅在正常路由匹配时渲染
+export default function App() {
+  return <Outlet />
+}
+
+// 全局错误边界
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+  return (
+    <div className="error-page">
+      <h1>应用错误</h1>
+      <pre>{error instanceof Error ? error.message : "未知错误"}</pre>
+    </div>
+  )
+}
+```
+
+关键点：
+
+- `Layout` 组件**始终渲染**（即使在错误边界内），确保 `<html>`、`<head>`、`<Scripts>` 等必需元素存在
+- `App` 组件仅在路由正常匹配时渲染，可专注于业务布局
+
+---
+
+## 入口文件
+
+### `entry.client.tsx`
+
+```tsx
+// app/entry.client.tsx
+import { HydratedRouter } from "react-router/dom"
+import { startTransition, StrictMode } from "react"
+import { hydrateRoot } from "react-dom/client"
+
+startTransition(() => {
+  hydrateRoot(
+    document,
+    <StrictMode>
+      <HydratedRouter />
+    </StrictMode>
+  )
+})
+```
+
+### `entry.server.tsx`（SSR 模式）
+
+```tsx
+// app/entry.server.tsx
+import { ServerRouter, type EntryContext } from "react-router"
+import { renderToPipeableStream } from "react-dom/server"
+import { PassThrough } from "node:stream"
+import { isbot } from "isbot"
+import type { AppLoadContext, EntryContext } from "react-router"
+
+export default function handleRequest(
+  request: Request,
+  responseStatusCode: number,
+  responseHeaders: Headers,
+  routerContext: EntryContext,
+  _loadContext: AppLoadContext
+) {
+  // 对搜索引擎爬虫关闭流式传输以避免问题
+  return isbot(request.headers.get("user-agent"))
+    ? handleBotRequest(request, responseStatusCode, responseHeaders, routerContext)
+    : handleBrowserRequest(request, responseStatusCode, responseHeaders, routerContext)
+}
+
+function handleBrowserRequest(
+  request: Request,
+  status: number,
+  headers: Headers,
+  routerContext: EntryContext
+) {
+  return new Promise<Response>((resolve) => {
+    const { pipe, abort } = renderToPipeableStream(
+      <ServerRouter context={routerContext} url={request.url} />,
+      {
+        onShellReady() {
+          const body = new PassThrough()
+          headers.set("Content-Type", "text/html")
+          resolve(new Response(body as any, { status, headers }))
+          pipe(body)
+        },
+        onError(error) {
+          console.error(error)
+        },
+      }
+    )
+    // 如果客户端断开，终止渲染
+    request.signal.addEventListener("abort", abort)
+  })
+}
+
+function handleBotRequest(
+  request: Request,
+  status: number,
+  headers: Headers,
+  routerContext: EntryContext
+) {
+  // 对爬虫等待完整 HTML，不做流式渲染
+  return new Promise<Response>((resolve) => {
+    const { pipe } = renderToPipeableStream(
+      <ServerRouter context={routerContext} url={request.url} />,
+      {
+        onAllReady() {
+          const body = new PassThrough()
+          headers.set("Content-Type", "text/html")
+          resolve(new Response(body as any, { status, headers }))
+          pipe(body)
+        },
+      }
+    )
+  })
+}
+```
+
+---
+
+## 路由守卫（认证）
+
+框架模式下，路由守卫在 `loader` 中实现：
+
+```tsx
+// app/routes/auth/guard.ts
+import { redirect } from "react-router"
+import type { Route } from "../+types/root"
+
+// 获取当前会话（从 cookie / header / DB）
+async function getSession(request: Request) {
+  const cookie = request.headers.get("Cookie") ?? ""
+  // 解析 session ...
+  return { userId: "xxx" } // 或 null
+}
+
+// 受保护路由的 loader — 未登录则重定向
+export async function requireAuth({ request }: Route.LoaderArgs) {
+  const session = await getSession(request)
+  if (!session) {
+    const url = new URL(request.url)
+    throw redirect(`/login?redirect=${encodeURIComponent(url.pathname)}`)
+  }
+  return session
+}
+```
+
+```tsx
+// app/routes/dashboard/analytics.tsx
+import { requireAuth } from "../auth/guard"
+import type { Route } from "./+types/analytics"
+
+export async function loader(args: Route.LoaderArgs) {
+  const session = await requireAuth(args) // ← 守卫
+  const data = await fetchAnalytics(session.userId)
+  return { data }
+}
+
+export default function Analytics({ loaderData }: Route.ComponentProps) {
+  return <AnalyticsDashboard data={loaderData.data} />
+}
+```
+
+### 完整的登录流程
+
+```tsx
+// app/routes/login.tsx
+import { Form, redirect, useActionData, useSearchParams } from "react-router"
+import type { Route } from "./+types/login"
+
+export async function action({ request }: Route.ActionArgs) {
+  const formData = await request.formData()
+  const email = formData.get("email") as string
+  const password = formData.get("password") as string
+
+  const user = await authenticate(email, password)
+  if (!user) return { error: "邮箱或密码错误" }
+
+  // 登录成功 → 跳转到 redirect 参数指向的页面
+  const url = new URL(request.url)
+  const redirectTo = url.searchParams.get("redirect") ?? "/dashboard"
+  return redirect(redirectTo, {
+    headers: { "Set-Cookie": `session=${user.sessionId}; HttpOnly; Path=/` },
+  })
+}
+
+export default function Login({ actionData }: Route.ComponentProps) {
+  const [searchParams] = useSearchParams()
+  const redirectTo = searchParams.get("redirect") ?? "/dashboard"
+
+  return (
+    <Form method="post">
+      <input type="hidden" name="redirect" value={redirectTo} />
+      <input name="email" type="email" placeholder="邮箱" />
+      <input name="password" type="password" placeholder="密码" />
+      {actionData?.error && <p className="error">{actionData.error}</p>}
+      <button type="submit">登录</button>
+    </Form>
+  )
+}
+```
+
+---
+
+## 中间件（Middleware）
+
+在路由进入之前执行通用逻辑（认证、日志、CORS 等）：
+
+```tsx
+// app/routes.ts
+export default [
+  route("/", "routes/dashboard.tsx", {
+    middleware: [
+      // 中间件数组，按顺序执行
+      "middleware/logger.ts",
+      "middleware/auth.ts",
+    ],
+  }),
+] satisfies RouteConfig
+```
+
+```tsx
+// app/middleware/auth.ts
+import { redirect } from "react-router"
+import type { unstable_MiddlewareFunction } from "react-router"
+
+export const authMiddleware: unstable_MiddlewareFunction = async ({ request, context }) => {
+  const session = await getSession(request)
+  if (!session) throw redirect("/login")
+  context.userId = session.userId // 传递给 loader/action
+}
+
+// app/middleware/logger.ts
+export const loggerMiddleware: unstable_MiddlewareFunction = async ({ request, context }) => {
+  console.log(`${request.method} ${new URL(request.url).pathname}`)
+}
+```
+
+---
+
+## 部署
+
+### Node.js
+
+```shell
+npm run build
+npm run start  # 使用 react-router-serve 启动生产服务
+```
+
+或自定义 Express 服务器：
+
+```ts
+// server.ts
+import { createRequestHandler } from "@react-router/express"
+import express from "express"
+
+const app = express()
+app.use(express.static("build/client"))
+app.all("*", createRequestHandler({ build: await import("./build/server/index.js") }))
+app.listen(3000)
+```
+
+### 静态托管 (SPA)
+
+```ts
+// react-router.config.ts
+export default { ssr: false } satisfies Config
+```
+
+```shell
+npm run build
+# 部署 build/client/ 到 Nginx / CDN / GitHub Pages
+```
+
+```nginx
+# Nginx 配置：所有路径回退到 index.html
+location / {
+  try_files $uri $uri/ /index.html;
+}
+```
+
+### Cloudflare Workers
+
+```shell
+npx create-react-router@latest my-app --template cloudflare
+```
+
+### 预渲染到 CDN
+
+```ts
+// react-router.config.ts
+import type { Config } from "@react-router/dev/config"
+
+export default {
+  ssr: true,
+  async prerender() {
+    // 拉取所有需要预渲染的路径
+    const posts = await fetch("https://api.example.com/posts").then((r) => r.json())
+    return ["/", "/about", ...posts.map((p: any) => `/blog/${p.slug}`)]
+  },
+} satisfies Config
+```
+
+```shell
+npm run build
+# build/client/ 下每个路径一个 index.html，直接部署到 CDN
+```
+
+---
+
+## 项目结构推荐
+
+```
+my-app/
+├── app/
+│   ├── routes.ts                # 路由配置
+│   ├── root.tsx                 # 根布局 + 全局错误边界 + Meta
+│   ├── routes/
+│   │   ├── home.tsx             # 首页
+│   │   ├── about.tsx            # 关于
+│   │   ├── blog/
+│   │   │   ├── layout.tsx       # 博客布局
+│   │   │   ├── index.tsx        # 博客列表
+│   │   │   └── $slug.tsx        # 博客详情
+│   │   ├── auth/
+│   │   │   ├── login.tsx        # 登录
+│   │   │   └── register.tsx     # 注册
+│   │   └── dashboard/
+│   │       ├── layout.tsx       # 仪表盘布局（含认证守卫）
+│   │       ├── index.tsx        # 仪表盘首页
+│   │       └── analytics.tsx    # 分析页
+│   ├── middleware/
+│   │   └── auth.ts              # 认证中间件
+│   ├── entry.client.tsx         # 客户端入口
+│   ├── entry.server.tsx         # 服务端入口
+│   └── app.css                  # 全局样式
+├── public/                      # 静态资源
+├── react-router.config.ts       # 框架配置
+├── vite.config.ts
+├── tsconfig.json
+└── package.json
+```
+
+---
+
+## 快速参考
+
+### 路由模块速查
+
+```
+导出项             执行环境        作用
+──────────────────────────────────────────────────
+loader             服务端          组件渲染前获取数据
+clientLoader       客户端          客户端数据加载
+action             服务端          处理非 GET 请求
+clientAction       客户端          客户端处理表单
+default            双端            路由组件（必需）
+meta               服务端          SEO 标签
+ErrorBoundary      双端            路由错误边界
+HydrateFallback    客户端          clientLoader 加载中 UI
+headers            服务端          HTTP 响应头
+shouldRevalidate   客户端          loader 重验证控制
+```
+
+### 导航 API 速查
+
+```
+组件 / Hook          用途
+──────────────────────────────────────
+<Link>              声明式导航
+<NavLink>           带匹配高亮的导航
+<Form>              触发表单提交 + action
+<fetcher.Form>      不改变 URL 的动态表单
+useNavigate()       编程式导航
+redirect()          loader/action 中重定向
+useNavigation()     全局导航状态 (idle/loading/submitting)
+```
+
+### 配置文件速查
+
+```
+文件                    作用
+──────────────────────────────────────
+app/routes.ts           路由 URL ↔ 模块映射
+app/root.tsx            HTML 骨架 + 全局布局
+react-router.config.ts  SSR/SPA/预渲染 策略
+vite.config.ts          Vite + reactRouter 插件
+entry.client.tsx        客户端 hydrateRoot
+entry.server.tsx        服务端 renderToPipeableStream
+```
+
+---
+
+## 从 v6 升级到 v7 框架模式
+
+### v6 组件路由 → v7 框架模式对照
+
+| v6 组件模式                              | v7 框架模式                                             |
+| ---------------------------------------- | ------------------------------------------------------- |
+| `<BrowserRouter>`                        | `app/routes.ts` + `<RouterProvider>`（框架内置）        |
+| `<Routes><Route path="/" element={...}>` | `route("/", "./routes/home.tsx")`                       |
+| 在组件中 `useEffect` + `fetch`           | 导出 `loader` 函数，用 `useLoaderData()` 消费           |
+| `<form onSubmit={handler}>`              | `<Form method="post">` + 导出 `action` 函数             |
+| 自建 `ErrorBoundary`                     | 导出 `ErrorBoundary`，框架自动捕获                      |
+| `React.lazy(() => import(...))`          | `lazy: () => import(...)` 或在 `routes.ts` 中按文件拆分 |
+| 手动 `useEffect` 设置 `document.title`   | 导出 `meta` 函数返回标题/描述                           |
+| `BrowserRouter` + `HashRouter` 二选一    | `ssr` 配置 + `prerender` 配置                           |
+
+### 渐进式迁移路径
+
+1. 安装 `@react-router/dev` 和 `react-router`（替换 `react-router-dom`）
+2. 创建 `react-router.config.ts` 和 `vite.config.ts`
+3. 创建 `app/root.tsx`（Layout + App + ErrorBoundary）
+4. 创建 `app/routes.ts` 用 `route()` 逐一映射现有页面
+5. 将组件内数据获取逻辑提取为 `loader`
+6. 将表单提交逻辑提取为 `action`
+7. 逐步启用 SSR / 预渲染
+
+---
+
+## 参考资源
+
+- [React-Router 官方文档](https://reactrouter.com)
+- [React-Router GitHub](https://github.com/remix-run/react-router)
+- [React-Router v7 升级指南](https://reactrouter.com/upgrading/v6)
+- [React-Router v7 框架模式采用指南](https://reactrouter.com/upgrading/component-routes)
