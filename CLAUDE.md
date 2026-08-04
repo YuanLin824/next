@@ -13,6 +13,17 @@ npm run format       # Prettier 格式化
 npm run commit       # 交互式提交 (czg)
 ```
 
+## 维护规则
+
+**新增或删除文件/目录后，必须同步更新 `README.md` 与本文件（CLAUDE.md）**，保持文档与代码一致：
+
+- 新增/删除文档页（`app/(mdx)/**/page.mdx`）→ 更新 README 的「文档内容」表格、目录结构
+- 新增/删除组件、工具函数或配置 → 更新 README 的「目录结构」与 CLAUDE.md 的「架构概览」
+- 技术栈/依赖变化 → 更新 README 的「技术栈」表格
+- 架构、流水线、行为变化 → 更新 CLAUDE.md 对应章节
+
+在任务收尾时检查是否遗漏文档同步。
+
 ## 架构概览
 
 ### 路由结构
@@ -59,10 +70,10 @@ app/
 
 ### 字体系统
 
-- 默认字体 **Maple Mono NF CN**（OFL 1.1），字体文件在 `app/fonts/`（Regular/Medium/SemiBold/Bold 四个字重）
-- `app/layout.tsx` 中通过 `next/font/local` 加载，输出 CSS 变量 `--font-maple`（挂载在 `<html>` 的 `maple.variable`）
+- 默认字体 **Maple Mono NF CN**（OFL 1.1），字体文件在项目根目录 `fonts/`（Regular/Medium/SemiBold/Bold 四个字重，当前默认使用 Bold）
+- `app/layout.tsx` 中通过 `next/font/local` 加载（`src: "../fonts/..."`，路径相对 `app/` 目录），输出 CSS 变量 `--font-maple`（挂载在 `<html>` 的 `maple.variable`）
 - `app/globals.css` 的 `@theme inline` 中 `--font-sans` / `--font-mono` / `--font-heading` 均指向 `--font-maple`（正文、代码块、标题统一使用）
-- 新增字重：从 Maple Font GitHub release 的 `MapleMono-NF-CN.zip` 取对应 ttf 放入 `app/fonts/`，并在 `layout.tsx` 的 `localFont` src 数组中注册
+- 调整字重：字体文件放入 `fonts/`，在 `layout.tsx` 的 `localFont` src 数组中注册对应字重
 
 ### 主题系统
 

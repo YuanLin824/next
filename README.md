@@ -13,6 +13,7 @@
 | 内容     | MDX（`@next/mdx`）                                 |
 | 样式     | Tailwind CSS v4 + shadcn/ui                        |
 | 代码高亮 | rehype-pretty-code（Shiki + `github-dark-dimmed`） |
+| 字体     | Maple Mono NF CN（`next/font/local`）              |
 | 主题     | next-themes（亮色 / 暗色 / 跟随系统）              |
 | 组件     | radix-ui + vaul + lucide-react                     |
 | 提交规范 | commitlint + czg（交互式）                         |
@@ -51,6 +52,7 @@ next/
 │   ├── utils.ts             # cn() 类名合并
 │   ├── route-utils.ts       # 客户端路由跳转
 │   └── server-utils.ts      # 服务端路径名获取
+├── fonts/                   # Maple Mono NF CN 字体（OFL 1.1）
 ├── proxy.ts                 # 中间件（注入 x-pathname）
 ├── mdx-components.tsx       # MDX 自定义组件映射
 ├── next.config.ts           # Next.js + MDX 配置（reactCompiler）
@@ -93,6 +95,7 @@ npm run start
 ## 功能特性
 
 - **MDX 文档** — 所有内容以 `.mdx` 编写，支持 GFM（表格、任务列表等），代码块右上角显示语言标签
+- **字体** — Maple Mono NF CN 等宽字体，正文、代码块、标题统一使用（`next/font/local` 加载）
 - **React Compiler** — 自动记忆化优化，减少不必要的重新渲染
 - **目录导航** — 右侧浮动按钮触发展开抽屉目录，IntersectionObserver 追踪当前滚动位置并高亮，含 h1/h2/h3 层级缩进
 - **主题切换** — 亮色 / 暗色 / 跟随系统三种模式
