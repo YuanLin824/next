@@ -20,11 +20,19 @@ npm run commit       # 交互式提交 (czg)
 ```
 app/
 ├── (mdx)/           # 文档路由组 — MDX 页面，共享 MDX 布局
-│   ├── layout.tsx   #   布局: TableOfContents(浮动按钮+抽屉) + <article>
+│   ├── layout.tsx   #   布局: TableOfContents(浮动按钮+抽屉) + <article id="dmx-layout">
+│   ├── agent/       #   ccswitch, claude-code, reasonix
+│   ├── db/          #   mongo, mysql, postgresql, redis
+│   ├── devops/      #   docker, git, jenkins, k8s, nginx
+│   ├── node/        #   express, fastify, koa, nest, node
+│   ├── react/       #   next, react, react-router, taro
+│   ├── system/      #   linux, windows
+│   ├── vue/         #   uniapp, vue
 │   └── */page.mdx   #   各文档页面
 ├── (other)/         # 其他路由组 — 首页、关于
 │   ├── layout.tsx   #   简单 px-3 pb-3 容器
-│   └── home/        #   首页卡片导航
+│   ├── home/        #   首页卡片导航 (page.tsx + constants.ts 分组数据)
+│   └── about/
 ├── layout.tsx       # 根布局: SiteHeader + ThemeProvider + <main>
 ├── page.tsx         # 根页面 → 重定向到 /home
 ├── globals.css      # Tailwind v4 + shadcn/ui CSS 变量(OKLCH) + 亮/暗主题
@@ -33,10 +41,10 @@ app/
 
 ### MDX 渲染流水线
 
-1. `next.config.ts` — `@next/mdx` 插件，`pageExtensions` 包含 `md`/`mdx`
+1. `next.config.ts` — `@next/mdx` 插件，`pageExtensions` 包含 `md`/`mdx`；开启 `reactCompiler: true`（React Compiler）
 2. **remark 插件**: `remark-gfm`（GFM 表格/任务列表）
 3. **rehype 插件**: `rehype-slug`（为 h1/h2/h3 生成 id）→ `rehype-pretty-code`（Shiki 语法高亮，`github-dark-dimmed` 主题）
-4. `mdx-components.tsx` — `useMDXComponents()` 将原始 HTML 映射为带 Tailwind 样式的 React 组件。h1-h3 带 `scroll-mt-14.25`（与 header 高度对齐），pre 包裹在相对定位 div 中展示语言标签
+4. `mdx-components.tsx` — `useMDXComponents()` 将原始 HTML 映射为带 Tailwind 样式的 React 组件。h1-h3 带 `scroll-mt-16`（与锚点跳转对齐），pre 包裹在相对定位 div 中、右上角展示语言标签
 
 ### TableOfContents（目录抽屉）
 
@@ -57,14 +65,17 @@ app/
 
 ### shadcn/ui 配置
 
-- 风格: `radix-nova`，baseColor: `neutral`
+- 风格: `radix-nova`，baseColor: `neutral`（见 `components.json`）
 - `cn()` 函数位于 `lib/utils.ts`（`clsx` + `tailwind-merge`）
 - `@/*` 别名映射项目根目录
 - 基础组件在 `components/ui/`（button, card, drawer, navigation-menu）
+- `.mcp.json` 配置了 shadcn MCP server（`npx shadcn@latest mcp`），在 Claude Code 中可通过它管理组件
 
 ### 中间件 (proxy.ts)
 
-注入 `x-pathname` 请求头，使服务端组件可通过 `lib/server-utils.ts` 的 `getPathname()` 获取当前路径。匹配除 `api`、`_next/static`、`_next/image`、`favicon.ico` 外的所有路由。
+- 注入 `x-pathname` 请求头（`NextResponse.next({ request: { headers } })`），使服务端组件可通过 `lib/server-utils.ts` 的 `getPathname()` 获取当前路径
+- 对 `.well-known/appspecific` 探测请求直接放行（忽略 DevTools 探测）
+- matcher 匹配除 `api`、`_next/static`、`_next/image`、`favicon.ico` 外的所有路由
 
 ### Tailwind CSS v4
 
@@ -76,6 +87,7 @@ app/
 
 ### 提交规范
 
-- commitlint + czg 交互式提示
-- scope 自动从 `app/` 目录读取
-- husky + lint-staged: Prettier 自动格式化
+- commitlint + czg 交互式提示（中文 prompt，带 emoji，如 `feat: ✨`）
+- scope 自动从 `app/` 直接子目录读取（`(mdx)`/`(other)` 等），配置在 `commitlint.config.cjs`
+- 新增 `types` 提交类型（czg 自定义枚举）
+- husky + lint-staged: 提交前对 `*.{js(x),ts(x),vue,css,less,scss,sass,md,json}` 执行 Prettier 格式化（`.lintstagedrc`）

@@ -1300,19 +1300,19 @@ frontendPipeline(appName: "my-web-app", buildMode: "production")
 
 ### Pipeline 环境变量速查 (完整)
 
-| 变量                  | 含义                                           |
-| --------------------- | ---------------------------------------------- |
-| `BUILD_NUMBER`        | 构建编号                                       |
-| `BUILD_ID`            | 构建 ID                                        |
-| `BUILD_TAG`           | 构建标签 (jenkins-${JOB_NAME}-${BUILD_NUMBER}) |
-| `JOB_NAME`            | Job 名称                                       |
-| `JOB_BASE_NAME`       | Job 名（不含文件夹路径）                       |
-| `WORKSPACE`           | 工作空间绝对路径                               |
-| `GIT_BRANCH`          | Git 分支                                       |
-| `GIT_COMMIT`          | Git commit SHA                                 |
-| `GIT_PREVIOUS_COMMIT` | 上一次 commit SHA                              |
-| `BUILD_URL`           | 构建 URL                                       |
-| `JENKINS_URL`         | Jenkins 根 URL                                 |
+| 变量                  | 含义                                             |
+| --------------------- | ------------------------------------------------ |
+| `BUILD_NUMBER`        | 构建编号                                         |
+| `BUILD_ID`            | 构建 ID                                          |
+| `BUILD_TAG`           | 构建标签 `(jenkins-${JOB_NAME}-${BUILD_NUMBER})` |
+| `JOB_NAME`            | Job 名称                                         |
+| `JOB_BASE_NAME`       | Job 名（不含文件夹路径）                         |
+| `WORKSPACE`           | 工作空间绝对路径                                 |
+| `GIT_BRANCH`          | Git 分支                                         |
+| `GIT_COMMIT`          | Git commit SHA                                   |
+| `GIT_PREVIOUS_COMMIT` | 上一次 commit SHA                                |
+| `BUILD_URL`           | 构建 URL                                         |
+| `JENKINS_URL`         | Jenkins 根 URL                                   |
 
 ### K8s + Jenkins 常用命令
 
