@@ -10,17 +10,17 @@ import Link from "next/link"
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     h1: ({ children, ...props }) => (
-      <h1 className="mt-8 mb-4 scroll-mt-14.25 text-3xl font-bold tracking-tight" {...props}>
+      <h1 className="mt-8 mb-4 scroll-mt-16 text-3xl font-bold tracking-tight" {...props}>
         {children}
       </h1>
     ),
     h2: ({ children, ...props }) => (
-      <h2 className="mt-6 mb-3 scroll-mt-14.25 text-xl font-semibold tracking-tight" {...props}>
+      <h2 className="mt-6 mb-3 scroll-mt-16 text-xl font-semibold tracking-tight" {...props}>
         {children}
       </h2>
     ),
     h3: ({ children, ...props }) => (
-      <h3 className="mt-4 mb-2 scroll-mt-14.25 text-lg font-medium" {...props}>
+      <h3 className="mt-4 mb-2 scroll-mt-16 text-lg font-medium" {...props}>
         {children}
       </h3>
     ),

@@ -1,0 +1,1050 @@
+# Linux 学习指南（以 Ubuntu 24.04 LTS 为例）
+
+> 难度递进式学习文档，覆盖从零基础到生产环境运维的完整链路。
+
+---
+
+## 第一阶段：入门——认识 Linux 与 Ubuntu 24
+
+### 1. Linux 是什么？
+
+Linux 是一个**类 Unix 操作系统内核**，由 Linus Torvalds 于 1991 年发布。通常我们说的"Linux"指**Linux 发行版**：内核 + GNU 工具集 + 包管理器 + 桌面环境/服务组成的完整操作系统。
+
+| 概念                 | 说明                                  | 类比            |
+| -------------------- | ------------------------------------- | --------------- |
+| **内核（Kernel）**   | 管理硬件、调度进程、控制内存          | 汽车引擎        |
+| **Shell**            | 人与内核交互的命令解释器              | 方向盘 + 仪表盘 |
+| **发行版（Distro）** | 内核 + 软件包 + 包管理器 + 配置的套装 | 整车品牌        |
+| **包管理器**         | 下载、安装、更新、卸载软件的工具      | 4S 店           |
+
+**主流发行版家族：**
+
+```
+Debian 系（APT / dpkg）           Red Hat 系（RPM / dnf / yum）
+├── Ubuntu ← 本指南主角           ├── RHEL（企业付费）
+├── Debian                        ├── CentOS（已转向 Stream）
+├── Linux Mint                    ├── Fedora（激进新技术）
+├── Kali Linux（安全渗透）        └── Rocky Linux（CentOS 接班人）
+└── Raspberry Pi OS
+```
+
+### 2. 为什么选择 Ubuntu 24.04 LTS？
+
+| 特性                | 说明                                         |
+| ------------------- | -------------------------------------------- |
+| **LTS（长期支持）** | 安全更新至 2029 年，ESM 延至 2034 年         |
+| **内核版本**        | Linux 6.8+，支持最新硬件                     |
+| **systemd 255**     | 更快启动、更好的服务管理                     |
+| **网络栈**          | Netplan + systemd-resolved 统一网络配置      |
+| **默认防火墙**      | ufw（Uncomplicated Firewall），简化 iptables |
+| **软件生态**        | Snap + APT 双通道，PPA 个人软件源            |
+| **社区**            | 最大 Linux 社区，几乎任何问题都有解答        |
+
+### 3. 获取 Ubuntu 24.04 环境
+
+**方式一：Docker（最快，推荐学习用）**
+
+```bash
+# 拉取并运行 Ubuntu 24.04 容器
+docker pull ubuntu:24.04
+docker run -itd --name ubuntu2404 --privileged=true \
+  -p 20001:22 -p 20002:80 \
+  -h ubuntu-24 ubuntu:24.04
+
+# 进入容器
+docker exec -it ubuntu2404 bash
+
+# docker-compose 方式（带环境变量）
+# docker-compose.yml
+# services:
+#   ubuntu2404:
+#     image: ubuntu:24.04
+#     container_name: ubuntu2404
+#     hostname: ${HOSTNAME:-ubuntu-24}
+#     ports:
+#       - "${SSH_PORT:-20001}:22"
+#       - "${WEB_PORT:-20002}:80"
+#     tty: true
+#     stdin_open: true
+#     restart: unless-stopped
+```
+
+**方式二：WSL2（Windows 用户）**
+
+```powershell
+wsl --install Ubuntu-24.04
+wsl -d Ubuntu-24.04
+```
+
+**方式三：虚拟机 / 物理机**
+
+从 [ubuntu.com/download](https://ubuntu.com/download) 下载 ISO，用 VirtualBox/VMware 安装或制作启动 U 盘。
+
+> 本文后续命令均可在 Docker 容器中执行（只需 `--privileged=true` 以运行 systemd 相关操作）。
+
+### 4. 第一次进入 Shell
+
+```bash
+# 你是谁
+whoami                          # → root（Docker 默认）或你的用户名
+
+# 现在在哪个目录
+pwd                             # → /root 或 /home/username
+
+# 查看当前目录下有什么
+ls                              # 列出文件
+ls -la                          # 详细列表（含隐藏文件）
+ls -lh                          # 人类可读的文件大小（K/M/G）
+
+# 系统基本信息
+uname -a                        # 内核版本
+cat /etc/os-release             # 发行版信息
+uptime                          # 运行多久了
+```
+
+### 5. 文件系统导航
+
+```bash
+# 目录跳转
+cd /                            # 根目录（一切从这里开始）
+cd ~                            # 回到 home 目录
+cd -                            # 回到上一个所在目录
+cd ..                           # 回上一级
+
+# Linux 目录结构速览
+ls /
+# /bin    → 基本命令（ls, cp, mv...）
+# /etc    → 配置文件（"edit to configure"）
+# /home   → 普通用户的家目录
+# /root   → root 用户的家目录
+# /var    → 可变数据（日志、缓存、数据库文件）
+# /tmp    → 临时文件（重启清空）
+# /usr    → 用户软件（相当于 Windows 的 Program Files）
+# /opt    → 第三方软件（手动安装的大型软件）
+# /proc   → 虚拟文件系统（进程和内核信息）
+# /dev    → 设备文件
+```
+
+### 6. 基础文件操作
+
+```bash
+# 创建
+mkdir project                   # 创建目录
+mkdir -p a/b/c                  # 递归创建多级目录
+touch README.md                 # 创建空文件 / 更新文件时间戳
+
+# 复制与移动
+cp file.txt backup.txt          # 复制文件
+cp -r dir/ dest/                # 递归复制目录
+mv old.txt new.txt              # 重命名
+mv file.txt /path/to/           # 移动
+
+# 删除（没有回收站！）
+rm file.txt                     # 删除文件
+rm -rf dir/                     # 递归强制删除（⚠️ 高危：没有确认也没有回收站）
+rmdir empty_dir/                # 只删空目录
+
+# 链接
+ln -s /target/path link_name    # 软链接（符号链接）：类似 Windows 快捷方式
+ln /target/file hard_link       # 硬链接：同一个文件的不同名字，共享 inode
+```
+
+### 7. 查看文件内容
+
+```bash
+cat file.txt                    # 输出全部内容
+cat -n file.txt                 # 带行号
+less file.txt                   # 分页查看（↑↓翻页，/搜索，q 退出）
+head -n 10 file.txt             # 前 10 行（默认 10）
+tail -n 20 file.txt             # 后 20 行
+tail -f /var/log/syslog         # 实时跟踪（Ctrl+C 退出）
+```
+
+### 8. 终端快捷键
+
+| 快捷键     | 作用                           |
+| ---------- | ------------------------------ |
+| `Ctrl + C` | 终止当前命令                   |
+| `Ctrl + D` | 退出 Shell / 发送 EOF          |
+| `Ctrl + L` | 清屏                           |
+| `Ctrl + A` | 光标跳到行首                   |
+| `Ctrl + E` | 光标跳到行尾                   |
+| `Ctrl + U` | 删除光标前全部内容             |
+| `Ctrl + K` | 删除光标后全部内容             |
+| `Ctrl + R` | 搜索历史命令（再按一次继续搜） |
+| `Ctrl + Z` | 暂停当前进程（`fg` 恢复）      |
+| `Tab`      | 自动补全（按两次列出所有选项） |
+| `!!`       | 重复上一条命令                 |
+| `!$`       | 上一条命令的最后一个参数       |
+
+> **小结**：能认识目录结构，会 `ls`/`cd`/`mkdir`/`touch`/`rm`/`cp`/`mv`/`cat`/`tail` 即可独立操作文件。
+
+---
+
+## 第二阶段：用户、权限与包管理（基础运维）
+
+### 9. 用户与组
+
+Linux 是多用户系统。每个用户有一个 UID，属于一个或多个组。
+
+```bash
+# 查看
+whoami                          # 当前用户名
+id                              # uid、gid、所属组
+id username                     # 查看指定用户
+who                             # 当前登录的所有用户
+w                               # 谁在做什么
+
+# 创建用户
+useradd -m -s /bin/bash dev     # 创建用户 dev（-m 建 home，-s 指定 shell）
+useradd -M bot                  # 创建用户但不创建 home 目录（服务账户）
+passwd dev                      # 设置/修改密码
+echo "newpass" | passwd --stdin dev  # 脚本中非交互设置密码
+
+# 创建组
+groupadd devops                 # 新建组
+usermod -aG docker dev          # 将 dev 加入 docker 组（-a 追加，不用则覆盖）
+groups dev                      # 查看 dev 属于哪些组
+
+# 删除
+userdel -r dev                  # 删除用户（-r 同时删 home 目录）
+groupdel devops                 # 删除组
+```
+
+### 10. 权限模型
+
+```bash
+ls -l
+# 输出解读：
+# -rwxr-xr--  1  user  group  4096  Jan 15 10:30  script.sh
+#  └┬┘└─┬─┘└─┬─┘
+#  类型  │    └─ 其他用户 (other) → r--
+#        └────── 所属组 (group) → r-x
+#   └─────────── 所有者 (owner) → rwx
+#
+# 类型: - = 普通文件, d = 目录, l = 符号链接
+
+# 权限含义
+# r (read)=4   读取内容       对于目录：列出文件
+# w (write)=2  修改内容       对于目录：增删文件
+# x (execute)=1 执行          对于目录：进入目录
+```
+
+```bash
+# 修改权限
+chmod 755 script.sh             # rwxr-xr-x（目录/脚本常用）
+chmod 644 config.conf           # rw-r--r--（配置文件常用）
+chmod 600 id_rsa                # rw-------（私钥文件）
+chmod +x script.sh              # 添加执行权限
+chmod -R 755 public_html/       # 递归修改
+
+# 修改所有者
+chown dev:devops file.txt       # 同时改所有者和组
+chown -R www-data:www-data /var/www  # 递归修改
+chgrp devops file.txt           # 只改组
+
+# 默认权限掩码
+umask                           # 查看当前掩码
+umask 027                       # 新文件 → 640，新目录 → 750
+# 默认值: 文件 666 - umask, 目录 777 - umask
+```
+
+### 11. sudo 与权限提升
+
+```bash
+# 临时提权执行单条命令
+sudo apt update
+
+# 切换到 root shell
+sudo -i
+su -    # 同上，需要 root 密码
+
+# 切换到其他用户
+su - dev                        # 带环境变量切换
+
+# /etc/sudoers 配置（不要直接编辑，用 visudo）
+visudo
+# 添加免密 sudo：
+# dev ALL=(ALL:ALL) NOPASSWD:ALL
+# 限制特定命令：
+# dev ALL=(ALL) /usr/bin/systemctl restart nginx
+```
+
+### 12. APT 包管理器
+
+APT（Advanced Package Tool）是 Debian/Ubuntu 的包管理核心。
+
+```bash
+# 更新软件包索引（从远程仓库拉取最新列表）
+sudo apt update
+
+# 升级所有已安装的包
+sudo apt upgrade -y              # 保守升级（不增删包）
+sudo apt dist-upgrade            # 完整升级（可能增删包解决冲突）
+sudo apt full-upgrade            # 同 dist-upgrade
+
+# 搜索与安装
+apt search nginx                 # 搜索包
+apt show nginx                   # 查看包详情
+sudo apt install nginx -y        # 安装
+sudo apt install nginx=1.24.0-2  # 安装指定版本
+
+# 移除
+sudo apt remove nginx            # 卸载但保留配置
+sudo apt purge nginx             # 卸载并删除配置
+sudo apt autoremove              # 删除不再被依赖的包
+
+# 包信息
+apt list --installed             # 列出已安装
+apt list --upgradable            # 列出可升级的包
+apt policy nginx                 # 查看包的版本策略（来源与优先级）
+```
+
+**Ubuntu 的软件来源：**
+
+| 来源       | 说明                     | 示例                  |
+| ---------- | ------------------------ | --------------------- |
+| main       | 官方支持的免费软件       | nginx, python3        |
+| universe   | 社区维护的免费软件       | 大多数开发工具        |
+| multiverse | 非自由软件               | 某些驱动              |
+| PPA        | 个人软件包存档（第三方） | `ppa:ondrej/php`      |
+| Snap       | Canonical 的沙盒化包     | `snap install vscode` |
+
+```bash
+# 添加 PPA
+sudo add-apt-repository ppa:ondrej/php -y && sudo apt update
+
+# 添加外部仓库
+echo "deb [arch=amd64] https://example.com/repo stable main" | \
+  sudo tee /etc/apt/sources.list.d/example.list
+```
+
+### 13. dpkg —— 底层包操作
+
+```bash
+# 安装本地 .deb 文件
+sudo dpkg -i package.deb
+# 如果缺少依赖 → sudo apt install -f  （自动修复）
+sudo apt install ./package.deb     # 推荐：APT 会自动处理依赖
+
+# 查看
+dpkg -l | grep nginx             # 列出已安装的包
+dpkg -L nginx                    # 列出包安装的所有文件
+dpkg -S /usr/sbin/nginx          # 查看文件属于哪个包
+```
+
+> **小结**：会管理用户权限与 `sudo`，能用 APT 安装卸载软件，理解 rwx 权限含义。
+
+---
+
+## 第三阶段：文本处理、管道与 Shell 脚本
+
+### 14. 三剑客之 grep
+
+```bash
+# 基础搜索
+grep "error" app.log                    # 文件中搜索
+grep -r "TODO" src/                     # 递归搜索目录
+grep -i "error" app.log                 # 忽略大小写
+grep -v "debug" app.log                 # 排除匹配行
+grep -n "error" app.log                 # 显示行号
+grep -c "error" app.log                 # 只统计行数
+grep -E "(error|fatal)" app.log         # 正则（ERE 模式）
+grep "ERROR" *.log                      # 在所有 .log 文件中搜索
+
+# 上下文
+grep -A 3 "error" app.log               # 匹配行 + 后 3 行
+grep -B 2 "error" app.log               # 匹配行 + 前 2 行
+grep -C 5 "error" app.log               # 匹配行 ± 5 行
+```
+
+### 15. 三剑客之 sed
+
+> Stream Editor（流编辑器）：对文本做批量替换、删除、插入。
+
+```bash
+# 替换（s = substitute, g = global 替换所有匹配）
+sed 's/old/new/' file.txt               # 每行替换第一个匹配
+sed 's/old/new/g' file.txt              # 每行全部替换
+sed 's/^/PREFIX: /' file.txt            # 每行行首加前缀
+sed 's/$/ :SUFFIX/' file.txt            # 每行行尾加后缀
+
+# 正则替换
+sed -E 's/[0-9]{4}/****/g' file.txt     # 隐藏 4 位数字
+
+# 删除与筛选
+sed '3d' file.txt                        # 删除第 3 行
+sed '1,10d' file.txt                     # 删除 1-10 行
+sed -n '5,10p' file.txt                  # 只打印 5-10 行
+
+# 原地修改（-i）
+sed -i 's/8080/3000/g' config.env       # 直接修改源文件
+sed -i.bak 's/8080/3000/g' config.env   # 修改前创建 .bak 备份
+```
+
+### 16. 三剑客之 awk
+
+> 按列处理结构化文本（日志、CSV、命令输出）。
+
+```bash
+# 列提取
+awk '{print $1}' access.log             # 第 1 列
+awk '{print $1, $NF}' access.log        # 第 1 列 + 最后一列 (NF = Number of Fields)
+awk -F ',' '{print $2}' data.csv        # 指定逗号为分隔符
+
+# 条件筛选
+awk '$3 > 100 {print $1, $3}' data.txt  # 第 3 列大于 100 的行
+awk '/ERROR/ {print $0}' app.log        # 包含 ERROR 的行
+
+# 统计
+awk '{sum+=$2} END {print sum}' data.txt    # 第 2 列求和
+awk '{count[$1]++} END {for(k in count) print k, count[k]}' log.txt  # 分组统计
+```
+
+### 17. 管道与重定向
+
+```bash
+# 管道 | —— 连接命令，前者的 stdout → 后者的 stdin
+ps aux | grep nginx | wc -l              # 统计 nginx 进程数
+cat access.log | awk '{print $1}' | sort | uniq -c | sort -rn | head -10  # 访问最多的 10 个 IP
+
+# 输出重定向
+command > file.txt                        # 覆盖写入（文件不存在则创建）
+command >> file.txt                       # 追加写入
+
+# 文件描述符
+# 0 = stdin  1 = stdout  2 = stderr
+command 2> error.log                      # 只重定向错误
+command > all.log 2>&1                    # stdout 和 stderr 合并到同一文件
+command &> all.log                        # 同上（Bash 4+）
+
+# 放弃输出
+command > /dev/null 2>&1                  # 静默执行
+
+# 输入重定向
+mysql < dump.sql                          # 将 SQL 文件导入数据库
+command << EOF
+多行输入
+EOF
+```
+
+### 18. 排序、去重与统计
+
+```bash
+sort file.txt                            # 字典序排序
+sort -n file.txt                         # 数值排序
+sort -r file.txt                         # 逆序
+sort -t ',' -k 2 data.csv                # 按逗号分隔的第 2 列排序
+
+uniq file.txt                            # 去除相邻重复行
+uniq -c file.txt                         # 统计每行出现次数
+uniq -d file.txt                         # 只显示重复的行
+# ⚠️ uniq 只去除相邻重复 → 通常先 sort 再 uniq
+
+sort file.txt | uniq -c | sort -rn       # 频率降序排列（最常用组合）
+```
+
+### 19. 环境变量
+
+```bash
+# 查看
+echo $PATH                               # 可执行文件搜索路径
+echo $HOME                               # 当前用户 home 目录
+echo $USER                               # 当前用户名
+env                                      # 全部环境变量
+printenv PATH                            # 查看单个
+
+# 临时设置（当前会话有效）
+export MY_VAR="hello"
+export PATH="$PATH:/opt/myapp/bin"
+
+# 永久设置（写入配置文件）
+# ~/.bashrc      → 每个交互 Shell 都加载
+# ~/.profile     → 登录 Shell 加载
+# /etc/profile   → 全局（所有用户）
+# /etc/environment → 全系统级别
+
+# 修改后立即生效
+source ~/.bashrc
+```
+
+### 20. Shell 脚本实战
+
+```bash
+#!/bin/bash
+set -euo pipefail                 # 安全模式（推荐每次必加）
+# -e: 任何命令失败就退出
+# -u: 使用未定义变量时报错
+# -o pipefail: 管道中任一命令失败则整体失败
+
+# 变量
+APP_NAME=$1                       # 位置参数 $1 $2 ...
+VERSION=${2:-"1.0.0"}             # 带默认值
+ENV=${ENV:-"production"}          # 从环境变量读取，不存在则用默认
+
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+NC='\033[0m'                      # No Color
+echo -e "${GREEN}[OK]${NC} Deploy started"
+
+# 条件
+if [ "$ENV" = "production" ]; then
+    echo "生产环境，请确认"
+elif [ "$ENV" = "staging" ]; then
+    echo "预发环境"
+else
+    echo "开发环境"
+fi
+
+# 文件判断
+if [ -f "config.json" ]; then     # -f: 文件存在
+    echo "config.json 已存在"
+fi
+if [ ! -d "logs" ]; then          # -d: 目录存在
+    mkdir logs
+fi
+
+# 循环
+for service in nginx mysql redis; do
+    systemctl restart "$service"
+done
+
+# 函数
+function deploy() {
+    local target=$1               # local 限定作用域
+    echo "部署 $target..."
+    rsync -avz ./dist/ "$target"
+}
+deploy "prod-server:/var/www"
+
+# 错误处理
+trap 'echo "清理临时文件..."; rm -rf /tmp/deploy-*' EXIT
+```
+
+> **小结**：掌握 grep/sed/awk + 管道 + 重定向，就能处理 90% 的文本分析场景。会写基本的 Shell 脚本。
+
+---
+
+## 第四阶段：进程、服务与网络管理
+
+### 21. 进程管理
+
+```bash
+# 查看进程
+ps aux                                    # 所有进程（BSD 格式）
+ps aux | grep nginx                       # 查找
+top                                       # 实时监控（P CPU 排 / M 内存排 / q 退出）
+htop                                      # top 增强版（彩色、鼠标、树形）
+pstree                                    # 进程树关系
+
+# 结束进程
+kill <PID>                                # SIGTERM（优雅退出，进程可做清理）
+kill -9 <PID>                             # SIGKILL（强制杀，无清理机会）
+kill -15 <PID>                            # 同 kill（SIGTERM）
+killall -9 nginx                          # 按进程名结束
+pkill -f "node server.js"                 # 按命令行匹配
+
+# 信号
+kill -l                                   # 列出所有信号 (1 HUP, 2 INT, 9 KILL, 15 TERM)
+
+# 后台运行
+command &                                 # 后台运行（关终端会退出）
+nohup command &                           # 后台运行 + 忽略 HUP 信号（关终端也不停）
+nohup command > app.log 2>&1 &            # 标准写法
+
+# 前后台切换
+Ctrl + Z                                  # 暂停当前前台进程
+bg                                        # 把暂停的进程放入后台
+fg                                        # 把后台进程拉到前台
+jobs                                      # 查看当前 Shell 的后台任务
+disown                                    # 让后台任务脱离当前 Shell
+
+# 以 Service 方式运行（推荐生产环境）
+# → 见下节 systemd
+```
+
+### 22. systemd 服务管理
+
+systemd 是 Ubuntu 的初始化系统，负责启动、停止、监控后台服务。
+
+```bash
+# 服务生命周期
+systemctl start nginx                     # 启动
+systemctl stop nginx                      # 停止
+systemctl restart nginx                   # 重启
+systemctl reload nginx                    # 重载配置（不中断服务，优于 restart）
+systemctl status nginx                    # 查看状态 + 最近日志
+systemctl enable nginx                    # 开机自启
+systemctl disable nginx                   # 取消自启
+systemctl is-enabled nginx                # 检查自启状态
+
+# 查看
+systemctl list-units --type=service       # 所有服务
+systemctl list-units --state=failed       # 失败的服务
+systemctl list-units --state=running      # 运行中的服务
+
+# 日志
+journalctl -u nginx -f                    # 实时查看某服务日志
+journalctl -u nginx --since "1 hour ago"  # 按时间范围
+journalctl -u nginx -n 50                 # 最近 50 条
+journalctl -xe                            # 最近的系统错误
+journalctl --disk-usage                   # 查看日志占用空间
+```
+
+### 23. 编写一个 systemd Unit
+
+```ini
+# /etc/systemd/system/myapp.service
+[Unit]
+Description=My Node.js App
+After=network.target                     # 网络就绪后再启动
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/myapp
+ExecStart=/usr/bin/node server.js
+Restart=on-failure                       # 崩溃自动重启
+RestartSec=5                             # 等 5 秒再重启
+Environment=NODE_ENV=production
+EnvironmentFile=/opt/myapp/.env          # 从文件加载环境变量
+
+[Install]
+WantedBy=multi-user.target               # 多用户模式下启动
+```
+
+```bash
+sudo systemctl daemon-reload             # 新增/修改 unit 后必须重载
+sudo systemctl enable --now myapp        # 启用并立即启动
+sudo systemctl status myapp              # 验证
+```
+
+### 24. 网络管理
+
+```bash
+# 查看网络
+ip addr                                  # IP 地址列表（替代 ifconfig）
+ip route                                 # 路由表
+ip link show                             # 网络接口状态
+
+# Ubuntu 24 网络配置（Netplan）
+cat /etc/netplan/50-cloud-init.yaml      # 查看当前 IP 配置
+
+# DNS 查询（Ubuntu 24 使用 systemd-resolved）
+resolvectl status                        # DNS 配置概览
+resolvectl query google.com              # DNS 查询
+systemd-resolve --flush-caches           # 清 DNS 缓存
+
+# 基础网络诊断
+ping -c 4 google.com                     # 连通性测试
+traceroute google.com                    # 路由追踪
+```
+
+### 25. 端口与连接
+
+```bash
+# ss（Socket Statistics —— 替代 netstat）
+ss -tlnp                                 # 所有 TCP 监听端口（-t: tcp, -l: 监听, -n: 数字, -p: 进程）
+ss -tuan                                 # 所有连接（TCP + UDP）
+
+# 谁在用这个端口？
+lsof -i :3000                            # 查看 3000 端口被哪个进程占用
+ss -tlnp | grep :80                      # 等效
+
+# 服务连通测试
+nc -zv localhost 3000                    # 测试端口是否开放
+curl -I http://localhost:3000            # 测试 HTTP 响应头
+```
+
+### 26. curl —— HTTP 客户端
+
+```bash
+# GET
+curl https://api.example.com/users
+
+# POST JSON
+curl -X POST https://api.example.com/login \
+  -H "Content-Type: application/json" \
+  -d '{"username":"admin","password":"pass"}'
+
+# 下载文件
+curl -O https://example.com/file.tar.gz    # 按远程名称保存
+curl -o myfile.tar.gz https://...          # 指定文件名
+
+# 调试
+curl -v https://api.example.com            # 详细请求/响应信息（含 TLS 握手）
+curl -I https://api.example.com            # 只看响应头
+```
+
+### 27. SSH 远程管理
+
+```bash
+# 连接
+ssh user@192.168.1.100
+ssh user@host -p 2222                      # 指定端口
+
+# 密钥认证（推荐）
+ssh-keygen -t ed25519 -C "email@example.com"  # Ubuntu 24 推荐 ED25519
+ssh-copy-id user@host                      # 拷贝公钥 → 免密登录
+
+# 配置文件
+# ~/.ssh/config
+# Host myserver
+#     HostName 192.168.1.100
+#     User dev
+#     Port 2222
+#     IdentityFile ~/.ssh/id_ed25519
+ssh myserver                               # 一键连接
+
+# 文件传输
+scp file.txt user@host:/path/              # 上传
+scp user@host:/path/file.txt ./            # 下载
+scp -r dist/ user@host:/var/www/           # 上传目录
+
+# rsync（增量传输，断点续传）
+rsync -avz dist/ user@host:/var/www/       # 同步目录
+rsync -avz --delete dist/ user@host:/var/www/  # 镜像同步（删除远端多余文件）
+rsync -avzP largefile.tar.gz user@host:/path/  # -P: 进度条 + 断点续传
+```
+
+### 28. 定时任务（cron）
+
+```bash
+crontab -e                                 # 编辑当前用户的定时任务
+crontab -l                                 # 查看
+crontab -r                                 # 删除
+
+# 格式：分 时 日 月 周 命令
+# ┌────────── 分钟 (0-59)
+# │ ┌──────── 小时 (0-23)
+# │ │ ┌────── 日期 (1-31)
+# │ │ │ ┌──── 月份 (1-12)
+# │ │ │ │ ┌── 星期 (0-7, 0 和 7 = 周日)
+# │ │ │ │ │
+# * * * * * command
+
+# 实用示例
+0 2 * * * /opt/scripts/backup.sh             # 每天 2:00 备份
+*/5 * * * * /opt/scripts/health-check.sh     # 每 5 分钟
+0 9 * * 1-5 curl http://example.com          # 工作日 9:00
+@reboot /opt/scripts/startup.sh              # 开机启动
+@daily /opt/scripts/clean-tmp.sh             # 每天一次
+
+# /etc/crontab → 系统级 crontab
+# /etc/cron.d/  → 分文件管理系统级定时任务
+```
+
+> **小结**：会管理进程与服务（systemd），能用 ss/curl 调试网络，会用 SSH 远程操作，会写定时任务。
+
+---
+
+## 第五阶段：磁盘、日志、防火墙与压缩
+
+### 29. 磁盘管理
+
+```bash
+# 查看
+df -h                                        # 分区使用量（人类可读）
+df -h /                                      # 根分区
+df -i                                        # inode 使用量（小文件太多会耗尽）
+lsblk                                        # 列出所有块设备
+
+# 目录大小分析
+du -sh dir/                                  # 某目录总大小
+du -sh *                                     # 当前目录下各项大小
+du -h --max-depth=1 /var                     # 查看一层子目录
+du -sh * 2>/dev/null | sort -hr | head -10   # 最大的 10 项
+
+# 挂载
+mount                                        # 查看已挂载
+mount /dev/sdb1 /mnt/data                    # 临时挂载
+umount /mnt/data                             # 卸载
+
+# 永久挂载 → /etc/fstab
+# UUID=xxx-xxx  /mnt/data  ext4  defaults  0  2
+```
+
+### 30. 日志管理
+
+```bash
+# 系统日志
+tail -f /var/log/syslog                     # 系统主日志
+tail -f /var/log/auth.log                   # 认证相关（登录、sudo）
+
+# journald（systemd 统一日志）
+journalctl -xe                              # 最近日志 + 解释
+journalctl -u nginx --since "10 min ago"    # 近 10 分钟
+journalctl -u nginx --since "2026-07-01" --until "2026-07-30"
+journalctl _PID=1234                        # 按进程 ID
+
+# 日志轮转配置
+# /etc/logrotate.d/nginx
+# /var/log/nginx/*.log {
+#     daily              # 每天轮转
+#     rotate 14          # 保留 14 天
+#     compress           # 压缩旧日志
+#     delaycompress      # 延迟一天压缩（保证使用中的日志不被压缩）
+#     missingok
+#     notifempty
+# }
+```
+
+### 31. 防火墙（ufw）
+
+Ubuntu 默认使用 ufw（Uncomplicated Firewall），后台是 iptables/nftables。
+
+```bash
+# 基本操作
+sudo ufw status                              # 查看状态
+sudo ufw enable                              # 开启
+sudo ufw disable                             # 关闭
+
+# 规则
+sudo ufw allow 22                            # 放行 SSH
+sudo ufw allow 80/tcp                        # 放行 HTTP
+sudo ufw allow 443                           # 放行 HTTPS
+sudo ufw allow from 192.168.1.0/24           # 放行整个子网
+sudo ufw allow from 10.0.0.1 to any port 3306  # 允许特定 IP 访问 MySQL
+sudo ufw deny 6379                           # 禁用 Redis 端口
+sudo ufw delete allow 80                     # 删除规则
+
+sudo ufw status numbered                     # 查看规则编号（方便删除）
+sudo ufw delete 3                            # 按编号删除
+```
+
+### 32. 压缩与归档
+
+```bash
+# tar.gz（最常用：打包 + gzip 压缩）
+tar -czvf archive.tar.gz dir/                # 压缩：-c 创建, -z gzip, -v 详情, -f 文件
+tar -xzvf archive.tar.gz                     # 解压到当前
+tar -xzvf archive.tar.gz -C /path/           # 解压到指定目录
+
+# tar.bz2（压缩率更高，速度更慢）
+tar -cjvf archive.tar.bz2 dir/               # -j = bzip2
+tar -xjvf archive.tar.bz2
+
+# tar.xz（压缩率最高，最慢）
+tar -cJvf archive.tar.xz dir/                # -J = xz
+tar -xJvf archive.tar.xz
+
+# zip / unzip（跨平台兼容 macOS/Windows）
+zip -r archive.zip dir/
+unzip archive.zip -d /path/
+
+# 7z（极高压缩率，需安装 p7zip-full）
+7z a archive.7z dir/                         # 压缩
+7z x archive.7z -o/path/                     # 解压
+
+# 压缩率对比（压缩 1GB 源代码）：
+# 格式    压缩后      压缩时间
+# tar.gz  ~200MB     ~10s
+# tar.xz  ~120MB     ~60s
+# 7z -mx9 ~100MB     ~90s
+```
+
+> **小结**：会查看磁盘使用、配日志轮转、放行/封禁端口、选择合适压缩格式。
+
+---
+
+## 第六阶段：用户安全与系统运维
+
+### 33. 用户安全最佳实践
+
+```bash
+# 1. 禁止 root SSH 登录
+# /etc/ssh/sshd_config
+# PermitRootLogin no
+sudo systemctl restart sshd
+
+# 2. 只允许特定用户 SSH 登录
+# /etc/ssh/sshd_config
+# AllowUsers dev ops
+sudo systemctl restart sshd
+
+# 3. 修改 SSH 默认端口（减少扫描攻击）
+# /etc/ssh/sshd_config
+# Port 2222
+
+# 4. 失败登录防护（fail2ban）
+sudo apt install fail2ban -y
+sudo systemctl enable --now fail2ban
+# 默认配置即可封禁 SSH 暴力破解
+# 查看封禁状态：sudo fail2ban-client status sshd
+
+# 5. 密码策略
+# /etc/pam.d/common-password
+# password requisite pam_pwquality.so retry=3 minlen=12 difok=3
+```
+
+### 34. 自动安全更新
+
+```bash
+sudo apt install unattended-upgrades -y
+
+# 配置
+sudo dpkg-reconfigure --priority=low unattended-upgrades
+# 选 "Yes" → 自动安装安全更新
+
+# 手动编辑精细化控制
+# /etc/apt/apt.conf.d/50unattended-upgrades
+# Unattended-Upgrade::Allowed-Origins {
+#     "${distro_id}:${distro_codename}-security";
+# };
+# Unattended-Upgrade::AutoFixInterruptedDpkg "true";
+# Unattended-Upgrade::Remove-Unused-Kernel-Packages "true";
+# Unattended-Upgrade::Remove-New-Unused-Dependencies "true";
+```
+
+### 35. 备份策略
+
+```bash
+# 全量备份（tar）
+sudo tar -czvf /backup/full-$(date +%Y%m%d).tar.gz \
+  --exclude=/proc --exclude=/sys --exclude=/tmp \
+  --exclude=/mnt --exclude=/dev /
+
+# 增量同步（rsync）
+rsync -avz --delete /data/ /backup/data/
+
+# 数据库备份（MySQL）
+mysqldump -u root -p --all-databases | gzip > /backup/mysql-$(date +%Y%m%d).sql.gz
+
+# 结合 cron 自动化
+# 0 3 * * * /opt/scripts/backup.sh
+```
+
+### 36. 性能监控
+
+```bash
+# 实时监控
+top                                          # CPU/内存/进程
+htop                                         # 增强版（五彩+鼠标+树形视图）
+nmon                                         # 全方位（CPU/内存/磁盘/网络）
+
+# 磁盘 I/O
+iostat -x 1                                  # 每秒磁盘读写统计
+iotop                                        # 按进程查看 I/O 占用
+
+# 内存
+free -h                                      # 内存占用概览
+vmstat 1 5                                   # 每 1 秒采样，共 5 次（内存+CPU）
+
+# CPU 负载
+uptime                                       # 1/5/15 分钟平均负载
+# load average < CPU 核心数 → 正常
+# 1 个 4 核 CPU → load < 4 正常
+nproc                                        # 查看 CPU 核心数
+```
+
+### 37. 故障排查思路
+
+```
+服务不可用？
+├── 端口在不在监听？       ss -tlnp | grep <port>
+├── 进程还活着吗？         systemctl status <service> / ps aux | grep <name>
+├── 日志说什么？           journalctl -u <service> -n 100
+├── 磁盘满了吗？           df -h
+├── 内存用完了吗？         free -h
+├── CPU 打满了吗？          top / htop
+├── 端口被防火墙挡了？     sudo ufw status
+└── DNS 正常吗？           resolvectl query example.com
+```
+
+---
+
+## 第七阶段：制表速查
+
+### 38. 命令速查表
+
+**文件操作：**
+
+| 操作        | 命令                                |
+| ----------- | ----------------------------------- |
+| 创建目录    | `mkdir -p /a/b/c`                   |
+| 删除目录    | `rm -rf dir`                        |
+| 复制目录    | `cp -r src dest`                    |
+| 移动/重命名 | `mv old new`                        |
+| 查找文件    | `find / -name "*.log"`              |
+| 查看文件    | `cat` / `less` / `head` / `tail -f` |
+| 编辑文件    | `vim` / `nano`                      |
+
+**进程与服务：**
+
+| 操作         | 命令                                            |
+| ------------ | ----------------------------------------------- |
+| 查看所有进程 | `ps aux`                                        |
+| 实时监控     | `top` / `htop`                                  |
+| 杀掉进程     | `kill -9 <PID>`                                 |
+| 后台运行     | `nohup cmd &`                                   |
+| 服务管理     | `systemctl start/stop/restart/status <service>` |
+| 服务日志     | `journalctl -u <service> -f`                    |
+
+**网络：**
+
+| 操作         | 命令                                                           |
+| ------------ | -------------------------------------------------------------- |
+| 查看 IP      | `ip addr`                                                      |
+| 查看监听端口 | `ss -tlnp`                                                     |
+| 谁在用某端口 | `lsof -i :3000`                                                |
+| HTTP 请求    | `curl -X POST -d '{}' -H 'Content-Type: application/json' URL` |
+| SSH 连接     | `ssh user@host`                                                |
+| 文件传输     | `scp` / `rsync`                                                |
+
+**系统信息：**
+
+| 操作     | 命令                                     |
+| -------- | ---------------------------------------- |
+| 磁盘使用 | `df -h`                                  |
+| 目录大小 | `du -sh *`                               |
+| 内存使用 | `free -h`                                |
+| 系统信息 | `uname -a`                               |
+| 发行版   | `lsb_release -a` / `cat /etc/os-release` |
+| 运行时间 | `uptime`                                 |
+
+**权限：**
+
+| 权限  | 数字 | 含义      |
+| ----- | ---- | --------- |
+| `---` | 0    | 无        |
+| `--x` | 1    | 执行      |
+| `-w-` | 2    | 写入      |
+| `-wx` | 3    | 写入+执行 |
+| `r--` | 4    | 读取      |
+| `r-x` | 5    | 读取+执行 |
+| `rw-` | 6    | 读取+写入 |
+| `rwx` | 7    | 全部      |
+
+**常见文件：**
+
+| 路径                   | 说明                |
+| ---------------------- | ------------------- |
+| `/etc/ssh/sshd_config` | SSH 服务配置        |
+| `/etc/fstab`           | 开机自动挂载        |
+| `/etc/ufw/`            | 防火墙规则          |
+| `/etc/systemd/system/` | 自定义 service 文件 |
+| `/var/log/syslog`      | 系统主日志          |
+| `~/.bashrc`            | 用户 Shell 配置     |
+| `~/.ssh/config`        | SSH 客户端配置      |
+
+**管道与重定向：**
+
+| 语法                   | 说明                 |
+| ---------------------- | -------------------- |
+| `cmd1 \| cmd2`         | 管道：stdout → stdin |
+| `cmd > file`           | 覆盖输出到文件       |
+| `cmd >> file`          | 追加输出到文件       |
+| `cmd 2> file`          | 错误输出到文件       |
+| `cmd &> file`          | 全部输出到文件       |
+| `cmd > /dev/null 2>&1` | 静默执行             |
+
+---
+
+### 39. 参考文献
+
+- [Ubuntu 24.04 LTS Release Notes](https://discourse.ubuntu.com/t/noble-numbat-release-notes/)
+- [Ubuntu Server Guide](https://ubuntu.com/server/docs)
+- [The Linux Command Line (免费电子书)](https://linuxcommand.org/tlcl.php)
+- [systemd 官方文档](https://systemd.io/)
+- [SSH Academy](https://www.ssh.com/academy/ssh)

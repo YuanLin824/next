@@ -69,18 +69,9 @@ export const HOME_FROUPS: CardGroup[] = [
     icon: "bot",
     url: "agent",
     children: [
-      {
-        title: "Claude Code",
-        icon: "bot",
-        url: "/claude-code",
-        desc: "终端里的 AI 编程伙伴",
-      },
-      {
-        title: "Reasonix",
-        icon: "bot",
-        url: "/reasonix",
-        desc: "终端里的 AI 编程伙伴",
-      },
+      { title: "CCSwitch", icon: "bot", url: "/ccswitch", desc: "终端里的 AI 编程伙伴" },
+      { title: "Claude Code", icon: "bot", url: "/claude-code", desc: "终端里的 AI 编程伙伴" },
+      { title: "Reasonix", icon: "bot", url: "/reasonix", desc: "终端里的 AI 编程伙伴" },
     ],
   },
 
@@ -91,12 +82,7 @@ export const HOME_FROUPS: CardGroup[] = [
     children: [
       { title: "MongoDB", icon: "leaf", url: "/mongo", desc: "文档型 NoSQL 数据库" },
       { title: "MySQL", icon: "database", url: "/mysql", desc: "关系型数据库" },
-      {
-        title: "PostgreSQL",
-        icon: "database",
-        url: "/postgresql",
-        desc: "高级关系型数据库",
-      },
+      { title: "PostgreSQL", icon: "database", url: "/postgresql", desc: "高级关系型数据库" },
       { title: "Redis", icon: "database", url: "/redis", desc: "内存键值存储" },
     ],
   },
@@ -106,11 +92,11 @@ export const HOME_FROUPS: CardGroup[] = [
     icon: "terminal",
     url: "devops",
     children: [
-      { title: "Git", icon: "git-branch", url: "/devops-git", desc: "分布式版本控制" },
-      { title: "Nginx", icon: "globe", url: "/devops-nginx", desc: "高性能 Web 服务器" },
-      { title: "Jenkins", icon: "cog", url: "/devops-jenkins", desc: "持续集成工具" },
-      { title: "Docker", icon: "container", url: "/devops-docker", desc: "容器化平台" },
-      { title: "K8S", icon: "ship", url: "/devops-k8s", desc: "容器编排平台" },
+      { title: "Docker", icon: "container", url: "/docker", desc: "容器化平台" },
+      { title: "Git", icon: "git-branch", url: "/git", desc: "分布式版本控制" },
+      { title: "Jenkins", icon: "cog", url: "/jenkins", desc: "持续集成工具" },
+      { title: "K8S", icon: "ship", url: "/k8s", desc: "容器编排平台" },
+      { title: "Nginx", icon: "globe", url: "/nginx", desc: "高性能 Web 服务器" },
     ],
   },
 
@@ -119,16 +105,10 @@ export const HOME_FROUPS: CardGroup[] = [
     icon: "atom",
     url: "react",
     children: [
-      { title: "React", icon: "atom", url: "/react-react", desc: "声明式 UI 库" },
-      { title: "NextJS", icon: "triangle", url: "/react-next", desc: "React 全栈框架" },
-      {
-        title: "React-Router",
-        icon: "triangle",
-        url: "/react-react-router",
-        desc: "React 声明式路由库",
-      },
-      { title: "NestJS", icon: "server", url: "/react-nest", desc: "企业级 Node.js 框架" },
-      { title: "Taro", icon: "smartphone", url: "/react-taro", desc: "跨端小程序框架" },
+      { title: "NextJS", icon: "triangle", url: "/next", desc: "React 全栈框架" },
+      { title: "React", icon: "atom", url: "/react", desc: "声明式 UI 库" },
+      { title: "React Router", icon: "triangle", url: "/react-router", desc: "React 声明式路由库" },
+      { title: "Taro", icon: "smartphone", url: "/taro", desc: "跨端小程序框架" },
     ],
   },
 
@@ -137,8 +117,8 @@ export const HOME_FROUPS: CardGroup[] = [
     icon: "monitor",
     url: "system",
     children: [
-      { title: "Linux", icon: "terminal", url: "/system-linux", desc: "开源操作系统" },
-      { title: "Windows", icon: "monitor", url: "/system-windows", desc: "桌面操作系统" },
+      { title: "Linux", icon: "terminal", url: "/linux", desc: "开源操作系统" },
+      { title: "Windows", icon: "monitor", url: "/windows", desc: "桌面操作系统" },
     ],
   },
 
@@ -147,8 +127,8 @@ export const HOME_FROUPS: CardGroup[] = [
     icon: "layers",
     url: "vue",
     children: [
-      { title: "Vue", icon: "layers", url: "/vue-vue", desc: "渐进式 UI 框架" },
-      { title: "UniApp", icon: "smartphone", url: "/vue-uniapp", desc: "跨端应用框架" },
+      { title: "UniApp", icon: "smartphone", url: "/uniapp", desc: "跨端应用框架" },
+      { title: "Vue", icon: "layers", url: "/vue", desc: "渐进式 UI 框架" },
     ],
   },
 ]

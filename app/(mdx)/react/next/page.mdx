@@ -1,0 +1,741 @@
+# Next.js 学习指南
+
+> 难度递进式 Next.js 学习文档（App Router），从项目搭建到全栈 AI 应用部署。
+
+---
+
+## 第一阶段：基础入门（认识 Next.js）
+
+### 1. Next.js 是什么？
+
+基于 React 的**全栈框架**，由 Vercel 维护。解决 React 的 SPA 短板：
+
+- **SSR** 服务端渲染 — 首屏快、SEO 好
+- **SSG** 静态站点生成 — 构建时生成 HTML
+- **文件系统路由** — 目录即路由，零配置
+- **API 路由** — 同一项目写接口和页面
+- **AI SDK** — 原生集成 AI 模型
+
+### 2. 搭建项目
+
+```bash
+npx create-next-app@latest my-app
+# 选择: TypeScript + ESLint + Tailwind CSS + App Router + src/
+```
+
+```bash
+npm run dev    # http://localhost:3000
+npm run build  # 生产构建
+npm run start  # 生产运行
+```
+
+### 3. Turbopack（增量打包器）
+
+基于 Rust，开发模式下比 Webpack 快 700 倍，`next dev` 默认启用。函数级缓存，缓存已编译的函数调用结果。
+
+### 4. React Compiler
+
+自动优化 `useMemo`/`useCallback`/`React.memo`，减少心智负担：
+
+```bash
+npm install -D babel-plugin-react-compiler
+```
+
+```ts
+// next.config.ts
+const nextConfig: NextConfig = { reactCompiler: true }
+```
+
+> **小结**：理解 Next.js 定位（全栈框架），能创建项目并启动开发。
+
+---
+
+## 第二阶段：路由系统（App Router 核心）
+
+### 5. 文件系统路由 — 目录即路由
+
+```
+app/
+├── page.tsx                # /
+├── about/page.tsx          # /about
+├── blog/[id]/page.tsx      # /blog/123 (动态路由)
+├── shop/[...slug]/page.tsx # /shop/a/b/c (路由片段)
+└── docs/[[...slug]]/page.tsx # /docs 或 /docs/a (可选路由)
+```
+
+```tsx
+// 接收动态参数
+export default async function Post({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return <div>Post {id}</div>
+}
+```
+
+### 6. 文件约定速查
+
+| 文件                        | 作用                           |
+| --------------------------- | ------------------------------ |
+| `page.tsx`                  | 页面                           |
+| `layout.tsx`                | 布局（导航不重置状态）         |
+| `template.tsx`              | 模板（每次导航重新渲染）       |
+| `loading.tsx`               | 加载中 UI（Suspense fallback） |
+| `error.tsx`                 | 错误边界（需 `"use client"`）  |
+| `not-found.tsx`             | 404 页面                       |
+| `route.ts`                  | API 路由                       |
+| `proxy.ts`（原 middleware） | 代理/中间件                    |
+
+### 7. 导航方式
+
+```tsx
+// 1. Link 组件 — 支持预获取
+;<Link href="/about" prefetch replace scroll>
+  About
+</Link>
+
+// 2. useRouter (客户端组件)
+;("use client")
+import { useRouter } from "next/navigation"
+router.push("/page")
+router.replace("/page")
+router.back()
+router.refresh()
+router.prefetch("/about")
+
+// 3. redirect (服务端)
+import { redirect } from "next/navigation"
+if (!user) redirect("/login")
+
+// 4. permanentRedirect — 永久重定向 (308)
+import { permanentRedirect } from "next/navigation"
+```
+
+### 8. 特殊路由模式
+
+```
+平行路由@slot — 同一布局渲染多个页面
+路由组(group) — 组织代码，不影响 URL
+拦截路由(.)path/(..)path — 模态框等
+```
+
+> **小结**：掌握文件系统路由、动态路由、文件约定、四种导航方式。
+
+---
+
+## 第三阶段：RSC 双组件模型
+
+### 9. 服务端组件 vs 客户端组件
+
+| 维度                | 服务端组件（默认） | 客户端组件（`"use client"`） |
+| ------------------- | ------------------ | ---------------------------- |
+| 运行环境            | 服务器             | 浏览器                       |
+| 使用 hooks          | ❌                 | ✅                           |
+| 使用浏览器 API      | ❌                 | ✅                           |
+| 访问数据库/文件系统 | ✅                 | ❌                           |
+| 发送到客户端的 JS   | 0 字节             | 有                           |
+
+```tsx
+// 服务端组件 — 默认，可直接查数据库
+export default async function Page() {
+  const users = await db.user.findMany()
+  return (
+    <ul>
+      {users.map((u) => (
+        <li key={u.id}>{u.name}</li>
+      ))}
+    </ul>
+  )
+}
+
+// 客户端组件 — 需要交互
+;("use client")
+export default function Counter() {
+  const [count, setCount] = useState(0)
+  return <button onClick={() => setCount((c) => c + 1)}>{count}</button>
+}
+```
+
+### 10. 嵌套规则
+
+```
+✅ 服务端组件嵌套客户端组件
+❌ 客户端组件不能直接嵌套服务端组件
+   → 用 children prop: <ClientLayout>{serverContent}</ClientLayout>
+```
+
+### 11. server-only / client-only
+
+```tsx
+import "server-only" // 确保该文件只在服务端执行（包含密钥/数据库操作）
+```
+
+> **小结**：理解 RSC 双组件模型，默认服务端，按需客户端。
+
+---
+
+## 第四阶段：数据获取与渲染
+
+### 12. 获取数据 — 服务端组件直接 await
+
+```tsx
+// 方式 1: fetch — 自动去重 + 缓存
+const res = await fetch("https://api.example.com/data")
+const data = await res.json()
+
+// 方式 2: 直接操作数据库（无需 API 中间层）
+const users = await db.user.findMany()
+```
+
+### 13. 五种渲染方式
+
+| 方式          | 场景      | 实现                           |
+| ------------- | --------- | ------------------------------ |
+| **SSR**       | 实时数据  | 默认（有 fetch 等动态依赖时）  |
+| **SSG**       | 博客/文档 | `fetch` + 无动态依赖           |
+| **ISR**       | 定时更新  | `export const revalidate = 60` |
+| **CSR**       | 仪表盘    | `"use client"` + useEffect     |
+| **Streaming** | 大页面    | `<Suspense>` + async 组件      |
+
+### 14. 缓存控制
+
+```tsx
+// 页面级别
+export const revalidate = 60 // ISR — 60秒重新验证
+export const dynamic = "force-dynamic" // 强制每次请求重新渲染
+
+// fetch 级别
+fetch(url, { cache: "no-store" }) // 不缓存
+fetch(url, { next: { revalidate: 60 } }) // 60s ISR
+fetch(url, { next: { tags: ["posts"] } }) // 标签，revalidateTag("posts") 失效
+```
+
+### 15. Cache Components（Next.js 16+）
+
+```ts
+// next.config.ts — 启用后默认动态，配合 Suspense 实现流式静态壳+动态内容
+cacheComponents: true
+```
+
+> **小结**：会用 fetch 获取数据，理解 5 种渲染方式，掌握缓存控制。
+
+---
+
+## 第五阶段：API 与 Server Actions
+
+### 16. API 路由 (route.ts)
+
+```ts
+// app/api/user/route.ts
+import { NextRequest, NextResponse } from "next/server"
+
+export async function GET(req: NextRequest) {
+  const { searchParams } = req.nextUrl
+  return NextResponse.json({ id: searchParams.get("id") })
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json()
+  return NextResponse.json({ created: body }, { status: 201 })
+}
+
+// 动态路由: app/api/user/[id]/route.ts
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  return NextResponse.json({ id })
+}
+```
+
+### 17. Cookie 操作
+
+```ts
+import { cookies } from "next/headers"
+const cookieStore = await cookies()
+cookieStore.set("token", "abc", { httpOnly: true, maxAge: 3600 })
+const token = cookieStore.get("token")
+```
+
+### 18. Server Actions（表单提交，无需 API）
+
+```tsx
+// app/login/page.tsx
+export default function Login() {
+  async function handleLogin(formData: FormData) {
+    "use server"
+    const { username, password } = Object.fromEntries(formData)
+    const user = await db.user.verify(username, password)
+    if (!user) return // 处理错误
+    // redirect("/dashboard")
+  }
+
+  return (
+    <form action={handleLogin}>
+      <input name="username" />
+      <input name="password" type="password" />
+      <button type="submit">登录</button>
+    </form>
+  )
+}
+```
+
+### 19. Zod 数据校验 + Server Actions
+
+```bash
+npm i zod
+```
+
+```ts
+"use server"
+import { z } from "zod"
+
+const schema = z.object({
+  username: z.string().min(2, "至少2个字符"),
+  password: z.string().min(6, "至少6位密码"),
+})
+
+export async function login(prevState: any, formData: FormData) {
+  const validated = schema.safeParse(Object.fromEntries(formData))
+  if (!validated.success) return { errors: validated.error.flatten().fieldErrors }
+  await db.user.create({ data: validated.data })
+  redirect("/dashboard")
+}
+```
+
+> **小结**：能用 route.ts 写 API、Cookie 操作、Server Actions 处理表单。
+
+---
+
+## 第六阶段：Proxy（代理/中间件）
+
+### 20. 基本用法
+
+```ts
+// proxy.ts (Next.js 16+ 重命名，原 middleware.ts)
+import { NextRequest, NextResponse } from "next/server"
+
+export async function proxy(request: NextRequest) {
+  console.log(request.url)
+  return NextResponse.next()
+}
+
+// 配置匹配路径
+export const config = {
+  matcher: ["/api/:path*", "/dashboard/:path*"],
+}
+```
+
+### 21. Proxy 实战 — CORS 跨域
+
+```ts
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+}
+
+export async function proxy(request: NextRequest) {
+  const response = NextResponse.next()
+  Object.entries(corsHeaders).forEach(([k, v]) => response.headers.set(k, v))
+  return response
+}
+```
+
+### 22. Proxy 实战 — 鉴权
+
+```ts
+export async function proxy(request: NextRequest) {
+  const token = request.cookies.get("token")
+  if (!token && request.nextUrl.pathname.startsWith("/dashboard")) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+  return NextResponse.next()
+}
+```
+
+---
+
+## 第七阶段：样式方案
+
+| 方案                     | 使用方式                                                      |
+| ------------------------ | ------------------------------------------------------------- |
+| **Tailwind CSS**（推荐） | 创建时可选，原子化 CSS                                        |
+| **CSS Modules**          | `*.module.css`，导入为对象 `styles.container`                 |
+| **SASS**                 | `npm i -D sass`，内置支持                                     |
+| **全局 CSS**             | `app/globals.css`，在 layout 中引入                           |
+| **CSS-in-JS**            | `styled-components`，需配置 `compiler.styledComponents: true` |
+
+---
+
+## 第八阶段：Image 图片与 Font 字体
+
+### 23. Image 组件
+
+```tsx
+import Image from "next/image"
+
+// 本地图片 — 自动宽高
+<Image src="/hero.jpg" alt="hero" width={1200} height={600} priority />
+
+// response式 — sizes 属性
+<Image src="/photo.jpg" alt="photo" width={1200} height={800}
+  sizes="(max-width: 768px) 100vw, 50vw" />
+
+// 远程图片 — 需配置白名单
+// next.config.ts → images.remotePatterns: [{ protocol: "https", hostname: "cdn.example.com" }]
+
+// 关键属性: loading="lazy"(默认) | "eager"(首屏) | preload(优先) | placeholder="blur"
+```
+
+### 24. 字体优化 — 防 CLS
+
+```tsx
+// Google Fonts — 构建时下载到本地，零外部请求
+import { Roboto } from "next/font/google"
+const roboto = Roboto({ weight: ["400", "700"], subsets: ["latin"], display: "swap" })
+
+// 本地字体
+import localFont from "next/font/local"
+const myFont = localFont({ src: "./font/my.woff2", display: "swap" })
+
+// 使用
+<body className={roboto.className}>{children}</body>
+```
+
+---
+
+## 第九阶段：SSG 静态导出
+
+### 25. 配置
+
+```ts
+// next.config.ts
+const nextConfig: NextConfig = {
+  output: "export",
+  trailingSlash: true, // 生成目录结构
+  images: { loader: "custom", loaderFile: "./image-loader.ts" }, // 自定义图片加载
+}
+```
+
+### 26. 动态路由 SSG
+
+```tsx
+// app/posts/[id]/page.tsx
+export async function generateStaticParams() {
+  const posts = await fetch("https://api.example.com/posts").then((r) => r.json())
+  return posts.map((p) => ({ id: String(p.id) }))
+}
+```
+
+> ⚠️ SSG 不支持: Server Actions / Proxy / Cookies / ISR / redirects / rewrites
+
+---
+
+## 第十阶段：AI SDK 集成
+
+```bash
+npm i ai @ai-sdk/deepseek @ai-sdk/react
+```
+
+```ts
+// app/api/chat/route.ts
+import { streamText } from "ai"
+import { createDeepSeek } from "@ai-sdk/deepseek"
+
+const deepSeek = createDeepSeek({ apiKey: process.env.DEEPSEEK_API_KEY! })
+
+export async function POST(req: Request) {
+  const { messages } = await req.json()
+  const result = streamText({
+    model: deepSeek("deepseek-chat"),
+    messages,
+    system: "你是一个高级程序员",
+  })
+  return result.toUIMessageStreamResponse()
+}
+```
+
+```tsx
+// 前端 — useChat 封装了流式输出和状态管理
+"use client"
+import { useChat } from "@ai-sdk/react"
+
+export default function Chat() {
+  const { messages, sendMessage, status } = useChat({ onFinish: () => {} })
+
+  return (
+    <div>
+      {messages.map((m) => (
+        <div key={m.id} className={m.role === "user" ? "text-right" : ""}>
+          {m.parts.map((p, i) => p.type === "text" && <p key={i}>{p.text}</p>)}
+        </div>
+      ))}
+      <input
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            sendMessage({ text: e.target.value })
+            e.target.value = ""
+          }
+        }}
+      />
+    </div>
+  )
+}
+```
+
+---
+
+## 第十一阶段：生产部署
+
+| 方案                  | 命令/配置                           | 适用       |
+| --------------------- | ----------------------------------- | ---------- |
+| **Vercel**            | GitHub 连接 → 自动部署              | 全功能     |
+| **Node.js Server**    | `npm run build && npm start`        | 自建服务器 |
+| **Docker standalone** | `output: "standalone"` + Dockerfile | 容器       |
+| **SSG 静态**          | `output: "export"` → Nginx/CDN      | 纯静态站点 |
+
+---
+
+## 速查表
+
+### 文件约定速查
+
+| 文件           | 作用             | 文件            | 作用        |
+| -------------- | ---------------- | --------------- | ----------- |
+| `page.tsx`     | 页面             | `error.tsx`     | 错误边界    |
+| `layout.tsx`   | 布局（持久化）   | `not-found.tsx` | 404         |
+| `template.tsx` | 模板（每次重置） | `route.ts`      | API 路由    |
+| `loading.tsx`  | 加载中           | `proxy.ts`      | 代理/中间件 |
+
+### 路由模式
+
+| 模式          | URL                  | 用途     |
+| ------------- | -------------------- | -------- |
+| `[id]`        | `/post/123`          | 单段动态 |
+| `[...slug]`   | `/shop/a/b`          | 多段动态 |
+| `[[...slug]]` | `/docs` 或 `/docs/a` | 可选动态 |
+| `(group)`     | 不影响 URL           | 路由组   |
+| `@slot`       | 同一布局多页         | 平行路由 |
+
+### 缓存策略
+
+| 方式     | 代码                                                                         |
+| -------- | ---------------------------------------------------------------------------- |
+| 不缓存   | `fetch(url, { cache: "no-store" })`                                          |
+| ISR 60s  | `export const revalidate = 60` 或 `fetch(url, { next: { revalidate: 60 } })` |
+| 标签失效 | `fetch(url, { next: { tags: ["x"] } })` → `revalidateTag("x")`               |
+| 路径失效 | `revalidatePath("/blog")`                                                    |
+
+---
+
+## 第十二阶段：MDX（Markdown + JSX）
+
+### 27. 启用 MDX
+
+```bash
+npm install @next/mdx @mdx-js/loader @mdx-js/react @types/mdx
+```
+
+```ts
+// next.config.ts
+import createMDX from "@next/mdx"
+const withMDX = createMDX({})
+const nextConfig: NextConfig = { pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"] }
+export default withMDX(nextConfig)
+```
+
+```tsx
+// mdx-components.tsx — 全局自定义 MDX 组件样式
+import type { MDXComponents } from "mdx/types"
+const components: MDXComponents = {
+  h1: ({ children }) => <h1 className="text-3xl font-bold">{children}</h1>,
+  li: ({ children }) => <li className="list-disc">{children}</li>,
+}
+export function useMDXComponents(): MDXComponents {
+  return components
+}
+```
+
+### 28. 使用 MDX
+
+```mdx
+# 标题 — 支持 Markdown 语法
+
+- 列表项
+- 另一项
+
+<div className="text-red-500">支持 HTML 标签</div>
+
+import Counter from "./counter"   {/* 支持引入 React 组件，需与上面空一行 */}
+<Counter />
+```
+
+### 29. 远程加载 MDX
+
+```bash
+npm install next-mdx-remote-client
+```
+
+```tsx
+import { MDXRemote } from "next-mdx-remote-client/rsc"
+export default async function Page() {
+  const res = await fetch("https://example.com/doc.mdx")
+  const source = await res.text()
+  return <MDXRemote source={source} />
+}
+```
+
+---
+
+## 第十三阶段：Script 组件（脚本加载）
+
+### 30. Script 组件四种策略
+
+```tsx
+import Script from "next/script"
+
+// 页面级 — 仅当前路由加载
+<Script src="https://cdn.example.com/lib.js" strategy="afterInteractive" />
+
+// 全局 — 在 layout.tsx 中引入
+<Script src="https://example.com/analytics.js" />
+
+// 内联脚本
+<Script id="inline-script">{`console.log("hello")`}</Script>
+
+// dangerouslySetInnerHTML
+<Script dangerouslySetInnerHTML={{ __html: `console.log("hello")` }} />
+```
+
+| 策略                       | 加载时机   | 说明               |
+| -------------------------- | ---------- | ------------------ |
+| `beforeInteractive`        | 页面交互前 | 阻塞渲染，谨慎使用 |
+| `afterInteractive`（默认） | 水合后     | 最常用             |
+| `lazyOnload`               | 空闲时     | 非关键脚本         |
+| `worker`                   | Web Worker | 实验性             |
+
+### 31. 事件监听
+
+```tsx
+"use client"
+<Script onLoad={() => console.log("加载完成")}
+       onReady={() => console.log("每次挂载")}
+       onError={() => console.log("加载失败")} />
+```
+
+---
+
+## 第十四阶段：部署详解
+
+### 32. Vercel（推荐，零配置）
+
+```bash
+# 连接 GitHub → 导入仓库 → 自动构建部署
+# 全功能: ISR / Streaming / Edge Functions / Analytics
+```
+
+### 33. Docker Standalone
+
+```dockerfile
+FROM node:20-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:20-alpine AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/public ./public
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+### 34. 性能优化要点
+
+```txt
+1. Image 组件 — 自动 WebP/AVIF、懒加载、防 CLS
+2. next/font — 构建时下载字体，零外部请求
+3. Link prefetch — 预加载可见链接
+4. dynamic import — 懒加载非首屏组件
+5. Suspense Streaming — 分块传输大页面
+6. React Compiler — 自动 useMemo/useCallback
+7. Vercel Analytics — 内置 Web Vitals
+```
+
+---
+
+## 第十五阶段：常见问题与最佳实践
+
+### 35. "use client" 性能陷阱
+
+```tsx
+// ❌ 顶层标记 → 整个子树变客户端，无法服务端渲染
+"use client"
+export default function Page() {
+  return <HeavyStaticContent />
+}
+
+// ✅ 推到叶子组件
+export default function Page() {
+  return (
+    <>
+      <StaticContent />
+      <ClientButton />
+    </>
+  )
+}
+// ClientButton.tsx 顶部: "use client"
+```
+
+### 36. 环境变量管理
+
+```bash
+# .env.local — 本地（gitignore）
+# .env.development — 开发
+# .env.production — 生产
+
+NEXT_PUBLIC_API_URL=https://api.example.com   # 客户端可读
+DATABASE_URL=postgresql://...                  # 仅服务端可读
+```
+
+### 37. 常用配置速查
+
+```ts
+// next.config.ts
+const nextConfig: NextConfig = {
+  reactCompiler: true, // React Compiler 自动优化
+  cacheComponents: true, // Next 16 缓存组件
+  output: "standalone", // Docker 部署
+  images: {
+    formats: ["image/avif", "image/webp"],
+    remotePatterns: [{ protocol: "https", hostname: "cdn.example.com" }],
+    deviceSizes: [640, 750, 1080, 1200, 1920],
+    imageSizes: [16, 32, 64, 128, 256],
+  },
+  sassOptions: { additionalData: "$color: blue;" },
+  transpilePackages: ["@my-org/ui"], // monorepo 跨包编译
+}
+```
+
+---
+
+## 全文总结
+
+| 阶段 | 核心内容                                                           |
+| ---- | ------------------------------------------------------------------ |
+| 1    | Next.js 定位/Turbopack/React Compiler/创建项目                     |
+| 2    | 文件系统路由/动态路由/文件约定/四种导航/平行路由                   |
+| 3    | RSC 双组件模型/server-only/嵌套规则                                |
+| 4    | fetch 数据获取/SSR SSG ISR CSR Streaming/缓存控制 Cache Components |
+| 5    | route.ts API/Cookie/Server Actions/Zod 校验                        |
+| 6    | Proxy 代理/CORS/鉴权/matcher                                       |
+| 7    | Tailwind/CSS Modules/SASS/全局 CSS/CSS-in-JS                       |
+| 8    | Image 优化/Font 防 CLS                                             |
+| 9    | SSG 静态导出/generateStaticParams/自定义 image loader              |
+| 10   | AI SDK/DeepSeek/useChat 流式对话                                   |
+| 11   | Vercel/Docker Standalone/环境变量                                  |
+| 12   | MDX/全局样式/远程加载                                              |
+| 13   | Script 组件/四种加载策略/事件监听                                  |
+| 14   | 部署详解/性能优化 7 点                                             |
+| 15   | "use client" 陷阱/环境变量/常用 next.config 配置大全               |

@@ -1,0 +1,945 @@
+# Git 学习指南
+
+> 难度递进式 Git 学习文档，从版本控制基础到团队协作工作流。
+
+---
+
+## 第一阶段：基础概念与配置（入门）
+
+### 1. 版本控制是什么？
+
+Git 是**分布式版本控制系统**：每个开发者本地都有完整仓库副本。核心概念：
+
+```
+工作区 (Working Directory) — 写代码的地方
+    ↓ git add
+暂存区 (Staging Area) — 准备提交的修改
+    ↓ git commit
+本地仓库 (Local Repository) — 提交历史
+    ↓ git push
+远程仓库 (Remote Repository) — GitHub/GitLab 等
+```
+
+### 2. Git 配置
+
+```bash
+git config --global user.name "Your Name"
+git config --global user.email "email@example.com"
+git config --global core.autocrlf input     # Windows: true, Mac/Linux: input
+git config --global color.ui true
+git config --global init.defaultBranch main # 默认分支名
+
+# 常用别名
+git config --global alias.co checkout
+git config --global alias.br branch
+git config --global alias.st status
+git config --global alias.lg "log --oneline --graph --all"
+
+# 查看所有配置
+git config --list
+git config --global --list
+
+# 设置代理/取消代理
+git config --global http.proxy http://127.0.0.1:7890
+git config --global --unset http.proxy
+```
+
+### 3. 创建仓库
+
+```bash
+git init                          # 初始化本地仓库
+git clone https://github.com/user/repo.git   # 克隆远程仓库
+git clone -b dev https://github.com/user/repo.git  # 克隆指定分支
+```
+
+> **小结**：理解工作区→暂存区→本地仓库→远程仓库四级流转，会配置用户信息和别名。
+
+---
+
+## 第二阶段：日常操作（增删改查提交）
+
+### 4. 基本工作流
+
+```bash
+git status                        # 查看当前状态（修改了哪些文件）
+git add <file>                    # 添加指定文件到暂存区
+git add .                         # 添加所有修改到暂存区
+git add -p                        # 交互式选择部分修改暂存（推荐）
+git commit -m "feat: 添加登录功能" # 提交
+git commit -am "fix: 修复bug"      # add + commit（仅已跟踪文件）
+git commit --amend                # 修改上一次提交（未 push 前）
+git commit --amend --no-edit      # 追加到上一次提交，不改 message
+```
+
+### 5. 查看历史
+
+```bash
+git log                           # 提交日志
+git log --oneline                 # 一行一条
+git log --graph --oneline --all   # 图形化分支历史
+git log -3                        # 最近 3 条
+git log --stat                    # 显示修改文件列表
+git log -p <file>                 # 查看某文件修改历史
+git show <commit-hash>            # 查看某次提交详情
+git blame <file>                  # 查看文件每行的修改者
+git diff                          # 工作区 vs 暂存区
+git diff --staged                 # 暂存区 vs HEAD
+git diff HEAD                     # 工作区 vs HEAD
+```
+
+### 6. 撤销操作
+
+```bash
+# 撤销工作区修改（回到暂存区/HEAD 状态）
+git checkout -- <file>            # 旧语法
+git restore <file>                # 新语法（推荐）
+
+# 取消暂存
+git reset HEAD <file>             # 旧语法
+git restore --staged <file>       # 新语法（推荐）
+
+# 撤销 commit（保留修改在工作区）
+git reset --soft HEAD~1           # 撤销 commit，修改回到暂存区
+git reset --mixed HEAD~1          # 撤销 commit+add，修改回到工作区（默认）
+git reset --hard HEAD~1           # 撤销 commit+add+修改（⚠️ 不可恢复）
+
+# 安全撤销 — 生成一个新 commit 来抵消之前的 commit
+git revert <commit-hash>
+```
+
+### 7. 文件操作
+
+```bash
+git rm <file>                     # 删除文件并暂存
+git rm --cached <file>            # 从 Git 中移除，保留本地文件
+git mv <old> <new>                # 重命名/移动文件并暂存
+git stash                         # 暂存当前修改（临时切换分支用）
+git stash pop                     # 恢复最近一次 stash 并删除
+git stash list                    # 查看 stash 列表
+git stash apply stash@{1}         # 恢复指定 stash
+git stash drop stash@{0}          # 删除指定 stash
+```
+
+### 8. 提交信息规范 (Conventional Commits)
+
+```bash
+# 格式: <type>(<scope>): <subject>
+feat: 新功能          fix: 修复 bug       docs: 文档
+style: 格式化         refactor: 重构      perf: 性能优化
+test: 测试            chore: 构建/工具    revert: 回滚
+
+# 示例
+git commit -m "feat(auth): 添加 JWT 登录功能"
+git commit -m "fix(cart): 修复购物车数量计算错误"
+git commit -m "refactor(api): 重构用户接口"
+```
+
+> **小结**：掌握 add/commit/push/pull/log/diff/restore/reset/stash 日常命令。
+
+---
+
+## 第三阶段：分支管理（核心能力）
+
+### 9. 分支操作
+
+```bash
+git branch                        # 查看本地分支
+git branch -a                     # 查看所有分支（含远程）
+git branch -r                     # 仅远程分支
+git branch <name>                 # 创建分支
+git checkout <branch>             # 切换分支
+git checkout -b <name>            # 创建并切换（旧语法）
+git switch -c <name>              # 创建并切换（新语法，推荐）
+git branch -d <name>              # 删除分支（已合并）
+git branch -D <name>              # 强制删除（未合并）
+git branch -m <old> <new>         # 重命名分支
+git branch --merged               # 查看已合并到当前分支的分支
+git branch --no-merged            # 查看未合并的
+```
+
+### 10. merge 合并
+
+```bash
+git checkout main
+git merge feature/login           # 将 feature/login 合并到 main
+
+# 合并策略
+git merge --no-ff feature/login   # 禁止快进合并，保留分支历史（推荐）
+git merge --squash feature/login  # 压缩为一个 commit 再合并
+git merge --abort                 # 放弃合并（解决冲突时）
+```
+
+### 11. rebase 变基
+
+```bash
+git checkout feature/login
+git rebase main                   # 将当前分支的提交"搬"到 main 最新处
+# 产生线性历史，比 merge 更清爽
+
+# 交互式 rebase
+git rebase -i HEAD~3              # 整理最近 3 个 commit
+# pick: 保留  squash: 合并到上一个  reword: 改 message  drop: 删除
+
+git rebase --continue             # 解决冲突后继续
+git rebase --abort                # 放弃 rebase
+git rebase --skip                  # 跳过当前 commit
+```
+
+| merge           | rebase                     |
+| --------------- | -------------------------- |
+| 保留分支历史    | 线性历史更清爽             |
+| 产生合并 commit | 改写 commit 历史           |
+| 适合公共分支    | 适合个人分支整理           |
+| ✅ 永远安全     | ⚠️ 不要在公共分支上 rebase |
+
+### 12. 解决冲突
+
+```bash
+# 当 merge/rebase 产生冲突时:
+# 1. 编辑冲突文件，手动解决（删除 <<<<<< / ====== / >>>>>> 标记）
+# 2. git add <file>               # 标记为已解决
+# 3. git merge --continue         # 或 git rebase --continue
+#    或 git merge --abort          # 放弃合并
+```
+
+### 13. cherry-pick — 选择性合并
+
+```bash
+git cherry-pick <commit-hash>     # 将指定 commit 应用到当前分支
+git cherry-pick A..B              # 应用 A 到 B 之间的 commit（不含 A）
+git cherry-pick --abort           # 放弃
+```
+
+> **小结**：掌握分支创建/切换/合并/变基/冲突解决/ cherry-pick，理解 merge vs rebase 选择。
+
+---
+
+## 第四阶段：远程协作
+
+### 14. 远程仓库管理
+
+```bash
+git remote -v                     # 查看远程仓库
+git remote add origin <url>       # 添加远程仓库
+git remote show origin            # 查看详情
+git remote rename origin upstream # 重命名
+git remote remove origin          # 移除
+```
+
+### 15. 推送与拉取
+
+```bash
+git push origin main              # 推送本地 main 到远程
+git push -u origin main           # 推送并建立跟踪（下次直接 git push）
+git push origin --delete feature  # 删除远程分支
+git push --force-with-lease       # 安全强制推送（如果远程有新提交会拒绝）
+
+git pull                          # = git fetch + git merge
+git pull --rebase                 # = git fetch + git rebase（推荐）
+git fetch                        # 仅拉取远程更新，不合并
+git fetch --prune                 # 同步删除远程已删除的本地跟踪分支
+```
+
+### 16. 跟踪远程分支
+
+```bash
+git checkout -b local-branch origin/remote-branch   # 从远程分支创建本地分支
+git checkout --track origin/feature                  # 简写
+git branch -u origin/main                            # 设置当前分支跟踪远程分支
+git branch -vv                                       # 查看本地分支与远程对应关系
+```
+
+### 17. Pull Request 工作流
+
+```bash
+# 1. 从 main 创建功能分支
+git checkout -b feature/my-feature main
+
+# 2. 开发 + 提交
+git add . && git commit -m "feat: xxx"
+
+# 3. 变基到最新 main（保持线性历史）
+git fetch origin && git rebase origin/main
+
+# 4. 推送
+git push -u origin feature/my-feature
+
+# 5. GitHub/GitLab 上创建 Pull Request → Code Review → Merge
+```
+
+> **小结**：掌握 push/pull/fetch/remote 管理，理解 PR 工作流。
+
+---
+
+## 第五阶段：标签与发布
+
+### 18. tag 标签
+
+```bash
+git tag v1.0.0                   # 轻量标签
+git tag -a v1.0.0 -m "发布 1.0"   # 附注标签（推荐）
+git tag -a v1.0.0 <commit> -m "补打标签"
+git push origin v1.0.0            # 推送单个标签
+git push origin --tags             # 推送所有标签
+git tag -d v1.0.0                  # 删除本地标签
+git push origin --delete v1.0.0    # 删除远程标签
+git checkout v1.0.0                # 切换到标签
+```
+
+---
+
+## 第六阶段：进阶操作
+
+### 19. reflog — 救命稻草
+
+```bash
+git reflog                        # 查看所有 HEAD 变更历史（包括已删除的 commit/branch）
+# 找回误删的 commit/分支:
+git checkout -b recovered-branch HEAD@{2}
+```
+
+### 20. bisect — 二分法定位 bug
+
+```bash
+git bisect start                  # 开始二分查找
+git bisect bad HEAD               # 当前版本有问题
+git bisect good v1.0               # v1.0 版本没问题
+# Git 自动 checkout 中间版本 → 测试 → 标记 good/bad
+# git bisect good / git bisect bad
+# 重复 → 定位到引入 bug 的 commit
+git bisect reset                  # 结束二分
+```
+
+### 21. 子模块 (submodule)
+
+```bash
+git submodule add <url> <path>    # 添加子模块
+git clone --recursive <url>       # 克隆含子模块的仓库
+git submodule update --init --recursive  # 拉取子模块
+```
+
+### 22. worktree — 同时开发多个分支
+
+```bash
+git worktree add ../project-hotfix hotfix  # 在同级目录 checkout hotfix 分支
+git worktree list                          # 查看所有 worktree
+git worktree remove ../project-hotfix      # 删除
+```
+
+### 23. 清理与压缩
+
+```bash
+git gc --aggressive              # 垃圾回收、压缩仓库
+git clean -n                     # 查看将要删除的未跟踪文件（预览）
+git clean -fd                    # 删除未跟踪文件
+```
+
+---
+
+## 第七阶段：工作流与最佳实践
+
+### 24. Git Flow
+
+```
+main          ★ ─── ★ ────────────── ★ ───
+               ↘     ↘               ↗
+develop        ★ ──── ★ ──── ★ ──── ★
+                         ↘     ↗
+feature/login              ★ ─ ★
+                              ↓
+hotfix/bug-123    ★ ────────── ★
+                  ↘            ↗
+```
+
+### 25. Trunk-Based Development（推荐）
+
+```
+main    ★ ─ ★ ─ ★ ─ ★ ─ ★ ─ ★  (持续部署)
+         ↘   ↗   ↘   ↗
+feature   ★─★     ★─★           (短生命周期分支，1-2 天内合并)
+```
+
+### 26. 最佳实践
+
+```bash
+# 1. 频繁 commit，每个 commit 做一件事
+# 2. commit message 用 Conventional Commits 格式
+# 3. push 前先 git pull --rebase（线性历史）
+# 4. 用 git rebase -i 整理 commit 再 push
+# 5. 不要 git push --force 到共享分支
+# 6. 提交前 git diff --staged 检查
+# 7. .gitignore 配置 node_modules/ .env dist/ .DS_Store
+```
+
+---
+
+## 第八阶段：Git Hooks 自动化
+
+### 27. 常用 Hooks
+
+```bash
+# .git/hooks/
+pre-commit      # 提交前 → 代码检查/格式化
+commit-msg      # 提交信息校验（commitlint）
+pre-push        # 推送前 → 运行测试
+post-merge      # 合并后 → 安装依赖
+```
+
+```bash
+# 使用 husky 管理 hooks
+npm install -D husky
+npx husky init
+# .husky/pre-commit
+npm run format && npm run lint
+# .husky/commit-msg
+npx --no-install commitlint --edit "$1"
+```
+
+---
+
+## 速查表
+
+### 常用命令速查
+
+| 场景        | 命令                                                 |
+| ----------- | ---------------------------------------------------- |
+| 初始化      | `git init` / `git clone <url>`                       |
+| 暂存提交    | `git add .` → `git commit -m "msg"`                  |
+| 查看状态    | `git status` / `git diff`                            |
+| 查看历史    | `git log --oneline --graph`                          |
+| 分支操作    | `git switch -c <name>` / `git merge` / `git rebase`  |
+| 撤销修改    | `git restore <file>` / `git restore --staged <file>` |
+| 撤销 commit | `git reset --soft HEAD~1` / `git revert <hash>`      |
+| 暂存修改    | `git stash` / `git stash pop`                        |
+| 远程操作    | `git pull --rebase` / `git push` / `git fetch`       |
+| 标签        | `git tag -a v1.0 -m "msg"` / `git push --tags`       |
+| 找回丢失    | `git reflog`                                         |
+
+### reset 三模式
+
+| 模式             | HEAD | 暂存区 | 工作区             |
+| ---------------- | ---- | ------ | ------------------ |
+| `--soft`         | 回退 | 保留   | 保留               |
+| `--mixed` (默认) | 回退 | 回退   | 保留               |
+| `--hard`         | 回退 | 回退   | 回退（⚠️不可恢复） |
+
+### merge vs rebase
+
+| 场景                     | 推荐                                |
+| ------------------------ | ----------------------------------- |
+| 合并 feature 到 main     | `git merge --no-ff`（保留分支历史） |
+| 同步 main 最新到 feature | `git rebase main`（线性历史）       |
+| 整理本地 commit          | `git rebase -i HEAD~n`              |
+| 公共分支                 | 只用 merge，不用 rebase             |
+
+### 常用 .gitignore
+
+```gitignore
+node_modules/
+dist/
+.env
+.env.local
+*.log
+.DS_Store
+coverage/
+.turbo/
+.next/
+```
+
+---
+
+## 第九阶段：Git 内部原理
+
+### 28. .git 目录结构
+
+```
+.git/
+├── HEAD              # 指向当前分支的引用
+├── config            # 仓库级配置
+├── objects/          # 所有数据（commit/tree/blob/tag）
+│   └── xx/xxxxxxxx   # 按 SHA-1 前两位分目录
+├── refs/
+│   ├── heads/        # 本地分支引用
+│   ├── remotes/      # 远程分支引用
+│   └── tags/         # 标签引用
+├── index             # 暂存区
+└── logs/             # reflog 数据
+```
+
+### 29. Git 四种对象
+
+```bash
+# Blob   — 文件内容快照
+# Tree   — 目录结构（文件名 → Blob 映射）
+# Commit — 提交对象（指向 Tree + 父 Commit + 作者/时间/message）
+# Tag    — 标签（指向 Commit + 标签名）
+
+git cat-file -p HEAD               # 查看 HEAD commit 内容
+git cat-file -p HEAD^{tree}        # 查看 HEAD 指向的 Tree
+git cat-file -t <hash>             # 查看对象类型
+git hash-object -w <file>          # 计算 SHA-1 并写入 .git/objects
+```
+
+### 30. HEAD、ORIG_HEAD、FETCH_HEAD
+
+```bash
+HEAD         → 当前分支引用（.git/refs/heads/main 的 SHA）
+ORIG_HEAD    → 上一次危险操作前 HEAD 的值（merge/reset/amend 等）
+FETCH_HEAD   → 最近一次 fetch/pull 获得的所有分支引用
+MERGE_HEAD   → merge 时的另一个分支
+CHERRY_PICK_HEAD → cherry-pick 时的来源 commit
+
+git reflog show HEAD              # 查看 HEAD 移动历史
+git reflog show main              # 查看 main 分支历史
+```
+
+---
+
+## 第十阶段：高级分支策略
+
+### 31. 多仓库协作模式
+
+```bash
+# Fork 工作流（开源贡献）
+git remote add upstream https://github.com/origin/repo.git
+git fetch upstream
+git rebase upstream/main
+git push origin feature/my-fix    # 推到自己的 fork
+# → 创建 PR: your-fork → upstream/main
+
+# Monorepo 多远程
+git remote add internal git@gitlab.internal:team/project.git
+git remote add upstream https://github.com/public/project.git
+```
+
+### 32. 批量操作多个分支
+
+```bash
+# 删除已合并的本地分支
+git branch --merged | grep -v "main\|master\|develop" | xargs git branch -d
+
+# 批量重命名分支（如加前缀）
+git branch | grep "feature" | sed 's/feature\///' | xargs -I {} git branch -m feature/{} feat-{}
+
+# 查看各个分支的最后提交时间
+git for-each-ref --sort=-committerdate refs/heads/ --format="%(committerdate:short) %(refname:short)"
+```
+
+### 33. 查找操作
+
+```bash
+# 查找哪个 commit 引入了特定字符串
+git log -S "searchTerm" --oneline  # 搜索新增/删除的内容
+git log -G "regexPattern" --oneline # 正则搜索
+
+# 查找 commit 的"归属分支"
+git branch --contains <hash>
+
+# 查找两个分支的共同祖先
+git merge-base main feature
+```
+
+---
+
+## 第十一阶段：CI/CD 集成
+
+### 34. GitHub Actions 自动化
+
+```yaml
+# .github/workflows/ci.yml
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: "npm" }
+      - run: npm ci
+      - run: npm test
+      - run: npm run build
+```
+
+### 35. 版本自动标记
+
+```bash
+# 语义化版本发布
+npm version patch   # 1.0.0 → 1.0.1
+npm version minor   # 1.0.1 → 1.1.0
+npm version major   # 1.1.0 → 2.0.0
+
+# 带 Git 标签的自动版本
+# npm version patch 自动: 修改 package.json → git commit → git tag v1.0.1
+
+# 基于 Commit Message 自动生成 Changelog
+npx conventional-changelog -p angular -i CHANGELOG.md -s
+```
+
+### 36. Git Hooks + lint-staged
+
+```bash
+npm install -D husky lint-staged
+```
+
+```json
+{
+  "lint-staged": {
+    "*.{js,ts,tsx}": ["eslint --fix", "prettier --write"],
+    "*.{css,scss,md}": ["prettier --write"]
+  }
+}
+```
+
+```bash
+# .husky/pre-commit
+npx lint-staged
+```
+
+---
+
+## 第十二阶段：多平台与工具
+
+### 37. GitHub CLI (gh)
+
+```bash
+gh auth login                 # 登录
+gh repo clone user/repo       # 克隆
+gh pr create --title "feat: xxx" --body "描述"  # 创建 PR
+gh pr list                    # 查看 PR 列表
+gh pr checkout 42             # 检出 PR #42
+gh issue create --title "bug: xxx"  # 创建 Issue
+gh release create v1.0.0 --notes "发布说明"
+```
+
+### 38. Git GUI 工具
+
+| 工具               | 平台    | 特点                  |
+| ------------------ | ------- | --------------------- |
+| **VS Code Git**    | 内置    | 日常使用首选          |
+| **GitKraken**      | 跨平台  | 可视化分支/merge 冲突 |
+| **SourceTree**     | Win/Mac | 免费、功能齐全        |
+| **GitHub Desktop** | Win/Mac | 简单直观、GitHub 集成 |
+| **lazygit**        | 终端    | vim 风格、极快        |
+| **tig**            | 终端    | 文本模式浏览器        |
+
+---
+
+## 补充速查表
+
+### 冲突标记解读
+
+```
+<<<<<<< HEAD
+当前分支的代码
+=======
+要合并分支的代码
+>>>>>>> feature/my-feature
+
+解决: 编辑保留正确代码 → 删除标记 → git add → git merge --continue
+```
+
+### 回退场景速查
+
+| 场景                    | 命令                                           |
+| ----------------------- | ---------------------------------------------- |
+| 修改工作区文件(未 add)  | `git restore <file>`                           |
+| 取消暂存(已 add)        | `git restore --staged <file>`                  |
+| 撤销 commit(保留修改)   | `git reset --soft HEAD~1`                      |
+| 撤销 commit(保留未暂存) | `git reset HEAD~1`                             |
+| 撤销 commit(全部清除)   | `git reset --hard HEAD~1`                      |
+| 已 push 的 commit       | `git revert <hash>` + push                     |
+| 恢复误删分支            | `git reflog` → `git checkout -b <name> <hash>` |
+| 回退单个文件到指定版本  | `git restore -s <hash> <file>`                 |
+
+### 多分支状态速查
+
+```bash
+git branch -vv            # 本地分支 + 跟踪的远程 + ahead/behind
+git branch -r             # 仅远程分支
+git branch --merged main  # 已合并到 main 的分支
+git branch --no-merged    # 未合并到当前的分支
+```
+
+### Git 配置分层
+
+| 级别   | 位置             | 命令                         |
+| ------ | ---------------- | ---------------------------- |
+| 系统级 | `/etc/gitconfig` | `git config --system`        |
+| 用户级 | `~/.gitconfig`   | `git config --global`        |
+| 仓库级 | `.git/config`    | `git config --local`（默认） |
+
+---
+
+## 第十三阶段：大型仓库管理
+
+### 39. 部分克隆 (Partial Clone)
+
+```bash
+# 不下载 Blob（按需获取）
+git clone --filter=blob:none <url>
+
+# 只下载最近 1 个 commit 的历史（浅克隆）
+git clone --depth=1 <url>
+
+# 转换为完整克隆
+git fetch --unshallow
+```
+
+### 40. Git LFS — 大文件存储
+
+```bash
+git lfs install
+git lfs track "*.psd" "*.zip" "*.mp4"
+git add .gitattributes
+# 上传后，大文件存储在 LFS 服务器，仓库中只保留指针
+```
+
+### 41. 清理仓库历史
+
+```bash
+# 永久删除文件及其历史（⚠️ 需 force push）
+git filter-branch --tree-filter "rm -f secrets.txt" HEAD
+# 或使用 git-filter-repo（更快）
+git filter-repo --path secrets.txt --invert-paths
+
+# 清理大文件
+git gc --aggressive --prune=now
+```
+
+---
+
+## 第十四阶段：Patch 与 Diff 高级
+
+### 42. 生成与应用补丁
+
+```bash
+# 生成 patch 文件
+git diff > changes.patch              # 工作区修改
+git diff --staged > staged.patch      # 暂存区修改
+git format-patch -1 <hash>            # 将 commit 转为 patch
+git format-patch main..feature        # 系列 patch
+
+# 应用 patch
+git apply changes.patch               # 只应用，不 commit
+git am < patch-file                   # 应用 + commit（保留原 commit 信息）
+```
+
+### 43. 高级 diff
+
+```bash
+git diff --word-diff                  # 逐词对比（更精确）
+git diff --name-only                  # 仅列出文件名
+git diff --name-status                # 文件名 + 状态 (M/A/D)
+git diff --stat                       # 统计变更
+git diff HEAD~3 HEAD                  # 三个版本间的差异
+git diff main..feature -- src/        # 限定目录对比
+git diff --cached                     # = git diff --staged
+```
+
+### 44. 文件级操作
+
+```bash
+# 查看某文件在两个分支的差异
+git diff main feature -- path/to/file
+
+# 从其他分支检出单个文件
+git checkout main -- path/to/file
+git restore -s main path/to/file
+
+# 查看文件的完整历史（含重命名）
+git log --follow path/to/file
+```
+
+---
+
+## 第十五阶段：GPG 签名与安全
+
+### 45. 签名提交与标签
+
+```bash
+# 配置 GPG 密钥
+gpg --gen-key
+git config --global user.signingkey <KEY-ID>
+git config --global commit.gpgsign true
+
+# 签名 commit（已开启自动签名则不需要 -S）
+git commit -S -m "signed commit"
+
+# 签名 tag
+git tag -s v1.0.0 -m "签名发布"
+
+# 验证签名
+git verify-commit HEAD
+git verify-tag v1.0.0
+```
+
+### 46. 保护分支 (Branch Protection Rules)
+
+```
+GitHub/GitLab → Settings → Branches → 保护规则:
+  ✅ Require pull request reviews before merging
+  ✅ Require status checks to pass before merging (CI)
+  ✅ Require signed commits
+  ✅ Require linear history (禁用 merge commit)
+  ✅ Do not allow bypassing the above settings
+```
+
+---
+
+## 总结与学习路径
+
+Git 学习文档共 **15 阶段、46 个核心知识点**：
+
+| 阶段 | 核心内容                                                |
+| ---- | ------------------------------------------------------- |
+| 1    | 四级流转/配置/别名/初始化                               |
+| 2    | add/commit/diff/log/restore/reset/revert/stash/提交规范 |
+| 3    | 分支操作/merge 三种模式/rebase -i/cherry-pick/冲突解决  |
+| 4    | remote/push/pull/fetch/PR 工作流                        |
+| 5    | tag 标签/语义化版本                                     |
+| 6    | reflog 救急/bisect 定位/submodule/worktree/gc           |
+| 7    | Git Flow/Trunk-Based/最佳实践                           |
+| 8    | pre-commit/commit-msg hooks/husky                       |
+| 9    | .git 结构/四种对象/HEAD ORIG_HEAD                       |
+| 10   | Fork 工作流/批量操作/查找命令                           |
+| 11   | GitHub Actions/版本标记/changelog/lint-staged           |
+| 12   | gh CLI/GUI 工具/VSCode Git                              |
+| 13   | 部分克隆/LFS/仓库清理                                   |
+| 14   | patch/format-patch/am/diff 高级                         |
+| 15   | GPG 签名/分支保护规则                                   |
+
+---
+
+## 第十六阶段：常见问题与解决
+
+### 47. 常见错误修复
+
+```bash
+# 1. commit 写错 message — 修改最近一次
+git commit --amend -m "新的 message"
+# 已 push → git push --force-with-lease（个人分支）
+
+# 2. 把不该提交的文件提交了
+git reset --soft HEAD~1              # 撤销 commit
+git restore --staged <file>          # 取消暂存
+echo "file" >> .gitignore && git add .gitignore && git commit -m "chore: update gitignore"
+
+# 3. 误删分支恢复
+git reflog                           # 找到最后一条 commit hash
+git checkout -b recovered-branch <hash>
+
+# 4. merge 到一半想取消
+git merge --abort        # 取消 merge（恢复到 merge 前）
+
+# 5. rebase 到一半想取消
+git rebase --abort       # 取消 rebase
+
+# 6. 想把本地分支完全重设为远程分支
+git fetch origin
+git reset --hard origin/main
+
+# 7. 想把某次 commit 应用到另一个分支
+git cherry-pick <hash>
+
+# 8. HEAD detached（游离状态）
+# git checkout <hash> → 处于 detached HEAD
+git switch -c new-branch             # 基于当前位置创建新分支即可
+
+# 9. 推送被拒绝 (non-fast-forward)
+git fetch origin && git rebase origin/main && git push
+
+# 10. 想丢弃工作区所有修改
+git checkout .                        # 旧语法
+git restore .                         # 新语法
+```
+
+### 48. .gitignore 不生效修复
+
+```bash
+# 问题：文件已被 Git 跟踪后才加入 .gitignore → 仍然被跟踪
+
+# 解决：清除 Git 缓存后重新添加
+git rm -r --cached .
+git add .
+git commit -m "chore: update gitignore"
+```
+
+### 49. 找回 git reset --hard 丢失的修改
+
+```bash
+# git reset --hard 后想找回 → reflog!
+git reflog                    # 找到 reset 之前的 HEAD
+git reset --hard HEAD@{n}     # 回到那个状态
+
+# reflog 默认保存 90 天内的记录
+```
+
+### 50. 修改已经 push 的提交
+
+```bash
+# 场景：刚 push 发现有个小错误
+
+# 方案 1: 用 new commit 覆盖（安全，适合公共分支）
+git commit -m "fix: 修正" && git push
+
+# 方案 2: amend + force push（适合个人分支，⚠️ 不要对公共分支用）
+git add . && git commit --amend --no-edit
+git push --force-with-lease
+
+# 方案 3: revert（最安全，适合 main）
+git revert HEAD && git push
+```
+
+---
+
+## 第十七阶段：Git 与 VS Code 集成
+
+### 51. 常用 VS Code 操作
+
+```txt
+Source Control 面板 (Ctrl+Shift+G):
+  - 文件旁 + → git add
+  - 文件旁 - → git restore（撤销修改）
+  - 输入 message + Ctrl+Enter → git commit
+  - ... → Pull / Push / Stash / Checkout to...
+
+命令面板 (Ctrl+Shift+P):
+  - Git: Clone
+  - Git: Create Branch
+  - Git: Merge Branch
+  - Git: View File History
+  - Git: Undo Last Commit
+
+内置冲突编辑器:
+  - Accept Current | Accept Incoming | Accept Both | Compare Changes
+```
+
+### 52. VS Code Git 配置
+
+```json
+{
+  "git.enableSmartCommit": true,
+  "git.confirmSync": false,
+  "git.autofetch": true,
+  "git.mergeEditor": true
+}
+```
+
+---
+
+## 总结
+
+Git 学习文档共 **17阶段、52个核心知识点**，覆盖从基础到高级的完整 Git 体系：
+
+| 阶段  | 核心技能                                                                 |
+| ----- | ------------------------------------------------------------------------ |
+| 1-2   | 四级流转/add+commit/日志查看/撤销操作/文件操作/提交规范                  |
+| 3     | 分支操作/merge 三种模式(--no-ff/--squash)/rebase -i/冲突解决/cherry-pick |
+| 4     | remote 管理/push+pull+fetch/PR 工作流                                    |
+| 5-6   | tag 语义版本/reflog/bisect/submodule/worktree/gc                         |
+| 7-8   | Git Flow/Trunk-Based/最佳实践 10 条/Git Hooks/husky                      |
+| 9-10  | .git 内部结构/四种对象/Fork 工作流/批量操作/查找命令                     |
+| 11-12 | GitHub Actions/changelog/lint-staged/gh CLI/GUI 工具                     |
+| 13-15 | 部分克隆/LFS/仓库清理/patch/diff 高级/GPG 签名                           |
+| 16-17 | 10 种常见错误修复/gitignore 不生效/找回 reset --hard/VS Code 集成        |

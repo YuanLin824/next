@@ -1,0 +1,1036 @@
+# PostgreSQL 学习指南
+
+> 难度递进式学习文档，覆盖从零基础到生产环境运维的完整链路，以 PostgreSQL 16+ 为例。
+
+---
+
+## 第一阶段：认识 PostgreSQL（入门）
+
+### 1. PostgreSQL 是什么？
+
+PostgreSQL（简称 PG）是世界上最先进的开源关系型数据库，起源于 1986 年的 POSTGRES 项目（加州大学伯克利分校），1996 年更名为 PostgreSQL，至今已有近 30 年持续演进。它在标准兼容性、扩展性和数据完整性方面普遍优于 MySQL。
+
+**与 MySQL 的关键差异：**
+
+| 维度         | PostgreSQL                                       | MySQL                            |
+| ------------ | ------------------------------------------------ | -------------------------------- |
+| **类型系统** | 极丰富——数组、JSONB、hstore、范围、几何、自定义  | 较基础——INT/VARCHAR/JSON/TEXT    |
+| **索引**     | B-Tree / Hash / GiST / GIN / SP-GiST / BRIN 六种 | B-Tree / Hash / FULLTEXT（基本） |
+| **MVCC**     | 多版本堆存储（无 undo log），需 VACUUM 清理      | undo log 回滚段                  |
+| **Schema**   | 三级：Database → Schema → Table（多命名空间）    | Database → Table（无 Schema 层） |
+| **复制**     | 物理流复制 + 逻辑复制（原生内置）                | 异步/半同步复制                  |
+| **扩展**     | 极其丰富（PostGIS、pgvector、TimescaleDB 等）    | 较少                             |
+| **DDL 事务** | ✅ 原子 DDL（CREATE TABLE 可回滚）               | ✅ 8.0+ 支持                     |
+| **标准兼容** | 最严格遵循 SQL 标准                              | 较松散，有很多非标准语法         |
+| **ACID**     | 完全 ACID                                        | InnoDB 支持，MyISAM 不支持       |
+| **连接方式** | 进程模型（每连接 fork 一个进程）                 | 线程模型                         |
+
+> **选 PG 的场景**：复杂查询、地理空间数据、JSON 文档存储、需要自定义类型/函数、数据完整性要求高。
+
+### 2. 安装（Docker）
+
+```bash
+# 拉取镜像
+docker pull postgres:16-alpine
+
+# 启动
+docker run -d -p 5432:5432 --name postgres \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres123 \
+  -e TZ=Asia/Shanghai \
+  -v /postgres/data:/var/lib/postgresql/data \
+  postgres:16-alpine
+```
+
+**Docker Compose（带初始化脚本）：**
+
+```yaml
+# docker-compose.yml
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: postgres
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres123}
+      POSTGRES_APP_USERNAME: ${POSTGRES_USERNAME:-app}
+      POSTGRES_APP_PASSWORD: ${POSTGRES_PASSWORD:-app123}
+      POSTGRES_APP_DATABASE: ${POSTGRES_DATABASE:-my_app}
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./init.sh:/docker-entrypoint-initdb.d/init.sh:ro
+    restart: unless-stopped
+
+volumes:
+  pg_data:
+```
+
+```bash
+#!/bin/bash
+# init.sh —— 容器首次启动时自动执行
+set -e
+
+psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<-EOSQL
+  CREATE USER ${POSTGRES_APP_USERNAME} WITH LOGIN CREATEDB PASSWORD '${POSTGRES_APP_PASSWORD}';
+  CREATE DATABASE ${POSTGRES_APP_DATABASE} OWNER ${POSTGRES_APP_USERNAME};
+  GRANT ALL PRIVILEGES ON DATABASE ${POSTGRES_APP_DATABASE} TO ${POSTGRES_APP_USERNAME};
+EOSQL
+```
+
+### 3. 连接与元命令
+
+```bash
+# 连接
+docker exec -it postgres psql -U postgres         # 默认连接 postgres 数据库
+docker exec -it postgres psql -U postgres -d my_app  # 指定数据库
+
+# 或者在宿主机（需安装 psql 客户端）
+psql -h localhost -p 5432 -U postgres -d my_app
+
+# 退出
+\q
+```
+
+**psql 核心元命令（反斜杠命令）：**
+
+| 命令            | 作用                           |
+| --------------- | ------------------------------ |
+| `\q`            | 退出                           |
+| `\l`            | 列出所有数据库 + 大小          |
+| `\c dbname`     | 切换数据库                     |
+| `\dt`           | 列出当前 schema 的表           |
+| `\d tablename`  | 查看表结构                     |
+| `\d+ tablename` | 查看表结构详情（含大小、描述） |
+| `\du`           | 列出所有用户/角色              |
+| `\dn`           | 列出所有 schema                |
+| `\di`           | 列出所有索引                   |
+| `\dv`           | 列出所有视图                   |
+| `\df`           | 列出所有函数                   |
+| `\x`            | 切换扩展显示（宽表垂直展示）   |
+| `\timing`       | 开关查询耗时显示               |
+| `\e`            | 用外部编辑器编辑上一条查询     |
+| `\i file.sql`   | 执行 SQL 文件                  |
+| `\?`            | psql 命令帮助                  |
+| `\h SELECT`     | SQL 语法帮助                   |
+
+> psql 比 mysql CLI 功能强得多——它本身就是一个强大的交互式工具。
+
+### 4. 第一组命令
+
+```sql
+-- 创建数据库
+CREATE DATABASE my_app;
+
+-- 切换数据库（在 psql 中）
+\c my_app
+
+-- 创建表（SERIAL = 自增整数）
+CREATE TABLE users (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(255) UNIQUE,
+  age INT DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 查看表
+\dt
+\d users
+
+-- 插入
+INSERT INTO users (name, email, age) VALUES ('Alice', 'alice@example.com', 25);
+
+-- 查询
+SELECT * FROM users;
+```
+
+---
+
+## 第二阶段：SQL 基础与 PG 特色类型
+
+### 5. 数据类型——PG 的杀手优势
+
+**基础数值与字符串（与 MySQL 相似）：**
+
+```sql
+-- 数值：SMALLINT / INT / BIGINT / DECIMAL(M,D) / REAL / DOUBLE PRECISION
+-- 字符串：VARCHAR(N) / CHAR(N) / TEXT（推荐——无长度限制，性能与 VARCHAR 相同）
+-- 布尔：BOOLEAN（TRUE / FALSE / NULL）
+-- 日期：DATE / TIME / TIMESTAMP / TIMESTAMPTZ / INTERVAL
+```
+
+**PG 特色类型：**
+
+```sql
+-- ========== SERIAL / IDENTITY（自增主键） ==========
+-- SERIAL（老式）
+CREATE TABLE t1 (id SERIAL PRIMARY KEY);
+
+-- IDENTITY（标准 SQL，PG 10+ 推荐）
+CREATE TABLE t2 (id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY);
+CREATE TABLE t3 (id INT GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY);  -- 可手动插入
+
+-- ========== 数组（MySQL 没有） ==========
+CREATE TABLE posts (
+  id SERIAL PRIMARY KEY,
+  title TEXT,
+  tags TEXT[]             -- 字符串数组
+);
+
+INSERT INTO posts (title, tags) VALUES ('PG 入门', ARRAY['pg', 'tutorial']);
+INSERT INTO posts (title, tags) VALUES ('PG 进阶', '{pg,advanced,sql}');  -- 字面量语法
+
+SELECT * FROM posts WHERE 'pg' = ANY(tags);          -- 包含 "pg"
+SELECT * FROM posts WHERE tags @> '{pg,tutorial}';    -- 包含全部
+SELECT title, tags[1] AS first_tag FROM posts;        -- 取第一个元素
+
+-- ========== JSONB vs JSON ==========
+-- JSON：  纯文本存储，保留空格和键顺序，写入快、查询慢
+-- JSONB： 二进制解析存储，支持索引，查询快（推荐 99% 场景）
+CREATE TABLE configs (
+  id SERIAL PRIMARY KEY,
+  data JSONB
+);
+
+INSERT INTO configs (data) VALUES ('{"theme": "dark", "version": 2}');
+
+-- JSONB 查询操作符
+SELECT data->>'theme' FROM configs;                    -- 取文本值 → "dark"
+SELECT data->'version' FROM configs;                   -- 取 JSON 值 → 2
+SELECT * FROM configs WHERE data->>'theme' = 'dark';   -- 条件过滤
+SELECT * FROM configs WHERE data @> '{"version": 2}';  -- 包含检查
+
+-- JSONB 索引（重点！）
+CREATE INDEX idx_configs_data ON configs USING GIN (data);
+-- → @>, ?, ?|, ?& 等操作符均可使用索引
+
+-- ========== HSTORE（键值对，需启用扩展） ==========
+CREATE EXTENSION hstore;
+SELECT 'a=>1,b=>2'::hstore -> 'a';
+
+-- ========== 枚举类型 ==========
+CREATE TYPE mood AS ENUM ('happy', 'sad', 'neutral');
+CREATE TABLE diary (
+  id SERIAL PRIMARY KEY,
+  feeling mood DEFAULT 'neutral'
+);
+
+-- 修改枚举（PG 9.1+ 可追加值）
+ALTER TYPE mood ADD VALUE 'excited';
+
+-- ========== 范围类型 ==========
+-- int4range / int8range / numrange / tsrange / tstzrange / daterange
+CREATE TABLE room_bookings (
+  id SERIAL PRIMARY KEY,
+  room_id INT,
+  during tsrange               -- 时间段
+);
+
+INSERT INTO room_bookings (room_id, during)
+VALUES (1, '[2026-07-30 09:00, 2026-07-30 11:00)');  -- [闭区间,开区间)
+
+-- 查询与 10:00~12:00 重叠的预定
+SELECT * FROM room_bookings
+WHERE during && tsrange('2026-07-30 10:00', '2026-07-30 12:00');
+
+-- ========== 自定义复合类型 ==========
+CREATE TYPE address AS (city TEXT, zip TEXT, street TEXT);
+CREATE TABLE offices (
+  id SERIAL PRIMARY KEY,
+  location address
+);
+INSERT INTO offices (location) VALUES (ROW('Beijing', '100000', '长安街'));
+SELECT (location).city FROM offices;
+```
+
+### 6. DDL —— 数据定义
+
+```sql
+-- ========== 建表 ==========
+CREATE TABLE users (
+  id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(255) NOT NULL UNIQUE,
+  age INT CHECK (age >= 0 AND age <= 150),
+  status VARCHAR(20) DEFAULT 'active',
+  metadata JSONB,
+  tags TEXT[],
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 添加 COMMENT（MySQL 风格的注释）
+COMMENT ON TABLE users IS '用户表';
+COMMENT ON COLUMN users.name IS '用户名';
+COMMENT ON COLUMN users.email IS '邮箱（唯一）';
+
+-- ========== 修改表 ==========
+ALTER TABLE users ADD COLUMN phone VARCHAR(20);
+ALTER TABLE users ALTER COLUMN name SET NOT NULL;
+ALTER TABLE users ALTER COLUMN name SET DEFAULT 'anonymous';
+ALTER TABLE users ALTER COLUMN name DROP DEFAULT;
+ALTER TABLE users RENAME COLUMN phone TO mobile;
+ALTER TABLE users DROP COLUMN mobile;
+
+-- PG 特有：DDL 在事务中可回滚！（MySQL 8.0+ 也支持了）
+BEGIN;
+ALTER TABLE users ADD COLUMN temp_col INT;
+-- 发现有问题 → 回滚
+ROLLBACK;
+-- → temp_col 不会出现
+
+-- ========== 删表 ==========
+DROP TABLE IF EXISTS users CASCADE;  -- CASCADE 级联删除依赖对象（外键/视图等）
+TRUNCATE TABLE users RESTART IDENTITY;  -- 清空数据 + 重置自增序列
+```
+
+### 7. DML —— 数据操作（PG 特性）
+
+```sql
+-- ========== INSERT ==========
+INSERT INTO users (name, email, age) VALUES ('Alice', 'alice@x.com', 25);
+INSERT INTO users (name, email, age) VALUES
+  ('Bob', 'bob@x.com', 30),
+  ('Charlie', 'charlie@x.com', 28);
+
+-- PG 特性：RETURNING —— 插入后直接返回数据（不需要再 SELECT 一次）
+INSERT INTO users (name, email, age)
+VALUES ('David', 'david@x.com', 35)
+RETURNING id, name, created_at;
+
+-- 批量插入并返回全部
+INSERT INTO users (name, email) VALUES
+  ('Eve', 'eve@x.com'),
+  ('Frank', 'frank@x.com')
+RETURNING *;
+
+-- ========== UPSERT：ON CONFLICT（PG 9.5+） ==========
+-- 插入，如果 email 冲突则更新 name 和 age
+INSERT INTO users (name, email, age) VALUES ('Alice Updated', 'alice@x.com', 26)
+ON CONFLICT (email)
+DO UPDATE SET name = EXCLUDED.name, age = EXCLUDED.age;
+
+-- 冲突时什么都不做
+INSERT INTO users (name, email) VALUES ('Duplicate', 'alice@x.com')
+ON CONFLICT (email) DO NOTHING;
+
+-- 按约束名
+INSERT INTO users (name, email) VALUES ('New', 'alice@x.com')
+ON CONFLICT ON CONSTRAINT users_email_key DO UPDATE SET name = EXCLUDED.name;
+
+-- ========== UPDATE ==========
+UPDATE users SET status = 'inactive' WHERE id = 1;
+UPDATE users SET age = age + 1, updated_at = NOW() WHERE status = 'active';
+
+-- PG 特性：UPDATE ... FROM（联表更新）
+UPDATE orders o
+SET total = p.price * o.quantity
+FROM products p
+WHERE o.product_id = p.id;
+
+-- PG 特性：RETURNING
+UPDATE users SET status = 'vip' WHERE age > 60
+RETURNING id, name, status;
+
+-- ========== DELETE ==========
+DELETE FROM users WHERE id = 1;
+DELETE FROM users WHERE status = 'inactive'
+RETURNING id, name;       -- 查看删了谁
+```
+
+### 8. DQL —— 查询基础
+
+```sql
+SELECT name, email, age FROM users WHERE status = 'active';
+SELECT DISTINCT status FROM users;
+SELECT * FROM users WHERE age BETWEEN 18 AND 30;
+SELECT * FROM users WHERE name IN ('Alice', 'Bob');
+SELECT * FROM users WHERE email IS NULL;
+SELECT * FROM users WHERE name LIKE 'A%';
+SELECT * FROM users WHERE name ~ '^A.*';                 -- PG 正则（~ 区分大小写，~* 不区分）
+
+-- 排序与分页
+SELECT * FROM users ORDER BY age DESC;
+SELECT * FROM users ORDER BY status, created_at DESC;
+SELECT * FROM users LIMIT 10 OFFSET 20;
+
+-- 聚合与分组
+SELECT status, COUNT(*), AVG(age), MAX(age)
+FROM users
+GROUP BY status
+HAVING COUNT(*) > 10;
+```
+
+---
+
+## 第三阶段：高级查询
+
+### 9. JOIN
+
+```sql
+-- INNER / LEFT / RIGHT / CROSS（与标准 SQL 相同）
+SELECT u.name, o.total
+FROM users u
+LEFT JOIN orders o ON u.id = o.user_id;
+
+-- PG 特性：NATURAL JOIN（自动用同名列连接，慎用——不够显式）
+-- PG 特性：USING（当两表列名相同时简化 ON）
+SELECT * FROM orders JOIN users USING (user_id);
+```
+
+### 10. 子查询
+
+```sql
+-- 标量子查询
+SELECT * FROM users WHERE age > (SELECT AVG(age) FROM users);
+
+-- IN / NOT IN
+SELECT * FROM users WHERE id IN (SELECT user_id FROM orders);
+
+-- EXISTS（通常比 IN 高效）
+SELECT * FROM users u
+WHERE EXISTS (SELECT 1 FROM orders o WHERE o.user_id = u.id);
+
+-- 相关子查询——PG 的 LATERAL（见下文）通常比相关子查询更好
+```
+
+### 11. UNION / INTERSECT / EXCEPT
+
+```sql
+-- UNION：合并 + 去重
+SELECT name FROM active_users
+UNION
+SELECT name FROM archived_users;
+
+-- UNION ALL：合并 + 保留重复
+SELECT name FROM vip_users
+UNION ALL
+SELECT name FROM regular_users;
+
+-- INTERSECT：交集
+SELECT user_id FROM orders_2025
+INTERSECT
+SELECT user_id FROM orders_2026;
+
+-- EXCEPT：差集（A 有 B 无）
+SELECT user_id FROM all_users
+EXCEPT
+SELECT user_id FROM banned_users;
+```
+
+### 12. CTE（WITH 查询）
+
+```sql
+-- 基本 CTE
+WITH active_stats AS (
+  SELECT status, COUNT(*) AS cnt
+  FROM users
+  GROUP BY status
+)
+SELECT * FROM active_stats WHERE cnt > 10;
+
+-- 多个 CTE
+WITH
+  recent_users AS (
+    SELECT * FROM users WHERE created_at > NOW() - INTERVAL '30 days'
+  ),
+  recent_orders AS (
+    SELECT * FROM orders WHERE created_at > NOW() - INTERVAL '30 days'
+  )
+SELECT ru.name, COUNT(ro.id) AS order_cnt
+FROM recent_users ru
+LEFT JOIN recent_orders ro ON ru.id = ro.user_id
+GROUP BY ru.id, ru.name;
+
+-- 递归 CTE（处理树形/层级数据）
+WITH RECURSIVE subordinates AS (
+  -- 基础情况：顶级经理
+  SELECT id, name, manager_id, 0 AS level
+  FROM employees WHERE manager_id IS NULL
+  UNION ALL
+  -- 递归：找到所有的下属
+  SELECT e.id, e.name, e.manager_id, s.level + 1
+  FROM employees e
+  INNER JOIN subordinates s ON e.manager_id = s.id
+)
+SELECT repeat('  ', level) || name AS org_chart FROM subordinates;
+```
+
+### 13. 窗口函数
+
+```sql
+-- 语法：function(...) OVER (PARTITION BY col ORDER BY col)
+
+-- ROW_NUMBER / RANK / DENSE_RANK
+SELECT name, dept, salary,
+  ROW_NUMBER() OVER (PARTITION BY dept ORDER BY salary DESC) AS rn
+FROM employees;
+
+-- LAG / LEAD
+SELECT date, revenue,
+  LAG(revenue, 1) OVER (ORDER BY date) AS prev_day,
+  revenue - LAG(revenue, 1) OVER (ORDER BY date) AS change
+FROM daily_sales;
+
+-- 聚合窗口
+SELECT name, dept, salary,
+  SUM(salary) OVER (PARTITION BY dept) AS dept_total,
+  ROUND(salary * 100.0 / SUM(salary) OVER (PARTITION BY dept), 1) AS pct
+FROM employees;
+
+-- FIRST_VALUE / LAST_VALUE / NTH_VALUE
+SELECT date, revenue,
+  FIRST_VALUE(revenue) OVER (ORDER BY date ROWS BETWEEN 6 PRECEDING AND CURRENT ROW)
+  AS week_start_revenue
+FROM daily_sales;
+```
+
+### 14. LATERAL 子查询 —— PG 独门利器
+
+LATERAL 让子查询可以引用 FROM 列表中前面表的列：
+
+```sql
+-- 每个用户取最近 3 条订单
+SELECT u.name, recent.*
+FROM users u
+CROSS JOIN LATERAL (
+  SELECT order_no, total, created_at
+  FROM orders
+  WHERE user_id = u.id
+  ORDER BY created_at DESC
+  LIMIT 3
+) AS recent;
+
+-- 拆解数组（类似 UNNEST）
+SELECT u.name, tag
+FROM users u, LATERAL unnest(u.tags) AS tag;
+```
+
+---
+
+## 第四阶段：Schema 与数据建模
+
+### 15. Schema —— 数据库内的命名空间
+
+MySQL 的 Database ≈ PG 的 Schema。PG 有三层结构：**Database → Schema → Table**。一个 Database 可以有多个 Schema。
+
+```sql
+-- 创建 Schema
+CREATE SCHEMA IF NOT EXISTS app;
+CREATE SCHEMA IF NOT EXISTS audit;
+
+-- 在不同 Schema 中建表
+CREATE TABLE app.users (id SERIAL PRIMARY KEY, name TEXT);
+CREATE TABLE audit.users_log (id SERIAL PRIMARY KEY, action TEXT, user_id INT);
+
+-- search_path —— 控制表查找顺序（类似 PATH）
+SHOW search_path;  -- 默认: "$user", public
+SET search_path TO app, public;
+
+-- 多租户隔离方案：每个租户一个 Schema
+-- CREATE SCHEMA tenant_a;
+-- CREATE SCHEMA tenant_b;
+-- SET search_path TO tenant_a;  ← 隔离不同租户
+```
+
+### 16. 约束——PG 的数据完整性
+
+```sql
+-- CHECK 约束（PG 的 CHECK 比 MySQL 灵活得多）
+CREATE TABLE products (
+  id SERIAL PRIMARY KEY,
+  name TEXT NOT NULL,
+  price DECIMAL(10,2) CHECK (price > 0),
+  discount DECIMAL(3,2) CHECK (discount >= 0 AND discount <= 1),
+  stock INT CHECK (stock >= 0)
+);
+
+-- 排除约束（EXCLUSION CONSTRAINT）—— PG 独有
+-- 确保每个房间每个时间段没有重叠预定
+CREATE EXTENSION btree_gist;
+CREATE TABLE room_bookings (
+  id SERIAL PRIMARY KEY,
+  room_id INT,
+  during tsrange,
+  EXCLUDE USING GIST (room_id WITH =, during WITH &&)  -- 同一房间，时间段不能重叠
+);
+
+-- 外键（支持多种级联操作）
+CREATE TABLE orders (
+  id SERIAL PRIMARY KEY,
+  user_id INT REFERENCES users(id) ON DELETE CASCADE ON UPDATE CASCADE
+);
+-- ON DELETE: CASCADE / SET NULL / SET DEFAULT / RESTRICT / NO ACTION
+```
+
+### 17. 表继承（PG 原生支持）
+
+```sql
+-- 基表
+CREATE TABLE logs (
+  id SERIAL PRIMARY KEY,
+  message TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 继承表（只存特定类型日志，可单独索引）
+CREATE TABLE error_logs (severity INT CHECK (severity >= 1))
+INHERITS (logs);
+
+CREATE TABLE access_logs (ip INET)
+INHERITS (logs);
+
+-- 查询基表 → 自动包含所有子表数据（除非加 ONLY）
+SELECT * FROM logs;              -- 查所有（含子表）
+SELECT * FROM ONLY logs;         -- 只查基表
+
+-- 分区表就是基于继承实现的（PG 10+ 有了声明式分区，更方便）
+```
+
+### 18. 表分区（PG 10+ 声明式）
+
+```sql
+-- 范围分区
+CREATE TABLE orders (
+  id SERIAL,
+  user_id INT NOT NULL,
+  total DECIMAL(10,2),
+  created_at TIMESTAMPTZ NOT NULL
+) PARTITION BY RANGE (created_at);
+
+CREATE TABLE orders_2026_q1 PARTITION OF orders
+FOR VALUES FROM ('2026-01-01') TO ('2026-04-01');
+CREATE TABLE orders_2026_q2 PARTITION OF orders
+FOR VALUES FROM ('2026-04-01') TO ('2026-07-01');
+CREATE TABLE orders_2026_q3 PARTITION OF orders
+FOR VALUES FROM ('2026-07-01') TO ('2026-10-01');
+
+-- 列表分区
+CREATE TABLE users (
+  id SERIAL,
+  country TEXT NOT NULL
+) PARTITION BY LIST (country);
+
+CREATE TABLE users_cn PARTITION OF users FOR VALUES IN ('CN');
+CREATE TABLE users_us PARTITION OF users FOR VALUES IN ('US');
+
+-- 哈希分区
+CREATE TABLE events (id SERIAL, data TEXT)
+PARTITION BY HASH (id);
+CREATE TABLE events_0 PARTITION OF events FOR VALUES WITH (MODULUS 4, REMAINDER 0);
+CREATE TABLE events_1 PARTITION OF events FOR VALUES WITH (MODULUS 4, REMAINDER 1);
+-- ... 以此类推
+
+-- 查看分区信息
+SELECT * FROM pg_partition_tree('orders');
+```
+
+---
+
+## 第五阶段：索引与性能优化
+
+### 19. 六大索引类型
+
+| 索引类型           | 适用场景                          | 支持操作符                                                   |
+| ------------------ | --------------------------------- | ------------------------------------------------------------ |
+| **B-Tree**（默认） | 等值、范围、排序                  | `<` `<=` `=` `>=` `>` `BETWEEN` `IN` `IS NULL` `LIKE 'abc%'` |
+| **Hash**           | 等值查询（不支持范围）            | `=` 且 WAL 记录少（PG 10+ 支持 WAL）                         |
+| **GiST**           | 全文搜索、几何数据、范围、自定义  | `@>` `<@` `&&` `<<` `>>` `&<` 等                             |
+| **GIN**            | JSONB、数组、全文搜索（倒排索引） | `@>` `?` `?&` `?\|`                                          |
+| **SP-GiST**        | 非平衡数据结构（点、范围）        | 类似 GiST，特定场景更快                                      |
+| **BRIN**           | 超大规模顺序存储表（时序数据）    | 范围扫描（块级索引，极小）                                   |
+
+```sql
+-- B-Tree
+CREATE INDEX idx_users_email ON users (email);
+
+-- 唯一索引（推荐替代 UNIQUE 约束——可以加条件，更灵活）
+CREATE UNIQUE INDEX uk_users_email ON users (email);
+
+-- 复合索引
+CREATE INDEX idx_users_status_age ON users (status, age);
+
+-- 表达式索引
+CREATE INDEX idx_users_lower_email ON users (LOWER(email));
+SELECT * FROM users WHERE LOWER(email) = 'alice@x.com';  -- 走索引！
+
+-- 部分索引（只索引部分行，更小更快）
+CREATE INDEX idx_active_users ON users (id)
+WHERE status = 'active';
+-- 下面这个查询会走 idx_active_users：
+SELECT * FROM users WHERE status = 'active' AND id > 1000;
+
+-- 覆盖索引（INCLUDE 非键列，避免回表）
+CREATE INDEX idx_users_email_name ON users (email) INCLUDE (name, age);
+SELECT email, name, age FROM users WHERE email = 'alice@x.com';  -- 纯索引扫描
+
+-- GIN 索引（JSONB / 数组 / 全文搜索）
+CREATE INDEX idx_users_tags ON users USING GIN (tags);
+CREATE INDEX idx_configs_data ON configs USING GIN (data);
+SELECT * FROM users WHERE tags @> '{vip}';
+SELECT * FROM configs WHERE data @> '{"theme": "dark"}';
+
+-- BRIN 索引（非常适合 TB 级时序数据）
+CREATE INDEX idx_logs_time ON logs USING BRIN (created_at);
+-- 块级记录 min/max，比 B-Tree 小 100-1000 倍
+```
+
+### 20. EXPLAIN ANALYZE
+
+```sql
+-- 基本执行计划
+EXPLAIN SELECT * FROM users WHERE email = 'alice@x.com';
+
+-- 包含实际执行时间（会真正执行 SQL）
+EXPLAIN ANALYZE SELECT * FROM users WHERE email = 'alice@x.com';
+
+-- 详细输出
+EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)
+SELECT u.name, COUNT(o.id)
+FROM users u LEFT JOIN orders o ON u.id = o.user_id
+GROUP BY u.id, u.name;
+
+-- 关键指标解读：
+-- Seq Scan       → ⚠️ 全表扫描（大表需要优化）
+-- Index Scan     → ✅ 索引扫描（走了索引，回表取数据）
+-- Index Only Scan → ✅✅ 纯索引扫描（覆盖索引，最优）
+-- Bitmap Scan    → ✅ 位图扫描（合并多个索引结果）
+-- cost=0.00..1.00 → 第一个值是启动成本，第二个是总成本
+-- rows=1000       → 预估行数
+-- actual time=0.050..2.300 → 实际时间（启动..总）
+-- Buffers: shared hit=4 → 缓存命中（hit=内存, read=磁盘）
+```
+
+### 21. VACUUM 与统计信息
+
+PG 的 MVCC 不通过 undo log 回滚，而是保留旧版本在堆表中。VACUUM 回收死元组（dead tuples）空间：
+
+```sql
+-- 手动清理
+VACUUM users;                   -- 标记空间可重用（不锁表，不归还磁盘）
+VACUUM FULL users;              -- 锁表重写，归还磁盘空间给 OS
+VACUUM ANALYZE users;           -- 清理 + 更新统计信息
+
+-- 自动清理（默认已开启）
+SHOW autovacuum;                -- 查看是否开启
+SELECT * FROM pg_stat_user_tables WHERE relname = 'users';
+-- n_dead_tup: 死元组数 → 接近 autovacuum_vacuum_threshold 时会触发自动清理
+
+-- 更新统计信息（优化器依赖它选择执行计划）
+ANALYZE users;
+ANALYZE VERBOSE users;
+```
+
+### 22. 查询优化要点
+
+| 要点                   | 说明                                                                    |
+| ---------------------- | ----------------------------------------------------------------------- |
+| 避免 `SELECT *`        | 只取需要的列——有助于 Index Only Scan                                    |
+| 函数索引（表达式索引） | `WHERE LOWER(email) = ...` 创建 `idx ON users (LOWER(email))`           |
+| 部分索引               | 只对热门子集（如 `WHERE status = 'active'`）建索引                      |
+| 大偏移分页             | 用游标分页代替 `OFFSET`：`WHERE id > last_seen_id ORDER BY id LIMIT 10` |
+| 合理使用 `EXISTS`      | `EXISTS(SELECT 1 FROM b WHERE ...)` 通常优于 `IN`                       |
+| 减少 JOIN              | 必要时适当反范式、物化视图                                              |
+| GIN 索引               | JSONB/数组查询用 GIN，不要用 B-Tree 硬查                                |
+| `work_mem`             | 增加 work_mem 允许排序/哈希在内存中完成，避免磁盘临时文件               |
+
+---
+
+## 第六阶段：事务与并发
+
+### 23. MVCC —— PostgreSQL 方式
+
+```
+MySQL 方式：              PostgreSQL 方式：
+UPDATE 一行               UPDATE 一行
+→ 旧行写入 undo log       → 插入新版本行（新 tuple）
+→ 原地更新行数据          → 旧版本行保留在堆表中
+                          → autovacuum 定期清理旧版本
+
+结果：PG 不需要 undo log，但需要 VACUUM
+```
+
+- 每个 tuple 带 `xmin`（创建事务 ID）和 `xmax`（删除事务 ID）
+- 查询通过快照（snapshot）判断哪些 tuple 对当前事务可见
+- 没有回滚段限制——长事务不会像 MySQL 一样 OOM 回滚段
+
+### 24. 隔离级别
+
+```sql
+-- 查看当前级别
+SHOW default_transaction_isolation;
+-- PG 默认：READ COMMITTED
+
+-- 设置
+SET TRANSACTION ISOLATION LEVEL SERIALIZABLE;
+```
+
+| 隔离级别                   | PG 支持                     | 说明                                                    |
+| -------------------------- | --------------------------- | ------------------------------------------------------- |
+| READ UNCOMMITTED           | ✅（等价于 READ COMMITTED） | PG 不允许脏读                                           |
+| **READ COMMITTED**（默认） | ✅                          | 每次语句看最新已提交快照                                |
+| REPEATABLE READ            | ✅                          | 事务内看同一切片（无幻读，PG 用快照隔离实现）           |
+| SERIALIZABLE               | ✅（真正的可串行化）        | 基于 SSI（Serializable Snapshot Isolation），比锁表高效 |
+
+```sql
+-- PG 可串行化的优势：自动检测冲突并中止事务
+BEGIN ISOLATION LEVEL SERIALIZABLE;
+-- ... 操作 ...
+COMMIT;
+-- 如果冲突 → ERROR: could not serialize access due to read/write dependencies
+-- 应用侧重试即可
+```
+
+### 25. 锁
+
+```sql
+-- 查看当前锁
+SELECT relation::regclass, mode, granted, pid
+FROM pg_locks
+WHERE relation IS NOT NULL;
+
+-- 查看阻塞
+SELECT blocked_locks.pid AS blocked_pid,
+       blocking_locks.pid AS blocking_pid,
+       blocked_activity.query AS blocked_query
+FROM pg_locks blocked_locks
+JOIN pg_locks blocking_locks
+  ON blocked_locks.locktype = blocking_locks.locktype
+  AND blocked_locks.relation = blocking_locks.relation
+  AND blocked_locks.pid != blocking_locks.pid
+  AND NOT blocked_locks.granted
+JOIN pg_stat_activity blocked_activity
+  ON blocked_locks.pid = blocked_activity.pid
+JOIN pg_stat_activity blocking_activity
+  ON blocking_locks.pid = blocking_activity.pid;
+
+-- 干掉阻塞进程
+SELECT pg_terminate_backend(pid);
+```
+
+| 锁级别（由低到高） | 说明                                 |
+| ------------------ | ------------------------------------ |
+| Access Share       | SELECT 获取                          |
+| Row Share          | SELECT FOR UPDATE/SHARE              |
+| Row Exclusive      | INSERT/UPDATE/DELETE                 |
+| Share              | CREATE INDEX (CONCURRENTLY 不持此锁) |
+| Access Exclusive   | ALTER TABLE / DROP TABLE / TRUNCATE  |
+
+> PG 读不阻塞写，写不阻塞读——SELECT 永远不会被 INSERT/UPDATE/DELETE 阻塞。
+
+---
+
+## 第七阶段：用户、备份与运维
+
+### 26. 角色与权限
+
+PG 中"用户"和"角色"是同一概念（用户 = 带 LOGIN 权限的角色）：
+
+```sql
+-- 创建角色/用户
+CREATE ROLE app_user WITH LOGIN PASSWORD 'strong_password';
+CREATE ROLE readonly WITH LOGIN PASSWORD 'readonly_password';
+
+-- 授权
+GRANT CONNECT ON DATABASE my_app TO app_user;                    -- 连接数据库
+GRANT USAGE ON SCHEMA public TO app_user;                        -- 使用 Schema
+GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
+GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO app_user;       -- 序列权限（SERIAL 用）
+
+-- 只读用户
+GRANT CONNECT ON DATABASE my_app TO readonly;
+GRANT USAGE ON SCHEMA public TO readonly;
+GRANT SELECT ON ALL TABLES IN SCHEMA public TO readonly;
+
+-- 未来新表也自动授权（PG 16+ 推荐）
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+GRANT SELECT ON TABLES TO readonly;
+
+-- 查看权限
+\du
+SELECT * FROM information_schema.table_privileges WHERE grantee = 'readonly';
+
+-- 撤销
+REVOKE ALL ON ALL TABLES IN SCHEMA public FROM app_user;
+
+-- 删除
+DROP ROLE IF EXISTS app_user;
+```
+
+### 27. 备份与恢复
+
+```bash
+# ===== pg_dump（逻辑备份） =====
+# 单库备份
+pg_dump -U postgres -d my_app > my_app_$(date +%Y%m%d).sql
+
+# 自定义格式（可并行恢复，支持选择性恢复）
+pg_dump -U postgres -d my_app -Fc -f my_app.dump
+
+# 只备份 Schema
+pg_dump -U postgres -d my_app --schema-only -f schema.sql
+
+# 只备份数据
+pg_dump -U postgres -d my_app --data-only -f data.sql
+
+# ===== 恢复 =====
+psql -U postgres -d my_app < backup.sql
+pg_restore -U postgres -d my_app my_app.dump
+
+# ===== pg_dumpall（全实例备份） =====
+pg_dumpall -U postgres > all_databases.sql
+
+# ===== Docker 中操作 =====
+docker exec postgres pg_dump -U postgres my_app > backup.sql
+cat backup.sql | docker exec -i postgres psql -U postgres -d my_app
+```
+
+### 28. 复制概念
+
+```
+┌──────────────┐     WAL stream      ┌──────────────┐
+│   Primary    │ ─────────────────▶  │   Standby    │
+│  (读写)      │                     │  (只读/备份) │
+│              │                     │              │
+│  WAL Sender  │                     │  WAL Receiver│
+└──────────────┘                     └──────────────┘
+```
+
+- **流复制（Streaming Replication）**：Primary 的 WAL 实时流到 Standby，毫秒级延迟
+- **逻辑复制**：按表级别订阅变更，可用于升级、数据迁移、多数据库同步
+- 云服务（RDS / 云 PG）通常提供一键高可用
+
+### 29. 扩展
+
+PG 的扩展生态是其核心竞争力之一：
+
+```sql
+-- 查看可用扩展
+SELECT * FROM pg_available_extensions;
+
+-- 安装扩展
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements;  -- SQL 统计分析（推荐必装）
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";         -- UUID 生成
+CREATE EXTENSION IF NOT EXISTS pgcrypto;            -- 加密函数
+CREATE EXTENSION IF NOT EXISTS postgis;             -- 地理空间（行业标准）
+CREATE EXTENSION IF NOT EXISTS pg_trgm;             -- 三元组模糊搜索
+```
+
+**必装扩展推荐：**
+
+| 扩展                 | 用途                                           |
+| -------------------- | ---------------------------------------------- |
+| `pg_stat_statements` | 统计所有 SQL 的执行频率、耗时——性能诊断核心    |
+| `uuid-ossp`          | 生成 UUID（`uuid_generate_v4()`）              |
+| `pgcrypto`           | 加密函数（bcrypt、SHA、PGP）                   |
+| `pg_trgm`            | 模糊搜索——`LIKE '%keyword%'` 可用 GIN 索引加速 |
+| `postgis`            | 地理空间数据，GIS 行业标准                     |
+| `pgvector`           | 向量存储与相似度搜索（AI/LLM 应用必备）        |
+| `timescaledb`        | 时序数据库引擎（PG 的超能力插件）              |
+
+```sql
+-- pg_stat_statements 实战
+SELECT query, calls, mean_exec_time, total_exec_time
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT 10;
+
+-- 重置统计
+SELECT pg_stat_statements_reset();
+```
+
+### 30. PostgreSQL vs MySQL —— 选型参考
+
+| 场景            | 推荐                         | 理由                                           |
+| --------------- | ---------------------------- | ---------------------------------------------- |
+| 简单 CRUD 网站  | MySQL                        | 吃得少、跑得快、运维简单                       |
+| 复杂查询 / 报表 | **PostgreSQL**               | 优化器更智能，窗口函数、CTE、LATERAL           |
+| 地理空间（GIS） | **PostgreSQL** + PostGIS     | 行业标准，MySQL 8.0 GIS 差距大                 |
+| JSON 文档存储   | **PostgreSQL**               | JSONB + GIN 索引，性能领先 MySQL JSON          |
+| 数据仓库 / 分析 | **PostgreSQL**               | BRIN 索引、并行查询、分区表、FDW 外部数据源    |
+| 全文搜索        | **PostgreSQL**               | 内置全文搜索 + `pg_trgm`，比 MySQL FULLTEXT 强 |
+| 时序数据        | **PostgreSQL** + TimescaleDB | 专业时序引擎                                   |
+| 应用默认选择    | **PostgreSQL**               | 除非有明确理由，新项目首选 PG                  |
+
+### 31. 常见陷阱
+
+| 陷阱                   | 说明                                         | 正确做法                                      |
+| ---------------------- | -------------------------------------------- | --------------------------------------------- |
+| 忘记 VACUUM            | 死元组堆积 → 表膨胀 → 查询变慢               | 确保 autovacuum 开启，监控 `n_dead_tup`       |
+| 长事务不提交           | 阻止 VACUUM 清理 → 表膨胀                    | 监控 `pg_stat_activity` 中的长事务            |
+| `SERIAL` 自增序列      | `SERIAL` 背后是 sequence，事务回滚后间隙依旧 | 用 `IDENTITY` 替代 `SERIAL`（标准 SQL）       |
+| 不加索引的 JSONB 查询  | `WHERE data->>'field' = 'x'` 全表扫描        | 建 GIN 索引或表达式索引                       |
+| `work_mem` 太小        | 排序/哈希溢出到磁盘，性能骤降                | 按实际查询调整（如 `SET work_mem = '256MB'`） |
+| `max_connections` 过高 | 每个连接 fork 进程，内存爆炸                 | 用连接池（PgBouncer / Pgpool-II）             |
+
+### 32. 速查表
+
+**psql 元命令：**
+
+| 命令      | 作用           |
+| --------- | -------------- |
+| `\l`      | 数据库列表     |
+| `\c db`   | 切换数据库     |
+| `\dt`     | 表列表         |
+| `\d t`    | 表结构         |
+| `\du`     | 角色/用户列表  |
+| `\dn`     | Schema 列表    |
+| `\di`     | 索引列表       |
+| `\dv`     | 视图列表       |
+| `\df`     | 函数列表       |
+| `\x`      | 扩展显示       |
+| `\timing` | 开关计时       |
+| `\e`      | 编辑器编辑查询 |
+
+**DDL/DML：**
+
+| 操作        | 语法                                              |
+| ----------- | ------------------------------------------------- |
+| 建表        | `CREATE TABLE t (...);`                           |
+| 自增主键    | `id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY` |
+| 加列        | `ALTER TABLE t ADD COLUMN c TYPE;`                |
+| 改列        | `ALTER TABLE t ALTER COLUMN c SET DEFAULT x;`     |
+| 删列        | `ALTER TABLE t DROP COLUMN c;`                    |
+| 插入 + 返回 | `INSERT ... RETURNING *;`                         |
+| Upsert      | `INSERT ... ON CONFLICT (col) DO UPDATE SET ...;` |
+| 联表更新    | `UPDATE t SET ... FROM t2 WHERE ...;`             |
+| 删除 + 返回 | `DELETE FROM t WHERE ... RETURNING *;`            |
+
+**索引：**
+
+| 操作     | 语法                                                   |
+| -------- | ------------------------------------------------------ |
+| B-Tree   | `CREATE INDEX idx ON t (col);`                         |
+| 唯一     | `CREATE UNIQUE INDEX idx ON t (col);`                  |
+| 复合     | `CREATE INDEX idx ON t (a, b);`                        |
+| 表达式   | `CREATE INDEX idx ON t (LOWER(col));`                  |
+| 部分     | `CREATE INDEX idx ON t (col) WHERE status = 'active';` |
+| 覆盖     | `CREATE INDEX idx ON t (col) INCLUDE (other);`         |
+| GIN      | `CREATE INDEX idx ON t USING GIN (jsonb_col);`         |
+| 查看索引 | `\di`                                                  |
+| 删索引   | `DROP INDEX idx_name;`                                 |
+
+**管理：**
+
+| 操作     | 语法                                     |
+| -------- | ---------------------------------------- |
+| 创建用户 | `CREATE ROLE u WITH LOGIN PASSWORD 'p';` |
+| 授权     | `GRANT ALL ON t TO u;`                   |
+| 备份     | `pg_dump -U postgres db > backup.sql`    |
+| 恢复     | `psql -U postgres db < backup.sql`       |
+| 清理     | `VACUUM ANALYZE t;`                      |
+| 统计重置 | `SELECT pg_stat_statements_reset();`     |
+
+### 33. 参考文献
+
+- [PostgreSQL 官方文档](https://www.postgresql.org/docs/current/)
+- [PostgreSQL Wiki](https://wiki.postgresql.org/)
+- [The Art of PostgreSQL](https://theartofpostgresql.com/)
+- [Use The Index, Luke!（PG 版）](https://use-the-index-luke.com/sql/table-of-contents/postgresql)
+- [PostGIS 官方文档](https://postgis.net/documentation/)
+- [pg_stat_statements 文档](https://www.postgresql.org/docs/current/pgstatstatements.html)
