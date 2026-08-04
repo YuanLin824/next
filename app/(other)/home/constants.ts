@@ -92,18 +92,23 @@ export const HOME_FROUPS: CardGroup[] = [
   {
     title: "Agent",
     icon: "bot",
-    url: "agent",
+    url: "/agent",
     children: [
-      { title: "CCSwitch", icon: "repeat", url: "/ccswitch", desc: "终端里的 AI 编程伙伴" },
-      { title: "Claude Code", icon: "sparkles", url: "/claude-code", desc: "终端里的 AI 编程伙伴" },
-      { title: "Reasonix", icon: "brain", url: "/reasonix", desc: "终端里的 AI 编程伙伴" },
+      { title: "CCSwitch", icon: "repeat", url: "/ccswitch", desc: "多供应商一键切换工具" },
+      {
+        title: "Claude Code",
+        icon: "sparkles",
+        url: "/claude-code",
+        desc: "Anthropic 官方终端编程智能体",
+      },
+      { title: "Reasonix", icon: "brain", url: "/reasonix", desc: "DeepSeek 原生终端编程智能体" },
     ],
   },
 
   {
     title: "DB",
     icon: "database",
-    url: "db",
+    url: "/db",
     children: [
       { title: "MongoDB", icon: "leaf", url: "/mongo", desc: "文档型 NoSQL 数据库" },
       { title: "MySQL", icon: "table-2", url: "/mysql", desc: "关系型数据库" },
@@ -115,7 +120,7 @@ export const HOME_FROUPS: CardGroup[] = [
   {
     title: "Devops",
     icon: "terminal",
-    url: "devops",
+    url: "/devops",
     children: [
       { title: "Docker", icon: "container", url: "/docker", desc: "容器化平台" },
       { title: "Git", icon: "git-branch", url: "/git", desc: "分布式版本控制" },
@@ -128,32 +133,32 @@ export const HOME_FROUPS: CardGroup[] = [
   {
     title: "Node",
     icon: "server",
-    url: "node",
+    url: "/node",
     children: [
       { title: "Node.js", icon: "hexagon", url: "/node", desc: "服务端 JavaScript 运行时" },
       { title: "Express", icon: "code-2", url: "/express", desc: "极简 Web 框架" },
-      { title: "Koa", icon: "sprout", url: "/koa", desc: "下一代 Web 框架" },
+      { title: "Koa", icon: "sprout", url: "/koa", desc: "轻量优雅的 Web 框架" },
       { title: "Fastify", icon: "zap", url: "/fastify", desc: "高性能 Web 框架" },
-      { title: "NestJS", icon: "cat", url: "/nest", desc: "渐进式 Node 框架" },
+      { title: "NestJS", icon: "cat", url: "/nest", desc: "企业级 Node 框架" },
     ],
   },
 
   {
     title: "React",
     icon: "atom",
-    url: "react",
+    url: "/react",
     children: [
       { title: "NextJS", icon: "triangle", url: "/next", desc: "React 全栈框架" },
       { title: "React", icon: "atom", url: "/react", desc: "声明式 UI 库" },
       { title: "React Router", icon: "route", url: "/react-router", desc: "React 声明式路由库" },
-      { title: "Taro", icon: "smartphone", url: "/taro", desc: "跨端小程序框架" },
+      { title: "Taro", icon: "smartphone", url: "/taro", desc: "多端统一开发框架" },
     ],
   },
 
   {
     title: "System",
     icon: "monitor",
-    url: "system",
+    url: "/system",
     children: [
       { title: "Linux", icon: "shell", url: "/linux", desc: "开源操作系统" },
       { title: "Windows", icon: "grid-2x2", url: "/windows", desc: "桌面操作系统" },
@@ -163,7 +168,7 @@ export const HOME_FROUPS: CardGroup[] = [
   {
     title: "Vue",
     icon: "layers",
-    url: "vue",
+    url: "/vue",
     children: [
       { title: "UniApp", icon: "app-window", url: "/uniapp", desc: "跨端应用框架" },
       { title: "Vue", icon: "layers", url: "/vue", desc: "渐进式 UI 框架" },

@@ -57,6 +57,13 @@ app/
 - 点击目录项 → `scrollIntoView` + 关闭抽屉
 - 跟随 `pathname` 变化自动重建
 
+### 字体系统
+
+- 默认字体 **Maple Mono NF CN**（OFL 1.1），字体文件在 `app/fonts/`（Regular/Medium/SemiBold/Bold 四个字重）
+- `app/layout.tsx` 中通过 `next/font/local` 加载，输出 CSS 变量 `--font-maple`（挂载在 `<html>` 的 `maple.variable`）
+- `app/globals.css` 的 `@theme inline` 中 `--font-sans` / `--font-mono` / `--font-heading` 均指向 `--font-maple`（正文、代码块、标题统一使用）
+- 新增字重：从 Maple Font GitHub release 的 `MapleMono-NF-CN.zip` 取对应 ttf 放入 `app/fonts/`，并在 `layout.tsx` 的 `localFont` src 数组中注册
+
 ### 主题系统
 
 - `next-themes` 的 `ThemeProvider`，`attribute="class"`（在 `<html>` 上切换 `.dark`）
