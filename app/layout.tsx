@@ -6,11 +6,11 @@ import "./globals.css"
 
 const maple = localFont({
   src: [
-    { path: "./fonts/MapleMono-NF-CN-Regular.ttf", style: "normal" },
-    // { path: "./fonts/MapleMono-NF-CN-Regular.ttf", weight: "400", style: "normal" },
-    // { path: "./fonts/MapleMono-NF-CN-Medium.ttf", weight: "500", style: "normal" },
-    // { path: "./fonts/MapleMono-NF-CN-SemiBold.ttf", weight: "600", style: "normal" },
-    // { path: "./fonts/MapleMono-NF-CN-Bold.ttf", weight: "700", style: "normal" },
+    { path: "../fonts/MapleMono-NF-CN-Regular.ttf", style: "normal" },
+    // { path: "../fonts/MapleMono-NF-CN-Regular.ttf", weight: "400", style: "normal" },
+    // { path: "../fonts/MapleMono-NF-CN-Medium.ttf", weight: "500", style: "normal" },
+    // { path: "../fonts/MapleMono-NF-CN-SemiBold.ttf", weight: "600", style: "normal" },
+    // { path: "../fonts/MapleMono-NF-CN-Bold.ttf", weight: "700", style: "normal" },
   ],
   display: "swap",
   variable: "--font-maple",
