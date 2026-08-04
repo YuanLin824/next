@@ -52,7 +52,8 @@ export function TableOfContents() {
       return
     }
 
-    const headings = article.querySelectorAll("h1, h2, h3")
+    const headings = article.querySelectorAll("h1, h2")
+    // const headings = article.querySelectorAll("h1, h2, h3")
     const tocItems: TocItem[] = []
     headings.forEach((h) => {
       if (h.id) {

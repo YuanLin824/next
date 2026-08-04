@@ -18,7 +18,7 @@ export default function Page() {
                 const ChildIcon = resolveIcon(child.icon)
 
                 return (
-                  <a key={child.title} href={child.url}>
+                  <a key={child.title} href={group.url + child.url}>
                     <Card className="hover:bg-muted transition-colors">
                       <CardHeader>
                         <CardTitle className="flex items-center gap-2">
