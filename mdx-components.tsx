@@ -76,7 +76,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
             </div>
           )}
           <pre
-            className="overflow-x-auto rounded-lg p-4 font-mono text-sm leading-relaxed"
+            className="flex  overflow-x-auto rounded-lg p-4 font-mono text-sm leading-relaxed"
             {...props}
           >
             {children}

@@ -4,9 +4,6 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "codegraph": "codegraph init -i",
-    "codegraph:index": "codegraph index",
-    "codegraph:sync": "codegraph sync",
     "commit": "czg",
     "dev": "next dev",
     "format": "prettier --write .",

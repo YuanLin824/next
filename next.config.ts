@@ -9,8 +9,14 @@ const withMDX = createMDX({
 })
 
 const nextConfig: NextConfig = {
+  // 开启 React 编译器
   reactCompiler: true,
-  pageExtensions: ["js", "jsx", "md", "mdx", "ts", "tsx"],
+  experimental: { turbopackRustReactCompiler: true },
+
+  cacheComponents: true, // 开启组件缓存
+  partialPrefetching: true, // 开启部分预取
+
+  pageExtensions: ["js", "jsx", "mdx", "ts", "tsx"],
 }
 
 export default withMDX(nextConfig)
