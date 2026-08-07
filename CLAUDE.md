@@ -32,20 +32,16 @@ npm run commit       # 交互式提交 (czg)
 app/
 ├── (mdx)/           # 文档路由组 — MDX 页面，共享 MDX 布局
 │   ├── layout.tsx   #   布局: TableOfContents(浮动按钮+抽屉) + <article id="dmx-layout">
-│   ├── agent/       #   ccswitch, claude-code, reasonix
-│   ├── db/          #   mongo, mysql, postgresql, redis
-│   ├── devops/      #   docker, git, jenkins, k8s, nginx
-│   ├── node/        #   express, fastify, koa, nest, node
-│   ├── react/       #   next, react, react-router, taro
-│   ├── system/      #   linux, windows
-│   ├── vue/         #   uniapp, vue
+│   ├── study/       #   学习文档: agent/db/devops/node/react/system/vue
+│   ├── interview/   #   面试题文档: db/devops/node/react/vue
 │   └── */page.mdx   #   各文档页面
-├── (other)/         # 其他路由组 — 首页、关于
+├── (other)/         # 导航页 + 关于
 │   ├── layout.tsx   #   简单 px-3 pb-3 容器
-│   ├── home/        #   首页卡片导航 (page.tsx + constants.ts 分组数据)
+│   ├── study/       #   学习文档导航（根页面）
+│   ├── interview/   #   面试题文档导航
 │   └── about/
 ├── layout.tsx       # 根布局: SiteHeader + ThemeProvider + <main>
-├── page.tsx         # 根页面 → 重定向到 /home
+├── page.tsx         # 根页面 → 学习文档导航
 ├── globals.css      # Tailwind v4 + shadcn/ui CSS 变量(OKLCH) + 亮/暗主题
 └── error.tsx / not-found.tsx / loading.tsx
 ```
