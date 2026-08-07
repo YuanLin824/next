@@ -1,0 +1,196 @@
+# Fastify.js 面试题
+
+---
+
+## 一、核心概念
+
+### Q1: Fastify 为什么这么快？
+
+| 优化手段              | 说明                                                                               |
+| --------------------- | ---------------------------------------------------------------------------------- |
+| **Schema 编译序列化** | JSON Schema → 编译为专用函数（fast-json-stringify），比 `JSON.stringify` 快 2-3 倍 |
+| **Radix Tree 路由**   | 路由匹配 O(k)，大量路由时远优于 Express 的正则遍历                                 |
+| **pino logger**       | 最快的 Node.js 日志库                                                              |
+| **对象复用**          | 内部 Buffer/对象池，减少 GC 压力                                                   |
+| **插件封装**          | 每个插件独立上下文，避免全局查找                                                   |
+
+```
+性能基准（近似值，请求/秒）：
+Fastify  ~100,000 ██████████████████████████████████████████████████
+Koa       ~40,000 ████████████████████
+Express   ~15,000 ███████
+```
+
+### Q2: Fastify 和 Express/Koa 的核心差异？
+
+| 维度     | Express          | Koa              | Fastify                                   |
+| -------- | ---------------- | ---------------- | ----------------------------------------- |
+| 路由     | 正则遍历         | 需 @koa/router   | **Radix Tree**（O(k)）                    |
+| 序列化   | `JSON.stringify` | `JSON.stringify` | **Schema 编译函数**                       |
+| 验证     | 第三方           | 第三方           | **内置 JSON Schema**                      |
+| 插件     | `app.use(mw)`    | `app.use(mw)`    | **`register(plugin, opts)`** + 封装上下文 |
+| Logger   | 第三方           | 第三方           | **内置 pino**                             |
+| API 文档 | 无               | 无               | **Schema → Swagger 自动生成**             |
+| 错误处理 | 4 参数中间件     | try-catch        | `setErrorHandler`                         |
+| 响应     | `res.send/json`  | `ctx.body = obj` | **`return obj`**（自动 Schema 序列化）    |
+
+### Q3: Fastify 的 handler 和 Express handler 的区别？
+
+```js
+// Express —— 通知式：调用 res 方法
+app.get("/", (req, res) => {
+  res.json({ hello: "world" })
+})
+
+// Fastify —— 声明式：直接 return
+app.get("/", async (request, reply) => {
+  return { hello: "world" } // ← 自动 JSON 序列化，受 Schema 约束
+})
+
+// Fastify handler 必须是 async 或返回 Promise
+// reply.code(201).send(obj) → 需要自定义状态码/头时使用
+```
+
+---
+
+## 二、Schema 与插件
+
+### Q4: JSON Schema 验证如何工作？
+
+```js
+const schema = {
+  body: {
+    type: "object",
+    required: ["name", "email"],
+    properties: {
+      name: { type: "string", minLength: 2 },
+      email: { type: "string", format: "email" },
+      age: { type: "integer", minimum: 0, maximum: 150 },
+    },
+  },
+  response: {
+    200: {
+      type: "object",
+      properties: { id: { type: "integer" }, name: { type: "string" } },
+    },
+  },
+}
+
+app.post("/users", { schema }, async (request) => {
+  const { name, email, age } = request.body // ← 类型安全！
+  const user = await User.create({ name, email, age })
+  return user // ← 按 response Schema 序列化（比 JSON.stringify 快）
+})
+```
+
+**自动行为：**
+
+- body/querystring/params 不满足 Schema → **自动返回 400** + 详细错误信息
+- 响应不满足 Schema → 自动截断多余字段（默认） + 报错
+
+### Q5: Fastify 的插件系统如何工作？
+
+```js
+// 每个插件有独立的上下文——装饰器不会泄漏到外部
+const fp = require("fastify-plugin")
+
+async function dbPlugin(app, opts) {
+  const db = await connect(opts.uri)
+  app.decorate("db", db) // 添加实例属性
+
+  app.addHook("onClose", async () => await db.close())
+}
+
+// fastify-plugin：暴露装饰器到父上下文
+module.exports = fp(dbPlugin)
+
+// 使用
+await app.register(dbPlugin, { uri: process.env.DB_URI })
+app.get("/users", async () => {
+  return app.db.query("SELECT * FROM users") // db 装饰器可用
+})
+```
+
+**三个能力：**
+
+1. **前缀封装**：`register(router, { prefix: "/users" })`
+2. **作用域隔离**：插件 A 的 decorate 不影响插件 B
+3. **依赖管理**：按注册顺序加载
+
+### Q6: Fastify 的生命周期 Hooks 有哪些？
+
+```
+请求进入 → onRequest → preParsing → preValidation → preHandler
+  → handler → preSerialization → onSend → onResponse → 响应发出
+```
+
+```js
+app.addHook("onRequest", async (request, reply) => {
+  // 路由解析前 → 日志/限流
+})
+
+app.addHook("preHandler", async (request, reply) => {
+  // handler 执行前 → 认证/授权
+})
+
+app.addHook("onSend", async (request, reply, payload) => {
+  return payload // 响应发送前可修改
+})
+```
+
+---
+
+## 三、对比与速查
+
+### Q7: express-async-errors vs Fastify 原生错误处理？
+
+```js
+// Express：需 express-async-errors
+require("express-async-errors")
+app.get("/", async () => {
+  throw new Error("oops") // → 到 4 参数错误处理中间件
+})
+
+// Fastify：原生支持 async 错误
+app.get("/", async () => {
+  throw new Error("oops") // → 到 setErrorHandler
+})
+
+app.setErrorHandler(async (error, request, reply) => {
+  if (error.validation) {
+    reply.status(400).send({ error: error.message }) // Schema 验证失败
+    return
+  }
+  reply.status(error.statusCode || 500).send({ error: "服务器内部错误" })
+})
+```
+
+### Q8: Express / Koa / Fastify 何时选谁？
+
+| 场景                          | 推荐           |
+| ----------------------------- | -------------- |
+| 快速原型 / 大量现有中间件     | Express        |
+| async/await 原生控制          | Koa            |
+| **高性能 API / 需要自动文档** | **Fastify** ✅ |
+| 微服务 / API Gateway          | Fastify ✅     |
+| JSON Schema 驱动的团队        | Fastify ✅     |
+
+### Q9: 速查表
+
+| 操作       | Express                     | Fastify                       |
+| ---------- | --------------------------- | ----------------------------- |
+| 创建应用   | `express()`                 | `Fastify()`                   |
+| GET 路由   | `app.get(路径, fn)`         | `app.get(路径, schema?, fn)`  |
+| 返回 JSON  | `res.json(obj)`             | `return obj`                  |
+| 设置状态码 | `res.status(201).json(...)` | `reply.code(201).send(...)`   |
+| 读取 query | `req.query`                 | `request.query`（自动转数字） |
+| 读取 body  | `req.body`                  | `request.body`（需 schema）   |
+| 错误处理   | `(err,req,res,next)`        | `setErrorHandler(fn)`         |
+| 全局钩子   | `app.use(mw)`               | `app.addHook(name, fn)`       |
+| 插件       | `app.use(mw)`               | `app.register(plugin, opts)`  |
+| API 文档   | 第三方                      | **Swagger 自动生成**          |
+
+**参考文献：**
+
+- [Fastify 官方文档](https://fastify.dev/)
+- [Benchmarks](https://fastify.dev/benchmarks/)

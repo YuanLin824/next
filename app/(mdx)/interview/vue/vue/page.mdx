@@ -1,0 +1,1181 @@
+# Vue 面试题（Vue 2 & Vue 3）
+
+---
+
+## 一、响应式系统
+
+### Q1: Vue 2 和 Vue 3 的响应式原理有什么区别？
+
+**Vue 2 — `Object.defineProperty`**：
+
+```js
+// Vue 2 原理简化
+function observe(obj) {
+  if (typeof obj !== "object" || obj === null) return
+  for (let key of Object.keys(obj)) {
+    let val = obj[key]
+    observe(val) // 递归劫持
+    Object.defineProperty(obj, key, {
+      get() {
+        console.log(`读取 ${key}`)
+        return val
+      },
+      set(newVal) {
+        console.log(`设置 ${key} = ${newVal}`)
+        if (newVal !== val) {
+          val = newVal
+          observe(newVal) // 新值是对象也需要劫持
+          // 通知更新...
+        }
+      },
+    })
+  }
+}
+```
+
+**Vue 3 — `Proxy`**：
+
+```js
+function reactive(obj) {
+  return new Proxy(obj, {
+    get(target, key, receiver) {
+      if (typeof target[key] === "object" && target[key] !== null) {
+        return reactive(target[key]) // 懒代理（用到时才递归）
+      }
+      return Reflect.get(target, key, receiver)
+    },
+    set(target, key, value, receiver) {
+      const result = Reflect.set(target, key, value, receiver)
+      console.log(`设置 ${String(key)} = ${value}`)
+      return result
+    },
+    deleteProperty(target, key) {
+      console.log(`删除 ${String(key)}`)
+      return Reflect.deleteProperty(target, key)
+    },
+  })
+}
+```
+
+| 维度          | Vue 2                                            | Vue 3                            |
+| ------------- | ------------------------------------------------ | -------------------------------- |
+| 实现方式      | `Object.defineProperty`                          | `Proxy`                          |
+| 数组监听      | ❌ 不能监听索引赋值/`length`（7 个变异方法重写） | ✅ 天然支持                      |
+| 新增/删除属性 | ❌ `Vue.set` / `Vue.delete`                      | ✅ 直接 `obj.newProp = val`      |
+| 性能          | 初始化递归所有属性（深层对象慢）                 | **懒代理** — 用到才代理          |
+| 兼容性        | IE9+                                             | 不支持 IE（Proxy 不可 polyfill） |
+
+### Q2: Vue 3 的 ref 和 reactive 有什么区别？
+
+```ts
+import { ref, reactive, isRef, toRef, toRefs } from "vue"
+
+// ref — 包装原始值为响应式对象 ❯ .value 读写
+const count = ref(0) // ref(0) → { value: 0 }
+count.value++ // 触发更新
+console.log(isRef(count)) // true
+
+// reactive — 包装对象为响应式代理（深层）
+const state = reactive({ name: "Alice", age: 18 })
+state.name = "Bob" // 直接读写（不需要 .value）
+
+// ref 也可以包对象 — 内部调用 reactive
+const user = ref({ name: "Alice" }) // ref → reactive({ name: "Alice" })
+
+// toRef / toRefs — 解构 reactive 保持响应式
+const { name, age } = toRefs(state) // name → Ref<string>
+// ❌ const { name } = state         // 解构后丢失响应式
+
+// 模板中 ref 自动解包
+// <div>{{ count }}</div> — 不需要 count.value
+```
+
+| 维度           | `ref`                      | `reactive`            |
+| -------------- | -------------------------- | --------------------- |
+| 参数类型       | 任意值（原始/对象）        | 仅对象/数组           |
+| 访问方式       | `.value`（模板中自动解包） | 直接访问              |
+| 解构保持响应式 | 需 `toRefs`                | 需 `toRefs`           |
+| 替换整体       | ✅ `ref.value = newObj`    | ❌ 重新赋值丢失响应式 |
+| 类型推导（TS） | 较好                       | 一般                  |
+| **推荐场景**   | **首选**（Vue 官方推荐）   | 表单对象/数据聚合     |
+
+### Q3: 说一说 Vue 的依赖收集（Dep / Effect）机制？
+
+```
+组件渲染时:
+  读取响应式数据 → get 拦截 → track（收集当前 effect）
+数据变化时:
+  修改响应式数据 → set 拦截 → trigger（通知收集的 effects 重新执行）
+```
+
+```js
+// Vue 3 简化实现
+let activeEffect = null
+const targetMap = new WeakMap()
+
+function track(target, key) {
+  if (!activeEffect) return
+  let depsMap = targetMap.get(target)
+  if (!depsMap) targetMap.set(target, (depsMap = new Map()))
+  let deps = depsMap.get(key)
+  if (!deps) depsMap.set(key, (deps = new Set()))
+  deps.add(activeEffect) // 收集依赖
+}
+
+function trigger(target, key) {
+  const depsMap = targetMap.get(target)
+  if (!depsMap) return
+  const deps = depsMap.get(key)
+  deps?.forEach((effect) => effect()) // 通知更新
+}
+```
+
+### Q4: computed 和 watch 有什么区别？怎么选？
+
+| 维度   | `computed`                   | `watch`                         |
+| ------ | ---------------------------- | ------------------------------- |
+| 缓存   | ✅ 依赖不变不重新计算        | ❌ 每次触发都执行               |
+| 返回值 | 返回一个 ref                 | 无返回值（执行副作用）          |
+| 异步   | ❌ 不支持                    | ✅ `async` 回调                 |
+| 场景   | 派生数据（过滤/格式化/求和） | 数据变化后的副作用（请求/存储） |
+
+```ts
+// computed — 有缓存，派生数据
+const fullName = computed(() => `${firstName.value} ${lastName.value}`)
+
+// computed 可写
+const fullName = computed({
+  get: () => `${firstName.value} ${lastName.value}`,
+  set: (val) => {
+    ;[firstName.value, lastName.value] = val.split(" ")
+  },
+})
+
+// watch — 无返回值，副作用
+watch(searchQuery, async (newVal) => {
+  results.value = await fetch(`/api/search?q=${newVal}`)
+})
+
+// watchEffect — 自动追踪依赖
+watchEffect(() => {
+  console.log(`count 现在是 ${count.value}`)
+})
+```
+
+### Q5: watchEffect 和 watch 有什么区别？
+
+```ts
+// watch — 手动指定监听源
+watch(count, (newVal, oldVal) => console.log(newVal, oldVal))
+watch([count, name], ([newC, newN]) => {}) // 多个源
+
+// watchEffect — 自动追踪回调中的响应式依赖
+watchEffect(() => {
+  // 自动追踪 count.value 和 name.value
+  document.title = `${name.value}: ${count.value}`
+})
+
+// 区别
+watch(count, (newVal, oldVal) => {
+  // ✅ 可访问 oldValue
+  // ✅ 懒执行（默认不立即执行，需 { immediate: true }）
+})
+watchEffect(() => {
+  // ❌ 无法获取 oldValue
+  // ✅ 立即执行（适合初始化副作用）
+})
+```
+
+---
+
+## 二、组合式 API
+
+### Q6: Vue 3 Composition API 解决了什么问题？
+
+```ts
+// ❌ Options API 的问题：同一功能分散在不同选项中
+export default {
+  data() {
+    return { searchQuery: "", results: [] }
+  },
+  watch: {
+    searchQuery: {
+      handler(q) {
+        this.search(q)
+      },
+    },
+  },
+  methods: {
+    async search(q) {
+      this.results = await fetch(q)
+    },
+  },
+  mounted() {
+    /* 初始化 */
+  },
+}
+
+// ✅ Composition API：同一功能的代码聚在一起
+function useSearch() {
+  const query = ref("")
+  const results = ref([])
+  watch(query, async (q) => {
+    results.value = await fetch(q)
+  })
+  onMounted(() => {
+    /* 初始化 */
+  })
+  return { query, results }
+}
+```
+
+| 问题       | Composition API 的解决             |
+| ---------- | ---------------------------------- |
+| 逻辑分散   | 同一功能代码写在一起               |
+| 逻辑复用   | 自定义 Hook（`useXxx`）替代 Mixin  |
+| 类型推导   | 更好的 TypeScript 支持             |
+| 组件过大   | 按功能拆 Hook，组件保持简洁        |
+| Mixin 冲突 | 无命名冲突（自定义 Hook 显式返回） |
+
+### Q7: setup 函数和 `<script setup>` 有什么区别？
+
+```vue
+<!-- 方式 1: setup() 函数 -->
+<script>
+export default {
+  setup() {
+    const count = ref(0)
+    return { count } // 必须 return
+  },
+}
+</script>
+
+<!-- 方式 2: <script setup>（推荐） — 编译时语法糖 -->
+<script setup>
+const count = ref(0)   // 自动暴露给模板，不需 return
+defineProps<{ msg: string }>()
+defineEmits<{ update: [value: string] }>()
+</script>
+```
+
+### Q8: Vue 3 的生命周期（Composition API）？
+
+```ts
+import {
+  onBeforeMount,
+  onMounted,
+  onBeforeUpdate,
+  onUpdated,
+  onBeforeUnmount,
+  onUnmounted,
+} from "vue"
+
+// Vue 2 options → Vue 3 Composition
+// beforeCreate  + created    → setup() 本身（不需 Hook）
+// beforeMount                → onBeforeMount
+// mounted                    → onMounted
+// beforeUpdate               → onBeforeUpdate
+// updated                    → onUpdated
+// beforeDestroy              → onBeforeUnmount
+// destroyed                  → onUnmounted
+// activated / deactivated    → onActivated / onDeactivated (KeepAlive)
+
+// setup 执行时机：在 beforeCreate 和 created 之间（此时组件实例还未创建，无法访问 this）
+```
+
+---
+
+## 三、组件通信
+
+### Q9: Vue 的组件通信方式有哪些？
+
+| 方式                    | Vue 2    | Vue 3          | 方向            |
+| ----------------------- | -------- | -------------- | --------------- |
+| Props / emit            | ✅       | ✅             | 父 ↔ 子         |
+| `v-model`               | ✅ (1个) | ✅ (多个)      | 父 ↔ 子         |
+| `$refs` / `ref`         | ✅       | ✅             | 父 → 子         |
+| `$parent` / `$children` | ✅       | ❌ 废弃        | 父 ↔ 子         |
+| Provide / Inject        | ✅       | ✅             | 祖先 → 后代     |
+| EventBus (`$on/$emit`)  | ✅       | ❌ 移除        | 任意            |
+| Vuex / Pinia            | ✅       | ✅             | 全局            |
+| `$attrs` / `$listeners` | ✅       | ✅ (Vue3 合并) | 父 → 子（透传） |
+
+```vue
+<!-- 1. Props + Emit -->
+<!-- 子: -->
+<script setup>
+const props = defineProps({ msg: String })
+const emit = defineEmits(["update"])
+emit("update", "新值")
+</script>
+
+<!-- 2. v-model (Vue 3 支持多个) -->
+<Child v-model:title="title" v-model:content="content" />
+<!-- 子组件: defineProps({ title, content }) + defineEmits(['update:title', 'update:content']) -->
+
+<!-- 3. 模板 ref → 访问子组件实例 -->
+<Child ref="childRef" />
+<script setup>
+const childRef = ref(null)
+</script>
+
+<!-- 4. Provide / Inject -->
+<!-- 祖先: -->
+<script setup>
+provide("key", value)
+</script>
+<!-- 后代: -->
+<script setup>
+const value = inject("key")
+</script>
+
+<!-- 5. $attrs 透传 — 未声明为 props 的属性自动传递到根元素 -->
+<Child class="extra" @click="handleClick" />
+```
+
+### Q10: v-if 和 v-show 有什么区别？v-for 的 key 为什么重要？
+
+| 区别          | `v-if`            | `v-show`                 |
+| ------------- | ----------------- | ------------------------ |
+| DOM 销毁/创建 | ✅ 真正的条件渲染 | ❌ 仅 CSS `display` 切换 |
+| 初始渲染开销  | 小（不渲染）      | 大（始终渲染）           |
+| 切换开销      | 大（重建/销毁）   | 小（CSS 切换）           |
+| 适用          | 条件很少改变      | 频繁切换                 |
+
+```vue
+<!-- key 的作用：diff 算法中高效复用/重新排序 DOM -->
+<li v-for="item in list" :key="item.id">{{ item.name }}</li>
+<!-- ❌ 不要用 index 作为 key（列表顺序变化时 diff 失效） -->
+```
+
+### Q11: v-if 和 v-for 为什么不能同时使用？
+
+Vue 2 中 `v-for` 优先级高于 `v-if`，导致每次渲染都先遍历再判断（性能浪费）。
+
+```vue
+<!-- ❌ Vue 2/3 都不推荐 -->
+<li v-for="item in list" v-if="item.active" :key="item.id">
+
+<!-- ✅ 用 computed 先过滤 -->
+<li v-for="item in activeList" :key="item.id">
+```
+
+> Vue 3 中 `v-if` 优先级高于 `v-for`，但**仍然不推荐同用**。
+
+---
+
+## 四、核心机制
+
+### Q12: Vue 的虚拟 DOM 和 diff 算法？
+
+```
+模板 template → 编译 → 渲染函数 → VNode 树
+  ↓ 数据变化
+新 VNode 树 → diff 对比旧 VNode → patch 更新真实 DOM
+```
+
+**Diff 算法优化（Vue 3 新增）：**
+
+```txt
+1. 静态标记 (PatchFlags): 编译时标记动态部分 — 只比较带标记的节点
+2. 静态提升 (HoistStatic): 静态节点复用不重复创建
+3. 事件缓存 (CacheHandlers): 内联函数缓存，避免子组件无意义更新
+4. Block Tree: 动态节点链表，跳过静态子树
+```
+
+### Q13: Vue 2 的数组响应式缺陷和解决方案？
+
+```js
+// Vue 2 无法检测的数组变化：
+vm.arr[0] = "new" // ❌ 不触发更新
+vm.arr.length = 0 // ❌ 不触发更新
+
+// 解决方案：
+Vue.set(vm.arr, 0, "new") // ✅
+vm.$set(vm.arr, 0, "new") // ✅
+vm.arr.splice(0, 1, "new") // ✅ splice 被重写
+
+// Vue 3 已解决 — Proxy 天然支持索引赋值
+arr[0] = "new" // ✅
+```
+
+### Q14: KeepAlive 的作用和原理？
+
+```vue
+<!-- 缓存组件实例，切换时不销毁 → 保留状态、避免重渲染 -->
+<KeepAlive>
+  <component :is="activeTab" />
+</KeepAlive>
+
+<!-- Vue 3 高级用法 -->
+<KeepAlive :include="['CompA']" :exclude="['CompB']" :max="10">
+  <component :is="current" />
+</KeepAlive>
+```
+
+| 生命周期      | 触发时机                     |
+| ------------- | ---------------------------- |
+| `activated`   | 组件被激活（从缓存取出显示） |
+| `deactivated` | 组件被停用（存入缓存）       |
+
+原理：VNode → 放入 LRU 缓存队列 → 超过 `max` 时淘汰最旧的。
+
+---
+
+## 五、Vue Router & Pinia
+
+### Q15: Vue Router 的两种模式 (history / hash) 有什么区别？
+
+| 维度         | Hash 模式         | History 模式                   |
+| ------------ | ----------------- | ------------------------------ |
+| URL          | `/#/about`        | `/about`                       |
+| 原理         | `hashchange` 事件 | HTML5 `pushState` / `popstate` |
+| 需服务端配置 | ❌                | ✅ (所有路径返回 index.html)   |
+| SEO          | 差                | 好（配合 SSR）                 |
+| 锚点         | 冲突              | 正常                           |
+
+```js
+const router = createRouter({
+  history: createWebHashHistory(), // hash
+  history: createWebHistory(), // history — 需 nginx try_files
+})
+```
+
+### Q16: Pinia 和 Vuex 有什么区别？
+
+| 维度        | Vuex           | Pinia                             |
+| ----------- | -------------- | --------------------------------- |
+| 版本        | Vue 2/3        | Vue 3（推荐）                     |
+| 模块        | `modules` 嵌套 | 独立的 `store`（扁平化）          |
+| TypeScript  | 类型推导弱     | ✅ 完美支持                       |
+| `mutations` | ✅ 必须用      | ❌ 移除（直接用 `action` 改状态） |
+| 体积        | 较大           | 更轻                              |
+| DevTools    | ✅             | ✅                                |
+
+```ts
+// Pinia
+export const useCounterStore = defineStore("counter", () => {
+  const count = ref(0)
+  const double = computed(() => count.value * 2)
+  function increment() {
+    count.value++
+  }
+  return { count, double, increment }
+})
+
+// 使用
+const counter = useCounterStore()
+counter.count++ // 直接修改（不需要 mutation）
+```
+
+---
+
+## 六、性能优化
+
+### Q17: Vue 性能优化 Checklist？
+
+| 方向       | 手段                                                               |
+| ---------- | ------------------------------------------------------------------ |
+| **编译时** | `v-once` 静态内容 / `v-memo` 子树记忆 (Vue3) / `shallowRef` 浅响应 |
+| **运行时** | `computed` 替代模板表达式 / `v-if` + `v-for` 分离 / `KeepAlive`    |
+| **组件**   | 合理的 `key` / 异步组件 `defineAsyncComponent` / `Suspense`        |
+| **体积**   | Tree Shaking (Composition API 天然支持) / 按需引入                 |
+| **DOM**    | 虚拟滚动（长列表）/ `v-show` 频繁切换                              |
+| **路由**   | 懒加载 `() => import("./Page.vue")`                                |
+
+```vue
+<!-- v-once — 只渲染一次 -->
+<div v-once>{{ expensiveStatic }}</div>
+
+<!-- v-memo (Vue 3.2+) — 依赖不变跳过更新 -->
+<div v-for="item in list" :key="item.id" v-memo="[item.id, item.selected]">
+
+<!-- shallowRef — 仅 .value 变化触发更新（不深层响应） -->
+const state = shallowRef({ nested: { deep: 1 } })
+state.value = { nested: { deep: 2 } } // ✅ 触发更新
+state.value.nested.deep = 2           // ❌ 不触发
+
+<!-- Suspense + 异步组件 -->
+<Suspense>
+  <AsyncComp />
+  <template #fallback>加载中...</template>
+</Suspense>
+```
+
+---
+
+## 七、Vue 2 ↔ Vue 3 迁移
+
+### Q18: Vue 2 项目迁移到 Vue 3 有哪些重要变化？
+
+| 变化             | Vue 2                             | Vue 3                                           |
+| ---------------- | --------------------------------- | ----------------------------------------------- |
+| 创建实例         | `new Vue()`                       | `createApp()`                                   |
+| 全局 API         | `Vue.prototype` / `Vue.component` | `app.config.globalProperties` / `app.component` |
+| `v-model`        | `.sync` 修饰符 + 单个 `v-model`   | 多 `v-model` / `.sync` 废弃                     |
+| `$listeners`     | 独立存在                          | 合并到 `$attrs`                                 |
+| EventBus         | `$on`/`$emit`/`$off`              | **移除**（推荐 mitt 库替代）                    |
+| `filters`        | ✅                                | **移除**（用 computed/函数替代）                |
+| `$children`      | ✅                                | ❌ 废弃（用模板 ref）                           |
+| 函数式组件       | `functional: true`                | 普通函数                                        |
+| 生命周期         | `beforeDestroy` / `destroyed`     | `onBeforeUnmount` / `onUnmounted`               |
+| keyCode 修饰     | `@keyup.enter`                    | `.enter` 保留，`.13` 废弃                       |
+| Transition class | `v-enter`                         | `v-enter-from`                                  |
+
+```js
+// Vue 2
+new Vue({ router, store, render: (h) => h(App) }).$mount("#app")
+
+// Vue 3
+const app = createApp(App)
+app.use(router).use(createPinia()).mount("#app")
+```
+
+### Q19: Vue 3 的 Teleport 和 Suspense 是什么？
+
+```vue
+<!-- Teleport — 将组件内容渲染到指定 DOM 节点 -->
+<Teleport to="body">
+  <Modal /> <!-- 渲染到 <body> 下，保持组件逻辑内聚 -->
+</Teleport>
+
+<!-- Suspense — 异步组件加载状态 -->
+<Suspense>
+  <AsyncDashboard />
+  <template #fallback>骨架屏...</template>
+</Suspense>
+```
+
+---
+
+## 八、高频手写与原理
+
+### Q20: 手写 Vue 2 响应式（简化版）
+
+```js
+class Dep {
+  constructor() {
+    this.subs = []
+  }
+  depend() {
+    if (Dep.target) this.subs.push(Dep.target)
+  }
+  notify() {
+    this.subs.forEach((w) => w.update())
+  }
+}
+
+class Watcher {
+  constructor(vm, key, cb) {
+    this.vm = vm
+    this.key = key
+    this.cb = cb
+    Dep.target = this
+    this.oldValue = vm[key] // 触发 get → 依赖收集
+    Dep.target = null
+  }
+  update() {
+    const newVal = this.vm[this.key]
+    if (newVal !== this.oldValue) {
+      this.cb(newVal, this.oldValue)
+      this.oldValue = newVal
+    }
+  }
+}
+
+function defineReactive(obj, key, val) {
+  const dep = new Dep()
+  Object.defineProperty(obj, key, {
+    get() {
+      dep.depend()
+      return val
+    },
+    set(newVal) {
+      if (newVal !== val) {
+        val = newVal
+        dep.notify()
+      }
+    },
+  })
+}
+```
+
+### Q21: 手写 Vue 3 reactive
+
+```js
+const targetMap = new WeakMap()
+let activeEffect = null
+
+function reactive(obj) {
+  return new Proxy(obj, {
+    get(target, key, receiver) {
+      track(target, key)
+      const result = Reflect.get(target, key, receiver)
+      return typeof result === "object" && result !== null ? reactive(result) : result
+    },
+    set(target, key, value, receiver) {
+      const oldVal = target[key]
+      const result = Reflect.set(target, key, value, receiver)
+      if (oldVal !== value) trigger(target, key)
+      return result
+    },
+  })
+}
+
+function track(target, key) {
+  if (!activeEffect) return
+  let depsMap = targetMap.get(target) || targetMap.set(target, new Map()).get(target)
+  let deps = depsMap.get(key) || depsMap.set(key, new Set()).get(key)
+  deps.add(activeEffect)
+}
+
+function trigger(target, key) {
+  targetMap
+    .get(target)
+    ?.get(key)
+    ?.forEach((e) => e())
+}
+
+function effect(fn) {
+  activeEffect = fn
+  fn()
+  activeEffect = null
+}
+```
+
+### Q22: 手写 Vue 3 ref
+
+```js
+function ref(value) {
+  return new RefImpl(value)
+}
+
+class RefImpl {
+  constructor(value) {
+    this._value = toReactive(value)
+    this._rawValue = value
+    this.dep = new Set()
+  }
+  get value() {
+    trackRef(this)
+    return this._value
+  }
+  set value(newVal) {
+    if (newVal !== this._rawValue) {
+      this._rawValue = newVal
+      this._value = toReactive(newVal)
+      triggerRef(this)
+    }
+  }
+}
+
+function toReactive(value) {
+  return typeof value === "object" && value !== null ? reactive(value) : value
+}
+```
+
+---
+
+## 九、实战场景
+
+### Q23: Vue 中如何做权限控制？
+
+```vue
+<!-- 1. 路由级权限 — router.beforeEach -->
+router.beforeEach((to, from, next) => { if (to.meta.requiresAuth && !store.getters.isLoggedIn) {
+next({ path: "/login", query: { redirect: to.fullPath } }) } else if (to.meta.role &&
+!store.state.user.roles.includes(to.meta.role)) { next("/403") } else { next() } })
+
+<!-- 2. 组件级 — 自定义指令 -->
+app.directive("permission", { mounted(el, binding) { if
+(!store.state.user.permissions.includes(binding.value)) { el.parentNode?.removeChild(el) } }, }) //
+<button v-permission="'user:delete'">删除</button>
+
+<!-- 3. 按钮级 — 函数判断 -->
+<button v-if="hasPermission('user:delete')">删除</button>
+```
+
+### Q24: Vue 中如何实现国际化 (i18n)？
+
+```ts
+import { createI18n } from "vue-i18n"
+
+const i18n = createI18n({
+  legacy: false, // Composition API 模式
+  locale: "zh-CN",
+  messages: {
+    "zh-CN": { welcome: "欢迎" },
+    "en-US": { welcome: "Welcome" },
+  },
+})
+app.use(i18n)
+
+// 组件中使用
+const { t, locale } = useI18n()
+console.log(t("welcome")) // "欢迎"
+locale.value = "en-US"
+```
+
+### Q25: 动态组件和异步组件的使用场景？
+
+```vue
+<!-- 动态组件 — 多个组件切换 -->
+<component :is="currentTab" />
+<!-- currentTab 可以是组件实例、组件名、组件选项 -->
+
+<!-- 异步组件 — 按需加载 -->
+const Heavy = defineAsyncComponent(() => import("./Heavy.vue")) const Heavy = defineAsyncComponent({
+loader: () => import("./Heavy.vue"), loadingComponent: Skeleton, delay: 200, // 200ms 后才显示
+loading（避免闪烁） errorComponent: ErrorPage, timeout: 3000, })
+```
+
+---
+
+## 十、高级特性
+
+### Q26: 自定义指令 (Custom Directive) 怎么写？
+
+```js
+// Vue 3 指令钩子（与组件生命周期对齐）
+app.directive("focus", {
+  mounted(el) {
+    el.focus()
+  },
+})
+
+app.directive("lazy", {
+  mounted(el, binding) {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        el.src = binding.value
+        observer.unobserve(el)
+      }
+    })
+    observer.observe(el)
+  },
+  unmounted(el) {
+    // 清理 observer
+  },
+})
+```
+
+```vue
+<input v-focus />
+<img v-lazy="imageUrl" />
+```
+
+| 指令钩子 (Vue 3) | 说明                    |
+| ---------------- | ----------------------- |
+| `created`        | 元素属性/事件监听创建前 |
+| `mounted`        | 元素插入 DOM            |
+| `updated`        | 组件更新后              |
+| `beforeUnmount`  | 元素移除前              |
+| `unmounted`      | 元素移除后              |
+
+### Q27: Vue 的插件机制？如何写一个 Vue 插件？
+
+```ts
+// plugins/i18n.ts
+export default {
+  install(app, options) {
+    // 1. 全局方法
+    app.config.globalProperties.$translate = (key) => options.messages[key] || key
+
+    // 2. 全局组件
+    app.component("i18n-text", {
+      props: ["key"],
+      template: `<span>{{ $translate(key) }}</span>`,
+    })
+
+    // 3. 全局指令
+    app.directive("t", {
+      mounted(el, binding) {
+        el.textContent = options.messages[binding.value] || binding.value
+      },
+    })
+
+    // 4. Provide
+    app.provide("i18n", options)
+  },
+}
+
+// main.ts — 安装插件
+app.use(i18nPlugin, { locale: "zh-CN", messages: { hello: "你好" } })
+```
+
+### Q28: 如何实现 keep-alive 的页面缓存与刷新？
+
+```vue
+<!-- router-view 配合 keep-alive -->
+<router-view v-slot="{ Component }">
+  <keep-alive :include="cachedViews">
+    <component :is="Component" />
+  </keep-alive>
+</router-view>
+
+<!-- 页面中手动刷新（先移除缓存，再重新进入） -->
+<script setup>
+import { useRoute, useRouter } from "vue-router"
+
+function refreshCurrentPage() {
+  const { name } = useRoute()
+  // 1. 从缓存列表移除
+  store.commit("removeCachedView", name)
+  // 2. 短暂跳转到空白页再回来（触发重新加载）
+  useRouter().replace({ path: "/redirect" + useRoute().fullPath })
+}
+</script>
+```
+
+---
+
+## 十一、Vue 与 TypeScript
+
+### Q29: Vue 3 + TypeScript 的类型技巧？
+
+```vue
+<script setup lang="ts">
+// Props 类型
+interface Props {
+  msg: string
+  count?: number
+  items: { id: number; name: string }[]
+}
+const props = withDefaults(defineProps<Props>(), { count: 0 })
+
+// Emit 类型
+const emit = defineEmits<{
+  (e: "update", value: string): void
+  (e: "delete", id: number): void
+}>()
+
+// 模板 ref 类型
+const inputRef = ref<HTMLInputElement | null>(null)
+onMounted(() => inputRef.value?.focus())
+
+// 组件 ref 类型（获取子组件实例）
+import ChildComp from "./Child.vue"
+const childRef = ref<InstanceType<typeof ChildComp> | null>(null)
+
+// useRoute / useRouter 类型
+import { useRoute, useRouter } from "vue-router"
+const route = useRoute()
+const router = useRouter()
+</script>
+```
+
+### Q30: 如何在组合式函数 (Composable) 中用好 TypeScript？
+
+```ts
+// 泛型 Composable
+export function useList<T>(fetchFn: () => Promise<T[]>) {
+  const list = ref<T[]>([])
+  const loading = ref(false)
+  const error = ref<string | null>(null)
+
+  async function refresh() {
+    loading.value = true
+    error.value = null
+    try {
+      list.value = await fetchFn()
+    } catch (e) {
+      error.value = (e as Error).message
+    } finally {
+      loading.value = false
+    }
+  }
+
+  return { list, loading, error, refresh }
+}
+
+// 使用 — 类型自动推导
+const { list, loading } = useList(() => fetch("/api/users").then((r) => r.json()))
+// list → Ref<User[]>
+```
+
+---
+
+## 十二、服务端渲染 (SSR)
+
+### Q31: Vue SSR 的工作原理？Nuxt.js 能解决什么问题？
+
+```
+客户端渲染 (CSR)：        服务端返回空 HTML → 下载 JS → 执行 JS → 渲染
+服务端渲染 (SSR)：         服务端执行 Vue → 返回完整 HTML → 下载 JS → hydration（激活）
+```
+
+Nuxt.js (Vue SSR 框架) 解决的问题：
+
+| 问题     | Nuxt 方案                   |
+| -------- | --------------------------- |
+| SEO 差   | 服务端渲染完整 HTML         |
+| 首屏慢   | 服务端预渲染                |
+| 路由配置 | 文件系统路由                |
+| 数据获取 | `useFetch` / `useAsyncData` |
+| 代码分割 | 自动按路由拆分              |
+
+```ts
+// Nuxt 3 — 服务端数据获取
+const { data, pending } = await useFetch("/api/posts")
+// 服务端请求，返回 HTML 中包含数据，客户端 hydration
+```
+
+### Q32: Vue SSR 的 hydration 过程是怎样的？
+
+```
+1. 服务端：渲染 Vue 组件 → 生成 HTML 字符串 + 序列化状态 → 返回客户端
+2. 客户端：加载 HTML → Vue 创建与 SSR 相同结构的虚拟 DOM
+3. hydration：对比服务端 DOM 和客户端虚拟 DOM → 复用已有 DOM 节点
+4. 激活：绑定事件监听、状态 → 转为完全交互式的 SPA
+```
+
+> 注意：SSR + hydration 时，客户端和服务端状态必须一致，否则 hydration 会失败。
+
+---
+
+## 十三、Vue 构建与工程化
+
+### Q33: Vue CLI 和 Vite 的区别？
+
+| 维度       | Vue CLI (webpack)    | Vite                 |
+| ---------- | -------------------- | -------------------- |
+| 构建引擎   | Webpack              | esbuild + Rollup     |
+| 开发启动   | 慢（全量打包）       | 极快（ESM 按需编译） |
+| HMR        | 慢                   | 近乎即时             |
+| 生产构建   | Webpack              | Rollup               |
+| 配置复杂度 | 较高（chainWebpack） | 低（vite.config.ts） |
+| 生态       | 丰富                 | 快速发展             |
+| 现状       | 维护模式             | **官方推荐**         |
+
+```bash
+npm create vue@latest   # Vite + Vue 3（官方脚手架）
+```
+
+### Q34: 如何配置 Vite 的代理和别名？
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite"
+import vue from "@vitejs/plugin-vue"
+import { resolve } from "path"
+
+export default defineConfig({
+  plugins: [vue()],
+
+  resolve: {
+    alias: { "@": resolve(__dirname, "src") },
+  },
+
+  server: {
+    port: 3000,
+    proxy: {
+      "/api": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api/, ""),
+      },
+    },
+  },
+
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          vendor: ["vue", "vue-router", "pinia"], // 拆包
+        },
+      },
+    },
+  },
+})
+```
+
+### Q35: Vue 项目的环境变量管理？
+
+```bash
+.env                # 所有环境
+.env.development    # 开发环境
+.env.production     # 生产环境
+.env.local          # 本地（gitignore）
+
+# 变量名必须以 VITE_ 开头（Vite）
+VITE_API_BASE_URL=https://api.example.com
+VITE_APP_TITLE=MyApp
+```
+
+```ts
+// 使用
+const baseURL = import.meta.env.VITE_API_BASE_URL
+const appTitle = import.meta.env.VITE_APP_TITLE
+
+// 类型提示（env.d.ts）
+/// <reference types="vite/client" />
+interface ImportMetaEnv {
+  readonly VITE_API_BASE_URL: string
+}
+```
+
+---
+
+## 十四、常见面试题补充
+
+### Q36: MVVM 是什么？Vue 是如何体现的？
+
+- **Model**：数据层（data/reactive/ref）
+- **View**：视图层（template）
+- **ViewModel**：视图模型层（Vue 实例/组件）
+
+Vue 通过**响应式系统**和**模板编译**实现双向绑定：Model 变化自动更新 View，View 交互自动修改 Model。
+
+### Q37: Vue 组件的 data 为什么必须是函数？
+
+```js
+// 对象形式 → 组件复用时共享同一个引用
+data: { count: 0 }           // ❌ 多个组件实例操作同一个 count
+
+// 函数形式 → 每次调用返回新对象
+data() { return { count: 0 } } // ✅ 每个组件实例独立
+```
+
+### Q38: nextTick 的作用是什么？
+
+```ts
+// Vue 更新 DOM 是异步的：数据变化 → 下一次 tick 中批量更新 DOM
+count.value++
+console.log(domRef.value?.textContent) // 还是旧值
+
+await nextTick()
+console.log(domRef.value?.textContent) // 更新后的值
+```
+
+### Q39: 全局 API 从 Vue 迁移到 app 实例的原因？
+
+```js
+// Vue 2 — 全局 API 会影响到所有 Vue 实例
+Vue.component("MyComp", MyComp) // 影响所有 app
+
+// Vue 3 — app 实例隔离（适合微前端、多应用共存）
+const app1 = createApp(App1)
+app1.component("MyComp", MyComp1) // 只影响 app1
+const app2 = createApp(App2)
+app2.component("MyComp", MyComp2) // 只影响 app2
+```
+
+### Q40: pinia 中如何持久化存储？
+
+```ts
+// 手动方案
+const useUserStore = defineStore("user", () => {
+  const token = ref(localStorage.getItem("token"))
+
+  function setToken(val: string) {
+    token.value = val
+    localStorage.setItem("token", val)
+  }
+
+  return { token, setToken }
+})
+
+// 或用插件: pinia-plugin-persistedstate
+// npm install pinia-plugin-persistedstate
+// store 中加 persist: true
+```
+
+---
+
+## 补充速查表
+
+### Vue 3 内置组件
+
+| 组件                | 作用           |
+| ------------------- | -------------- |
+| `<component :is>`   | 动态组件       |
+| `<KeepAlive>`       | 缓存组件       |
+| `<Teleport>`        | 传送到目标 DOM |
+| `<Suspense>`        | 异步加载状态   |
+| `<Transition>`      | 进入/离开动画  |
+| `<TransitionGroup>` | 列表动画       |
+| `<slot>`            | 插槽           |
+
+### 模板指令
+
+| 指令                        | 简写     | 说明                |
+| --------------------------- | -------- | ------------------- |
+| `v-bind:href`               | `:href`  | 动态属性            |
+| `v-on:click`                | `@click` | 事件绑定            |
+| `v-model`                   | —        | 双向绑定            |
+| `v-if / v-else-if / v-else` | —        | 条件渲染            |
+| `v-show`                    | —        | 显示/隐藏           |
+| `v-for`                     | —        | 列表渲染            |
+| `v-once`                    | —        | 只渲染一次          |
+| `v-memo`                    | —        | 缓存子树 (Vue 3.2+) |
+| `v-text`                    | —        | 文本内容            |
+| `v-html`                    | —        | HTML（⚠️ XSS）      |
+| `v-cloak`                   | —        | 未编译时隐藏        |
+
+### 组合式函数 (Composables) 速查
+
+| 组合式函数                  | 用途         |
+| --------------------------- | ------------ |
+| `useMouse()`                | 鼠标位置     |
+| `useFetch()`                | 数据请求     |
+| `useLocalStorage()`         | 本地存储同步 |
+| `useDebounce()`             | 防抖         |
+| `useIntersectionObserver()` | 元素可见性   |
+| `useWindowSize()`           | 窗口尺寸     |
+
+```vue
+<!-- 动态组件 — 多个组件切换 -->
+<component :is="currentTab" />
+<!-- currentTab 可以是组件实例、组件名、组件选项 -->
+
+<!-- 异步组件 — 按需加载 -->
+const Heavy = defineAsyncComponent(() => import("./Heavy.vue")) const Heavy = defineAsyncComponent({
+loader: () => import("./Heavy.vue"), loadingComponent: Skeleton, delay: 200, // 200ms 后才显示
+loading（避免闪烁） errorComponent: ErrorPage, timeout: 3000, })
+```
+
+---
+
+## 汇总速查表
+
+### Vue 2 vs Vue 3 核心 API 对照
+
+| Vue 2 Options  | Vue 3 Composition           |
+| -------------- | --------------------------- |
+| `data() {}`    | `ref()` / `reactive()`      |
+| `computed: {}` | `computed()`                |
+| `watch: {}`    | `watch()` / `watchEffect()` |
+| `methods: {}`  | `function xxx() {}`         |
+| `mounted()`    | `onMounted()`               |
+| `props: {}`    | `defineProps()`             |
+| `this.$emit()` | `defineEmits()`             |
+| `this.$refs`   | `ref(null)` 模板 ref        |
+| `filters: {}`  | 函数 / computed             |
+| `Vue.set()`    | 直接赋值                    |
+| `.sync`        | `v-model:prop`              |
+
+### 组件通信速查
+
+| 场景      | 方式              |
+| --------- | ----------------- |
+| 父→子     | Props / `v-model` |
+| 子→父     | Emit              |
+| 祖先→后代 | Provide / Inject  |
+| 全局共享  | Pinia             |
+| DOM 访问  | 模板 ref          |
+| 透传      | `$attrs`          |
+
+### 响应式 API 速查 (Vue 3)
+
+| API                    | 说明                |
+| ---------------------- | ------------------- |
+| `ref()`                | 包装响应式值        |
+| `reactive()`           | 包装响应式对象      |
+| `computed()`           | 计算属性            |
+| `watch()`              | 侦听器              |
+| `watchEffect()`        | 自动追踪侦听        |
+| `toRef()` / `toRefs()` | 解构保持响应式      |
+| `shallowRef()`         | 浅响应式            |
+| `readonly()`           | 只读响应式          |
+| `isRef()`              | 判断是否为 ref      |
+| `unref()`              | 取 ref.value 或原值 |

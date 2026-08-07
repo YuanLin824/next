@@ -1,0 +1,188 @@
+# Koa.js 面试题
+
+---
+
+## 一、核心概念
+
+### Q1: Koa 和 Express 的核心差异是什么？
+
+Koa 由 Express 原班人马打造，但设计理念截然不同：
+
+| 维度            | Express                        | Koa                                 |
+| --------------- | ------------------------------ | ----------------------------------- |
+| 中间件函数      | `(req, res, next)` 回调        | `async (ctx, next)` Promise         |
+| 请求/响应对象   | `req` + `res` 分离             | **`ctx` 统一上下文**                |
+| 错误处理        | 4 参数 `(err, req, res, next)` | **try-catch** 直接生效              |
+| 内置功能        | 路由/静态/Body Parser          | **极简内核**（一切靠插件）          |
+| next() 之后代码 | 隐式执行                       | **await next() → 显式等待下游完成** |
+
+### Q2: ctx 对象的作用？和 Express 的 req/res 有什么区别？
+
+Koa 把 `req` 和 `res` 封装为单一 `ctx` 对象：
+
+```js
+app.use(async (ctx) => {
+  // 请求信息
+  ctx.url // → ctx.request.url
+  ctx.method
+  ctx.query // → 解析后的 query string
+  ctx.params // → 路由参数
+  ctx.request.body // → 请求体（需 koa-body）
+  ctx.get("Content-Type") // → 请求头
+  ctx.ip
+
+  // 响应信息
+  ctx.status = 200
+  ctx.body = { ok: true } // ← 直接赋值，替代 res.send/json
+  ctx.type = "application/json"
+  ctx.set("X-Custom", "value")
+
+  // 附加值
+  ctx.state // 中间件间传递数据
+  ctx.throw(400, "参数错误") // 抛出 HTTP 错误
+})
+```
+
+**优势：** 一个 `ctx` 替代 `req` + `res` → 签名更简洁、测试更简单（只需 mock ctx）。
+
+### Q3: Koa 的洋葱模型如何工作？为什么必须 await next()？
+
+```js
+app.use(async (ctx, next) => {
+  console.log("1: 进入")
+  await next() // ⬅ 等待下游所有中间件执行完毕
+  console.log("1: 离开")
+})
+
+app.use(async (ctx, next) => {
+  console.log("2: 进入")
+  await next()
+  console.log("2: 离开")
+})
+
+// 输出：1 进入 → 2 进入 → 2 离开 → 1 离开
+```
+
+**如果不 await next()：**
+
+- 下游异步操作未完成，上游代码就已经继续执行了
+- 无法在 `next()` 之后修改响应（因为 ctx.body 可能还没被设置）
+
+### Q4: koa-compose 的原理？（面试高频手写题）
+
+```js
+function compose(middleware) {
+  return function (ctx, next) {
+    let index = -1
+
+    function dispatch(i) {
+      if (i <= index) return Promise.reject(new Error("next() called multiple times"))
+      index = i
+
+      let fn = middleware[i]
+      if (i === middleware.length) fn = next
+      if (!fn) return Promise.resolve()
+
+      try {
+        return Promise.resolve(fn(ctx, dispatch.bind(null, i + 1)))
+      } catch (err) {
+        return Promise.reject(err)
+      }
+    }
+
+    return dispatch(0)
+  }
+}
+```
+
+**核心思想：** `dispatch(i)` 递归调用 `dispatch(i+1)`，将中间件串成 Promise 链。`await next()` = `await dispatch(i+1)`。
+
+---
+
+## 二、Koa 特有模式
+
+### Q5: Koa 的错误处理如何做？
+
+```js
+// Express 需要 4 参数中间件，Koa 只需要 try-catch
+app.use(async (ctx, next) => {
+  try {
+    await next()
+  } catch (err) {
+    ctx.status = err.status || 500
+    ctx.body = {
+      error: { message: err.expose ? err.message : "服务器内部错误" },
+    }
+    if (ctx.status === 500) console.error(err)
+  }
+})
+
+// ctx.throw —— 方便地抛出 HTTP 错误
+app.get("/admin", async (ctx) => {
+  if (!ctx.state.isAdmin) ctx.throw(403, "需要管理员权限")
+  ctx.body = "admin page"
+})
+
+// app.on("error") 作为最后兜底
+app.on("error", (err, ctx) => {
+  console.error("未捕获错误:", err)
+})
+```
+
+### Q6: ctx.state 的使用场景？
+
+`ctx.state` 是 Koa 推荐的**中间件间数据传递命名空间**：
+
+```js
+// 认证中间件
+app.use(async (ctx, next) => {
+  const token = ctx.get("Authorization").split(" ")[1]
+  ctx.state.user = jwt.verify(token, SECRET)
+  await next()
+})
+
+// 业务处理器
+app.get("/me", async (ctx) => {
+  ctx.body = ctx.state.user // 直接取用户信息
+})
+```
+
+### Q7: Koa 和 Express 中间件能否通用？
+
+**不能**。Koa 不支持 `(req, res, next)` 签名的 Express 中间件。Koa v1 曾经有 `koa-convert` 做兼容，v2 async/await 后不推荐混合使用。
+
+---
+
+## 三、对比速查
+
+### Q8: Express → Koa 迁移对照表
+
+| Express                              | Koa                                   |
+| ------------------------------------ | ------------------------------------- |
+| `const app = express()`              | `const app = new Koa()`               |
+| `app.use((req, res, next) => {...})` | `app.use(async (ctx, next) => {...})` |
+| `req.params.id`                      | `ctx.params.id`                       |
+| `req.query`                          | `ctx.query`                           |
+| `req.body`                           | `ctx.request.body`（需 koa-body）     |
+| `res.json(obj)`                      | `ctx.body = obj`                      |
+| `res.status(404)`                    | `ctx.status = 404`                    |
+| `res.set("X", "v")`                  | `ctx.set("X", "v")`                   |
+| `express.Router()`                   | `@koa/router`                         |
+| `next(err)`                          | `ctx.throw(code, msg)` 或 `throw err` |
+| `express.static("dir")`              | `koa-static`                          |
+| `(err, req, res, next)`              | `try {} catch {}`                     |
+
+### Q9: 何时选 Koa？
+
+| 场景                      | 推荐                |
+| ------------------------- | ------------------- |
+| 追求 async/await 原生体验 | ✅ Koa              |
+| 需要精细控制请求生命周期  | ✅ Koa              |
+| 已有 Express 中间件依赖   | 保持 Express        |
+| 中小型 Web API            | Koa 更轻量          |
+| 需大量第三方中间件        | Express（生态更广） |
+
+**参考文献：**
+
+- [Koa 官方文档](https://koajs.com/)
+- [koa-compose 源码](https://github.com/koajs/compose)

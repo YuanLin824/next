@@ -1,0 +1,238 @@
+# Nginx 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: Nginx 是什么？和 Apache 的区别？
+
+Nginx 是**高性能 HTTP 和反向代理服务器**，2004 年由 Igor Sysoev 创建。核心场景：静态文件服务、反向代理、负载均衡。
+
+| 维度     | Nginx                       | Apache                  |
+| -------- | --------------------------- | ----------------------- |
+| 架构     | **事件驱动**（异步非阻塞）  | 进程/线程（每连接一个） |
+| 并发能力 | **数万并发**                | 数百-数千               |
+| 内存占用 | 低（固定几 MB）             | 高（每连接占用）        |
+| 动态内容 | 需配合后端（FastCGI/Proxy） | 内置 PHP 模块           |
+| 配置     | 简洁                        | 复杂（.htaccess）       |
+| 静态文件 | **极快**                    | 较快                    |
+
+### Q2: 正向代理和反向代理的区别？
+
+```
+正向代理（为客户端服务）：        反向代理（为服务端服务）：
+Client → Proxy → Internet          Client → Nginx → Server1
+                                                → Server2
+                                                → Server3
+(客户端知道代理的存在)            (客户端以为 Nginx 就是服务器)
+(VPN/科学上网)                    (负载均衡/SSL 卸载/缓存)
+```
+
+### Q3: Nginx 的 Master-Worker 架构？
+
+```
+Master 进程 (1 个)
+  │ 读取配置、管理 Worker
+  │
+  ├── Worker 1 (单线程，处理请求)
+  ├── Worker 2
+  ├── Worker 3
+  └── Worker N  (N = CPU 核数)
+
+每个 Worker 通过 epoll 处理数千并发连接
+Worker 之间独立，不需要锁
+```
+
+```nginx
+worker_processes auto;        # Worker 数 = CPU 核数
+worker_connections 1024;      # 每个 Worker 最大连接数
+# 最大并发 = worker_processes × worker_connections
+```
+
+---
+
+## 二、核心功能
+
+### Q4: Nginx 的 location 匹配规则？
+
+```
+=   精确匹配          = /api         → 仅 /api
+~   正则（区分大小写） ~ \.php$       → 以 .php 结尾
+~*  正则（不区分）     ~* \.jpg$
+^~  前缀匹配（优先）   ^~ /static/    → 以 /static/ 开头
+/   通用前缀            /             → 所有请求（最低优先级）
+```
+
+```nginx
+server {
+    listen 80;
+    server_name example.com;
+
+    # 优先级：= > ^~ > ~ > 通用前缀
+
+    location = /health {
+        return 200 "OK";           # 精确匹配
+    }
+
+    location ^~ /static/ {
+        root /var/www;             # /static/style.css → /var/www/static/style.css
+    }
+
+    location ~ \.php$ {
+        fastcgi_pass 127.0.0.1:9000;
+    }
+
+    location / {
+        proxy_pass http://backend; # 兜底
+    }
+}
+```
+
+### Q5: 反向代理如何配置？
+
+```nginx
+location /api/ {
+    proxy_pass http://localhost:3000;           # 代理到 Node.js
+
+    # 必备头设置
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # 超时
+    proxy_connect_timeout 30s;
+    proxy_read_timeout 60s;
+}
+```
+
+### Q6: 负载均衡策略有哪些？
+
+```nginx
+upstream backend {
+    # 策略一：轮询（默认）
+    server backend1:3000;
+    server backend2:3000;
+
+    # 策略二：权重
+    # server backend1:3000 weight=3;
+    # server backend2:3000 weight=1;
+
+    # 策略三：ip_hash（同一 IP 始终到同一后端——Session 保持）
+    # ip_hash;
+
+    # 策略四：least_conn（最小连接数）
+    # least_conn;
+}
+
+server {
+    location / {
+        proxy_pass http://backend;
+    }
+}
+```
+
+### Q7: Nginx 如何配置 HTTPS？
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    ssl_certificate     /etc/nginx/certs/fullchain.pem;
+    ssl_certificate_key /etc/nginx/certs/privkey.pem;
+
+    # 安全配置
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+}
+
+# HTTP → HTTPS 重定向
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$host$request_uri;
+}
+```
+
+---
+
+## 三、性能与调优
+
+### Q8: 常见性能优化配置？
+
+```nginx
+# 1. Gzip 压缩
+gzip on;
+gzip_types text/css application/javascript application/json image/svg+xml;
+gzip_min_length 1000;     # 小于 1KB 不压缩（浪费 CPU）
+gzip_comp_level 6;        # 压缩级别（1-9，6 是平衡点）
+
+# 2. 静态文件缓存
+location ~* \.(jpg|png|css|js|woff2)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+}
+
+# 3. 连接优化
+keepalive_timeout 65;
+sendfile on;               # 零拷贝，直接内核发送文件
+tcp_nopush on;             # 合并发送包
+tcp_nodelay on;            # 即时发送小包（keepalive 连接）
+
+# 4. 缓冲
+client_body_buffer_size 128k;
+client_max_body_size 10m;  # 上传限制
+```
+
+### Q9: 如何做限流？
+
+```nginx
+# 请求速率限制
+limit_req_zone $binary_remote_addr zone=api:10m rate=10r/s;
+
+location /api/ {
+    limit_req zone=api burst=20 nodelay;
+    # burst=20 → 允许 20 个突发请求排队
+    # nodelay → 不等待，直接处理
+    proxy_pass http://backend;
+}
+
+# 连接数限制
+limit_conn_zone $binary_remote_addr zone=addr:10m;
+limit_conn addr 10; # 每个 IP 最多 10 个并发连接
+```
+
+---
+
+## 四、速查
+
+### Q10: 常用配置速查
+
+| 场景            | 配置片段                                            |
+| --------------- | --------------------------------------------------- |
+| 反向代理        | `proxy_pass http://host:port;`                      |
+| 负载均衡        | `upstream name { ... }` + `proxy_pass http://name;` |
+| HTTPS           | `listen 443 ssl;` + `ssl_certificate ...`           |
+| 重定向          | `return 301 https://$host$request_uri;`             |
+| SPA 前端路由    | `try_files $uri /index.html;`                       |
+| 跨域            | `add_header Access-Control-Allow-Origin *;`         |
+| 隐藏 Nginx 版本 | `server_tokens off;`                                |
+| 日志            | `access_log /var/log/nginx/access.log;`             |
+
+### Q11: 常见问题速查
+
+| 问题                         | 排查                                                  |
+| ---------------------------- | ----------------------------------------------------- |
+| 502 Bad Gateway              | 后端服务挂了/端口不对 → `proxy_pass` 地址是否可达     |
+| 504 Gateway Timeout          | 后端响应超时 → 调整 `proxy_read_timeout`              |
+| 413 Request Entity Too Large | 上传文件过大 → `client_max_body_size 50m;`            |
+| CORS 错误                    | 缺少跨域头 → `add_header Access-Control-Allow-Origin` |
+| 静态文件 404                 | `root` vs `alias` 用错了                              |
+| 负载不均                     | 检查 `ip_hash` 是否开启                               |
+
+**参考文献：**
+
+- [Nginx 官方文档](https://nginx.org/en/docs/)
+- [Nginx Beginner's Guide](https://nginx.org/en/docs/beginners_guide.html)

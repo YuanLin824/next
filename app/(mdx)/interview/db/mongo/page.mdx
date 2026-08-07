@@ -1,0 +1,315 @@
+# MongoDB 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: MongoDB 是什么？和关系型数据库的核心区别？
+
+MongoDB 是**面向文档的 NoSQL 数据库**，存储 BSON（Binary JSON）格式。核心差异：
+
+| 维度     | RDBMS                  | MongoDB                              |
+| -------- | ---------------------- | ------------------------------------ |
+| 数据模型 | 表（Table）+ 行（Row） | 集合（Collection）+ 文档（Document） |
+| Schema   | 刚性（列定义严格）     | 柔性（同一集合中文档结构可以不同）   |
+| 关联     | JOIN                   | 嵌入 or `$lookup`                    |
+| 事务     | 天然支持               | 4.0+ 多文档事务                      |
+| 扩展     | 垂直（加配置）         | **水平（分片集群）**                 |
+| 查询     | SQL                    | MQL（类似 JSON 语法）                |
+
+### Q2: BSON 是什么？和 JSON 有什么区别？
+
+|          | JSON                                            | BSON                                              |
+| -------- | ----------------------------------------------- | ------------------------------------------------- |
+| 全称     | JavaScript Object Notation                      | Binary JSON                                       |
+| 格式     | 文本                                            | 二进制                                            |
+| 数据类型 | 6 种（string/number/boolean/null/array/object） | 更多：Date/ObjectId/Binary/Decimal128/Long/Double |
+| 可读性   | ✅ 人类可读                                     | ❌ 二进制不可读                                   |
+| 传输效率 | 慢（解析文本）                                  | 快（直接读取二进制）                              |
+| 存储开销 | 小                                              | 略大（多了类型标记和长度前缀，但换来快速遍历）    |
+
+### Q3: ObjectId 的组成和特点？
+
+```
+ObjectId("507f1f77bcf86cd799439011")
+          │       │        │
+          │       │        └── 3 字节计数器（随机起始值）
+          │       └─────────── 5 字节进程标识
+          └─────────────────── 4 字节时间戳（Unix 秒）
+```
+
+**特点：**
+
+- 12 字节（24 个十六进制字符）
+- **天然包含时间戳**，可提取生成时间
+- 在客户端生成（不需要数据库自增锁）
+- 分布式环境下唯一（进程标识 + 计数器保证）
+
+### Q4: MongoDB 的适用场景和不适用的场景？
+
+| ✅ 适合                                    | ❌ 不适合                            |
+| ------------------------------------------ | ------------------------------------ |
+| 内容管理（博客/CMS）——文档天然匹配文章结构 | 复杂事务——多表关联、银行转账         |
+| 实时分析——聚合管道高效                     | 强 Schema 约束——数据必须严格符合格式 |
+| IoT/日志——写入吞吐高 + TTL 自动清理        | 大量 JOIN——$lookup 不如 SQL JOIN     |
+| 移动应用——灵活 Schema 适配快速迭代         | 数据仓库——SQL 生态更成熟             |
+| 目录/产品信息——嵌套文档减少 JOIN           |                                      |
+
+---
+
+## 二、数据建模
+
+### Q5: 嵌入 vs 引用——如何选择？
+
+```
+嵌入（Embedding）：                    │     引用（Reference）：
+{                                      │
+  _id: 1,                              │
+  name: "Alice",                       │     { _id: 1, name: "Alice",
+  addresses: [                         │     address_ids: [101, 102] }
+    { city: "BJ", zip: "100000" },     │
+    { city: "SH", zip: "200000" }      │
+  ]                                    │
+}                                      │
+```
+
+| 判断标准   | 嵌入                     | 引用                 |
+| ---------- | ------------------------ | -------------------- |
+| 读写模式   | 一起读、一起写           | 各自独立读写         |
+| 数据量     | 子文档少且稳定（≤ 几千） | 子文档多、会无限增长 |
+| 查询方式   | 总是通过父文档访问       | 需要独立查询子文档   |
+| 数据一致性 | 单文档原子操作           | 需要跨文档事务       |
+| 文档大小   | 不会超过 16MB            | 不受限               |
+
+**口诀**：一起读、一起写、不会无限增长 → **嵌入**。独立访问、多方关联 → **引用**。
+
+### Q6: 如何设计一对多和多对多关系？
+
+```js
+// ====== 一对多（少量"多"→ 嵌入） ======
+{
+  _id: 1,
+  name: "Alice",
+  addresses: [ // 一个人最多几个地址 → 嵌入
+    { type: "home", city: "Beijing" },
+    { type: "work", city: "Shanghai" }
+  ]
+}
+
+// ====== 一对多（大量"多"→ 父引用 or 子引用） ======
+// 父引用：在"多"的一方存父 ID
+{ _id: 1, user_id: 1, content: "帖子1" }
+{ _id: 2, user_id: 1, content: "帖子2" }
+
+// 子引用：在"一"的一方存子 ID 数组（子数量可控时）
+{ _id: 1, name: "Alice", post_ids: [1, 2, 3, ...999] } // 谨慎！不要无限
+
+// ====== 多对多 ======
+// 典型方案：双向引用
+students: { _id: 1, course_ids: [101, 102] }
+courses: { _id: 101, student_ids: [1, 2, 3] }
+```
+
+### Q7: 文档设计有哪些反模式？
+
+| 反模式                 | 问题                  | 正确做法                      |
+| ---------------------- | --------------------- | ----------------------------- |
+| 嵌入无限增长的数组     | 文档超过 16MB         | 拆到独立集合，用引用          |
+| 把所有数据塞进一个文档 | 更新竞争、IO 放大     | 按访问模式拆分                |
+| 深层嵌套（> 3 层）     | 查询困难              | 扁平化或拆分                  |
+| 用 JOIN 替代嵌入       | 失去 MongoDB 性能优势 | 适当反范式                    |
+| 忽略文档大小           | 16MB 硬限制           | 设计时预估，监控 `avgObjSize` |
+
+---
+
+## 三、查询与聚合
+
+### Q8: MongoDB 的查询选择器（Query Operators）有哪些？
+
+```js
+// 比较
+{ age: { $gte: 18, $lt: 60 } }    // 18 ≤ age < 60
+{ status: { $ne: "banned" } }      // !=
+{ age: { $in: [25, 30, 35] } }    // 在列表中
+
+// 逻辑
+{ $and: [{...}, {...}] }           // AND（多字段默认就是 AND）
+{ $or: [{...}, {...}] }            // OR
+{ status: { $not: { $eq: "banned" } } } // NOT
+
+// 数组
+{ tags: "mongodb" }                // 数组包含
+{ tags: { $all: ["mongodb", "js"] } } // 包含全部
+{ tags: { $size: 3 } }            // 数组长度
+{ scores: { $elemMatch: { $gte: 80, $lt: 90 } } } // 至少一个元素满足
+
+// 嵌套文档
+{ "address.city": "Beijing" }      // 点语法查嵌套字段
+```
+
+### Q9: 聚合管道（Aggregation Pipeline）的工作原理？
+
+```
+集合 → [$match] → [$group] → [$sort] → [$project] → 结果
+       过滤      分组聚合     排序       字段裁剪
+```
+
+**常用阶段：**
+
+| 阶段         | 说明           | SQL 类比         |
+| ------------ | -------------- | ---------------- |
+| `$match`     | 过滤文档       | WHERE            |
+| `$group`     | 分组聚合       | GROUP BY         |
+| `$sort`      | 排序           | ORDER BY         |
+| `$project`   | 字段裁剪/计算  | SELECT           |
+| `$limit`     | 取前 N 条      | LIMIT            |
+| `$skip`      | 跳过 N 条      | OFFSET           |
+| `$lookup`    | 关联另一集合   | LEFT JOIN        |
+| `$unwind`    | 数组展开       | UNNEST           |
+| `$facet`     | 多维度并行聚合 | 多个查询一次完成 |
+| `$addFields` | 添加新字段     | 计算列           |
+
+### Q10: $lookup 是什么？有什么限制？
+
+```js
+// 基础 $lookup（类似 LEFT JOIN）
+db.orders.aggregate([
+  {
+    $lookup: {
+      from: "users",
+      localField: "user_id",
+      foreignField: "_id",
+      as: "user" // 结果是一个数组
+    }
+  },
+  { $unwind: "$user" } // 展开为一对一
+])
+
+// 管道式 $lookup（MongoDB 5.0+ —— 支持关联时过滤）
+{
+  $lookup: {
+    from: "users",
+    let: { uid: "$user_id" },
+    pipeline: [
+      { $match: { $expr: { $eq: ["$_id", "$$uid"] }, status: "active" } },
+      { $project: { name: 1, _id: 0 } }
+    ],
+    as: "user"
+  }
+}
+```
+
+**限制：** 无法像 SQL 那样随意 JOIN，且被关联的集合如果是分片的性能会受影响。
+
+---
+
+## 四、索引与性能
+
+### Q11: MongoDB 支持哪些索引类型？
+
+| 类型         | 示例                                                    | 适用                               |
+| ------------ | ------------------------------------------------------- | ---------------------------------- |
+| **单字段**   | `createIndex({email: 1})`                               | 等值/范围查询                      |
+| **复合**     | `createIndex({status:1, age:-1})`                       | 多字段组合查询                     |
+| **多键**     | `createIndex({tags: 1})`                                | 数组字段（自动为每个元素建索引项） |
+| **文本**     | `createIndex({title: "text"})`                          | 全文搜索                           |
+| **地理空间** | `createIndex({loc: "2dsphere"})`                        | 经纬度查询                         |
+| **TTL**      | `createIndex({createdAt:1}, {expireAfterSeconds:3600})` | 自动过期删除                       |
+| **唯一**     | `createIndex({email:1}, {unique:true})`                 | 唯一约束                           |
+| **哈希**     | `createIndex({_id: "hashed"})`                          | 分片键的哈希分布                   |
+
+### Q12: 什么是复合索引的 ESR 规则？
+
+```
+数据库查询：{ city: "Beijing", age: { $gte: 18 } }
+排序：{ createdAt: -1 }
+
+最优索引顺序：E (Equality) → S (Sort) → R (Range)
+  { city: 1, createdAt: -1, age: 1 }
+    └ E ┘  └─── S ────┘  └ R ┘
+```
+
+- **E（Equality）**：等值查询字段放在最前面
+- **S（Sort）**：排序字段跟进
+- **R（Range）**：范围查询字段放最后（范围条件后，后续索引字段失效）
+
+### Q13: MongoDB 的 explain() 怎么读？
+
+```js
+db.users.find({ email: "alice@x.com" }).explain("executionStats")
+
+// 关键指标：
+// "stage": "IXSCAN"            ← ✅ 索引扫描
+// "stage": "COLLSCAN"          ← ❌ 全表扫描（必须优化）
+// "totalDocsExamined"          ← 扫描的文档数
+// "nReturned"                  ← 返回的文档数
+// 黄金法则: totalDocsExamined ≈ nReturned → 最优
+//          totalDocsExamined >> nReturned → 索引不够精准
+```
+
+---
+
+## 五、事务、副本集与运维
+
+### Q14: MongoDB 的事务能力和限制？
+
+```js
+const session = db.getMongo().startSession()
+session.startTransaction()
+
+try {
+  db.orders.insertOne({ user_id: 1, total: 99 }, { session })
+  db.inventory.updateOne({ sku: "S001" }, { $inc: { stock: -1 } }, { session })
+  session.commitTransaction()
+} catch (err) {
+  session.abortTransaction()
+}
+```
+
+**限制：**
+
+- 4.0+ 支持副本集多文档事务，4.2+ 支持分片集群事务
+- 事务有 60 秒默认超时
+- 大量写操作的并发事务性能不如 RDBMS
+
+### Q15: 副本集（Replica Set）和分片集群（Sharded Cluster）的区别？
+
+|          | 副本集                       | 分片集群                     |
+| -------- | ---------------------------- | ---------------------------- |
+| 目的     | **高可用**                   | **水平扩展**                 |
+| 数据分布 | 每个节点存完整副本           | 数据分布在多个分片上         |
+| 读写     | Primary 写，Secondary 可选读 | mongos 路由到对应分片        |
+| 故障转移 | 自动选举新 Primary           | 每个分片内部有自己的副本集   |
+| 最小节点 | 3（1P + 2S）或 2+仲裁        | 2 mongos + 3 config + 2 分片 |
+
+### Q16: 如何选择分片键（Shard Key）？
+
+| 好的分片键               | 差的分片键               |
+| ------------------------ | ------------------------ |
+| **高基数**（很多不同值） | 低基数（性别只有男/女）  |
+| **均匀分布**             | 单调递增（时间戳）→ 热点 |
+| **查询中包含该字段**     | 查询中从不出现           |
+
+```js
+// 启用分片
+sh.enableSharding("mydb")
+sh.shardCollection("mydb.orders", { user_id: "hashed" }) // 哈希分片，均匀分布
+```
+
+---
+
+## 六、速查
+
+### Q17: 常见问题速查
+
+| 问题         | 解决方案                                                       |
+| ------------ | -------------------------------------------------------------- |
+| 查询慢       | `explain("executionStats")` → 看是否 COLLSCAN → 建索引         |
+| 高并发写入   | 分片集群 + 批量写入 `insertMany`                               |
+| 内存占用高   | WiredTiger cache 默认用 50% 内存，设置 `wiredTigerCacheSizeGB` |
+| 文档大小超限 | 嵌入改引用，或使用 GridFS（文件存储）                          |
+
+**参考文献：**
+
+- [MongoDB 官方文档](https://www.mongodb.com/docs/manual/)
+- [MongoDB University](https://learn.mongodb.com/)

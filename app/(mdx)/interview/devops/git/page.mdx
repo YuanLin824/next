@@ -1,0 +1,221 @@
+# Git 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: Git 的四个工作区域？
+
+```
+工作目录        暂存区         本地仓库        远程仓库
+(Working)   →  (Stage)   →  (Local Repo) → (Remote)
+    │             │              │             │
+git add        git commit   git push       (GitHub)
+(修改文件)     (暂存变更)   (提交历史)     (协作共享)
+```
+
+| 区域              | 操作         | 说明                      |
+| ----------------- | ------------ | ------------------------- |
+| Working Directory | 编辑代码     | 工作树，实际文件          |
+| Staging Area      | `git add`    | 下次 commit 的内容        |
+| Local Repository  | `git commit` | `.git` 目录，完整提交历史 |
+| Remote Repository | `git push`   | 远程共享仓库              |
+
+### Q2: Git 内部对象模型——commit/tree/blob 的关系？
+
+```
+commit (快照)
+  │
+  ├── tree (目录)
+  │     ├── blob: index.html  (文件内容，SHA1哈希命名)
+  │     ├── blob: style.css
+  │     └── tree: js/
+  │           ├── blob: app.js
+  │           └── blob: util.js
+  │
+  ├── parent → 上一个 commit
+  ├── author
+  └── message
+```
+
+- **blob**：文件内容（不含文件名，同名同内容只存一份）
+- **tree**：目录结构（文件名 + blob/tree 引用）
+- **commit**：一次快照（tree + parent + 元数据）
+- **tag**：稳定版本标签（指向 commit）
+
+### Q3: Git 的三种文件状态？
+
+| 状态          | 说明                    |
+| ------------- | ----------------------- |
+| **Modified**  | 已修改，未 `git add`    |
+| **Staged**    | 已暂存，未 `git commit` |
+| **Committed** | 已提交到本地仓库        |
+
+```bash
+git status   # Untracked / Modified / Staged
+```
+
+---
+
+## 二、分支与合并
+
+### Q4: git merge 和 git rebase 的区别？
+
+```
+merge:                                rebase:
+A─B─C─D  (main)                       A─B─C─D  (main)
+   \     \                               \  \
+    E─F───G (feature)                      E─F─E'─F' (feature)
+          (多一个 merge commit)             (线性的，无 merge commit)
+```
+
+| 维度   | merge        | rebase                                  |
+| ------ | ------------ | --------------------------------------- |
+| 历史   | 保留分支拓扑 | **线性历史**（干净）                    |
+| 冲突   | 一次解决     | 可能每个 commit 都要解决                |
+| 安全性 | ✅ 安全      | ⚠️ 重写历史（不要 rebase 已推送的分支） |
+| 适用   | 公共分支合并 | 整理个人分支、同步上游                  |
+
+### Q5: git reset 和 git revert 的区别？
+
+|      | git reset                   | git revert                             |
+| ---- | --------------------------- | -------------------------------------- |
+| 作用 | **撤销** commit（删除历史） | **回滚** commit（新增一个反向 commit） |
+| 历史 | 更改（危险——丢了记录）      | 保留（安全）                           |
+| 适用 | 本地未推送的 commit         | 已推送的公共 commit                    |
+
+```bash
+git reset --soft HEAD~1   # 撤销 commit，保留暂存区和工作区
+git reset --mixed HEAD~1  # 默认：撤销 commit + 暂存区，保留工作区
+git reset --hard HEAD~1   # ⚠️ 全部撤销（危险）
+
+git revert HEAD            # 新建一个反向 commit 回滚
+```
+
+### Q6: git stash 的使用场景？
+
+```bash
+git stash                    # 暂存当前修改（工作区干净）
+# ...切换分支、处理紧急 bug...
+git checkout feature
+git stash pop                # 恢复暂存的修改
+# 或
+git stash apply              # 恢复但不删除 stash
+
+git stash list               # 查看所有 stash
+git stash drop stash@{1}     # 删除指定 stash
+git stash save "WIP: login"  # 带描述信息
+```
+
+### Q7: Cherry-pick 的作用？
+
+将某个分支的**特定 commit** 复制到当前分支：
+
+```bash
+git cherry-pick abc123       # 将 commit abc123 应用到当前分支
+git cherry-pick abc123..xyz456 # 批量（不含 abc123）
+```
+
+典型场景：把 hotfix 分支的修复同步到 main 和 develop。
+
+---
+
+## 三、进阶操作
+
+### Q8: git reflog 是什么？
+
+```bash
+git reflog
+# abc123 HEAD@{0}: commit: add login
+# def456 HEAD@{1}: commit: fix bug
+# ...
+```
+
+**所有 HEAD 移动记录**——即使 `git reset --hard` 后也能找回"消失"的 commit。
+
+```bash
+git reflog                       # 找到丢失的 commit SHA
+git reset --hard abc123          # 恢复
+```
+
+### Q9: 如何修改最近的 commit 或它的 message？
+
+```bash
+# 修改最近一次 commit 信息
+git commit --amend -m "新的 commit message"
+
+# 把遗漏的文件加到最近一次 commit
+git add forgotten-file.js
+git commit --amend --no-edit    # 保持原 message
+```
+
+### Q10: 如何合并多个 commit 为一个？
+
+```bash
+# 交互式 rebase——压缩最近 3 个 commit
+git rebase -i HEAD~3
+
+# 编辑器打开：
+# pick abc123 feat: add login
+# squash def456 fix: typo        ← 将 fix pick 改为 squash
+# squash ghi789 fix: another typo
+
+# → 三个 commit 合并为一个
+```
+
+### Q11: Git Flow 和 Trunk-Based 流派的区别？
+
+```
+Git Flow:                          Trunk-Based:
+main ─●────●─────────●                main ─●─●─●─●─●─●
+        \  /           \                        (持续集成)
+develop──●─●──●──●     hotfix         所有开发者直接提交到 main
+          \    /                       或短期的 feature branch (< 1天)
+      feature──●
+```
+
+| 维度     | Git Flow                                  | Trunk-Based               |
+| -------- | ----------------------------------------- | ------------------------- |
+| 分支数   | 多（main/develop/feature/release/hotfix） | 少（main + 短期 feature） |
+| 发布节奏 | 定期 release                              | 随时（CI/CD）             |
+| 适合     | 传统发布周期                              | 持续部署、微服务          |
+
+---
+
+## 四、常见问题与速查
+
+### Q12: 常见错误场景速查
+
+| 场景                       | 命令                                                     |
+| -------------------------- | -------------------------------------------------------- |
+| 误删文件恢复               | `git checkout -- file.txt`                               |
+| 推到错误分支回滚           | `git push -f origin abc123:main`（⚠️ 确认后执行）        |
+| 合并冲突放弃               | `git merge --abort`                                      |
+| 查看某行代码谁写的         | `git blame file.txt -L 10,20`                            |
+| 二分查找 bug 引入 commit   | `git bisect start; git bisect bad; git bisect good v1.0` |
+| 暂存部分修改（非全部文件） | `git add -p file.js`（交互式选择 hunk）                  |
+
+### Q13: .gitignore 和 .gitkeep 的区别？
+
+- **.gitignore**：忽略不想追踪的文件（node_modules/、.env、\*.log）
+- **.gitkeep**：Git 不追踪空目录——放一个空的 `.gitkeep` 来"保留"空目录
+
+### Q14: 速查表
+
+| 操作         | 命令                                                |
+| ------------ | --------------------------------------------------- |
+| 创建分支     | `git checkout -b feature/x`                         |
+| 切换分支     | `git switch feature/x`（2.23+，推荐）               |
+| 删除本地分支 | `git branch -d feature/x`                           |
+| 删除远程分支 | `git push origin --delete feature/x`                |
+| 查看分支图   | `git log --oneline --graph --all`                   |
+| 暂存         | `git stash` / `git stash pop`                       |
+| 撤销工作区   | `git checkout -- file` / `git restore file`         |
+| 撤销暂存区   | `git reset HEAD file` / `git restore --staged file` |
+| 变基         | `git rebase main`                                   |
+| 打标签       | `git tag -a v1.0.0 -m "release"`                    |
+
+**参考文献：**
+
+- [Pro Git（免费电子书）](https://git-scm.com/book/zh/v2)
+- [Learn Git Branching（交互式练习）](https://learngitbranching.js.org/)

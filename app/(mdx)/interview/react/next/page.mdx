@@ -1,0 +1,1238 @@
+# Next.js 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: 什么是 Next.js？它解决了 React 的哪些问题？
+
+Next.js 是 React 的**全栈框架**，在 React 之上提供：
+
+| React 的问题                | Next.js 的方案                         |
+| --------------------------- | -------------------------------------- |
+| 纯客户端渲染，SEO 差        | **SSR / SSG / ISR** — 服务端渲染       |
+| 首屏白屏时间长              | 服务端预渲染 HTML                      |
+| 路由需手动引入 react-router | **文件系统路由**（File-based Routing） |
+| 数据获取需手动管理          | `fetch` + 自动请求去重 + 缓存          |
+| 图片/字体等资源优化缺失     | `<Image>` / `<Link>` 等内置优化组件    |
+| 没有统一的构建配置          | 自带 Webpack/Turbopack 构建            |
+
+### Q2: Next.js 的渲染方式有哪些？各自什么区别？
+
+| 渲染方式                  | 数据获取时机                    | 适用场景             |
+| ------------------------- | ------------------------------- | -------------------- |
+| **CSR** (Client-Side)     | 浏览器请求时（useEffect/fetch） | 仪表盘、需登录的页面 |
+| **SSR** (Server-Side)     | 每次请求时服务端渲染            | 实时数据、个性化内容 |
+| **SSG** (Static Site Gen) | 构建时生成静态 HTML             | 博客、文档、营销页   |
+| **ISR** (Incremental)     | 构建时 + 定时后台更新           | 内容更新不频繁的页面 |
+
+### Q3: App Router 和 Pages Router 有什么区别？
+
+| 维度     | Pages Router                            | App Router                                  |
+| -------- | --------------------------------------- | ------------------------------------------- |
+| 引入版本 | Next.js 1.0                             | **Next.js 13+**（推荐）                     |
+| 路由文件 | `pages/about.tsx`                       | `app/about/page.tsx`                        |
+| 布局     | `_app.tsx` + `_document.tsx`            | **嵌套 Layout** (`layout.tsx`)              |
+| 数据获取 | `getServerSideProps` / `getStaticProps` | **`async` 组件直接 fetch**                  |
+| 组件类型 | 客户端和服务端组件混合                  | **默认服务端组件**，`use client` 标记客户端 |
+| 流式渲染 | ❌                                      | ✅ `loading.tsx` + Suspense                 |
+| 并行路由 | ❌                                      | ✅ `@folder` 插槽                           |
+| 拦截路由 | ❌                                      | ✅ `(.)path` / `(..)path`                   |
+
+---
+
+## 二、路由
+
+### Q4: App Router 的文件约定有哪些？
+
+```
+app/
+├── layout.tsx          # 布局（包裹子页面，不会重置状态）
+├── page.tsx            # 页面
+├── loading.tsx         # 加载中 UI（Suspense fallback）
+├── error.tsx           # 错误边界（Error Boundary）
+├── global-error.tsx    # 根布局错误边界
+├── not-found.tsx       # 404 页面
+├── template.tsx        # 模板（每次导航重新渲染，不保持状态）
+├── default.tsx         # 并行路由的默认回退
+├── route.ts            # API 路由（GET/POST 等）
+├── middleware.ts        # 全局中间件
+└── opengraph-image.tsx # OG 图片生成
+```
+
+### Q5: layout.tsx 和 template.tsx 有什么区别？
+
+| 维度               | `layout.tsx`        | `template.tsx`               |
+| ------------------ | ------------------- | ---------------------------- |
+| 导航时重新挂载     | ❌ 保持状态         | ✅ 每次重新挂载              |
+| useEffect 重新执行 | ❌                  | ✅                           |
+| 动画               | 不容易              | 适合（每次进入都有入场动画） |
+| 适用场景           | 持久化导航栏/侧边栏 | 页面埋点、入场动画、表单重置 |
+
+```tsx
+// layout — 状态保持
+export default function DashboardLayout({ children }) {
+  const [count, setCount] = useState(0) // 导航时不会重置
+  return <div>{children}</div>
+}
+
+// template — 每次重置
+export default function DashboardTemplate({ children }) {
+  const [count, setCount] = useState(0) // 每次导航都重置为 0
+  return <div>{children}</div>
+}
+```
+
+### Q6: Next.js 如何实现动态路由和路由分组？
+
+```tsx
+// ===== 动态路由 =====
+// app/blog/[slug]/page.tsx → /blog/hello-world
+export default async function BlogPost({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const post = await getPost(slug)
+  return <article>{post.content}</article>
+}
+
+// 可选参数: app/product/[[...slug]]/page.tsx → 匹配 /product, /product/a, /product/a/b
+
+// ===== 路由分组（不影响 URL） =====
+// app/(marketing)/about/page.tsx → /about
+// app/(dashboard)/settings/page.tsx → /settings
+// 用途：不同布局但共享同段 URL
+
+// ===== 平行路由 =====
+// app/dashboard/@analytics/page.tsx
+// app/dashboard/@team/page.tsx
+// app/dashboard/layout.tsx
+export default function Layout({ children, analytics, team }) {
+  return (
+    <div>
+      {children}
+      {analytics} {/* 独立加载 */}
+      {team}
+    </div>
+  )
+}
+
+// ===== 拦截路由 =====
+// app/feed/(..)photo/[id]/page.tsx → 从 /feed 导航到 /photo/123 时拦截，用模态框展示
+```
+
+### Q7: middleware.ts 能做什么？不能做什么？
+
+```ts
+// middleware.ts — 在请求到达页面前执行
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+
+export function middleware(request: NextRequest) {
+  const token = request.cookies.get("token")
+  const { pathname } = request.nextUrl
+
+  // ✅ 能做的：路由重定向、Header 操作、A/B 测试、Geo 定位、Bot 检测
+  if (pathname.startsWith("/dashboard") && !token) {
+    return NextResponse.redirect(new URL("/login", request.url))
+  }
+
+  // ❌ 不能做的：数据库操作、文件读写 — 运行在 Edge Runtime，只有有限的 API
+  return NextResponse.next()
+}
+
+export const config = {
+  matcher: ["/dashboard/:path*", "/api/:path*"], // 限定匹配范围
+}
+```
+
+---
+
+## 三、数据获取
+
+### Q8: 服务端组件如何获取数据？
+
+App Router 中服务端组件直接 `async`，无需 `getServerSideProps`：
+
+```tsx
+// 服务端组件 — 直接在组件内 await
+export default async function BlogPage() {
+  let posts = await fetch("https://api.example.com/posts") // 自动请求去重
+
+  // 或者直接操作数据库（无需 API 中间层）
+  // let posts = await db.post.findMany()
+
+  return (
+    <ul>
+      {posts.map((p) => (
+        <li key={p.id}>{p.title}</li>
+      ))}
+    </ul>
+  )
+}
+```
+
+### Q9: fetch 的缓存策略（Next.js 15+）？
+
+```tsx
+// 1. no-store — SSR 模式，每次请求都重新获取（默认，Next.js 15+）
+fetch(url) // 等同于 { cache: "no-store" }
+
+// 2. force-cache — SSG 模式，缓存直到手动失效
+fetch(url, { cache: "force-cache" })
+
+// 3. revalidate — ISR 模式，定时后台更新
+fetch(url, { next: { revalidate: 60 } }) // 60 秒后重新验证
+
+// 4. 按标签手动失效（On-Demand Revalidation）
+// API Route 中调用:
+import { revalidateTag, revalidatePath } from "next/cache"
+
+revalidateTag("posts") // 失效所有标记为 'posts' 的 fetch
+fetch(url, { next: { tags: ["posts"] } })
+
+revalidatePath("/blog") // 失效指定路径的缓存
+
+// 5. unstable_cache — 缓存任意异步函数（不仅是 fetch）
+import { unstable_cache } from "next/cache"
+let getPosts = unstable_cache(async () => db.post.findMany(), ["posts"], {
+  revalidate: 3600,
+  tags: ["posts"],
+})
+```
+
+### Q10: 客户端组件如何获取数据？
+
+| 方式                        | 适用场景                       |
+| --------------------------- | ------------------------------ |
+| `useEffect` + `fetch`       | 传统客户端请求                 |
+| **Server Actions**          | 表单提交、数据变更             |
+| 服务端组件传 props 到客户端 | 初始数据展示                   |
+| SWR / TanStack Query        | 自动缓存、revalidate、乐观更新 |
+
+```tsx
+// ✅ 推荐：服务端获取，客户端接收
+// app/page.tsx
+export default async function Page() {
+  const initialData = await getData()
+  return <ClientComponent initialData={initialData} />
+}
+```
+
+---
+
+## 四、Server Actions
+
+### Q11: 什么是 Server Actions？如何使用？
+
+Server Actions 是**在服务端执行的异步函数**，可从客户端直接调用，无需手动创建 API 路由。
+
+```tsx
+// actions/user.ts
+"use server"
+
+export async function createUser(formData: FormData) {
+  const name = formData.get("name") as string
+  const email = formData.get("email") as string
+
+  // 校验
+  if (!name || name.length < 2) {
+    return { error: "名称至少 2 个字符" }
+  }
+
+  // 鉴权
+  const session = await getSession()
+  if (!session) throw new Error("未登录")
+
+  // 写入数据库
+  await db.user.create({ data: { name, email } })
+
+  // 清除缓存
+  revalidatePath("/users")
+
+  // 重定向
+  redirect("/users")
+}
+
+// ===== 客户端使用 =====
+;("use client")
+import { createUser } from "@/actions/user"
+
+export default function CreateUserForm() {
+  const [state, formAction] = useActionState(createUser, { error: null })
+
+  return (
+    <form action={formAction}>
+      <input name="name" />
+      <input name="email" />
+      <button type="submit">创建</button>
+      {state?.error && <p className="text-red-500">{state.error}</p>}
+    </form>
+  )
+}
+
+// ===== 非表单调用 =====
+import { startTransition } from "react"
+startTransition(() => {
+  createUser(formData)
+})
+```
+
+### Q12: Server Actions 和 API Routes 如何选择？
+
+| 维度     | Server Actions                     | API Routes                    |
+| -------- | ---------------------------------- | ----------------------------- |
+| 适用     | 表单、数据变更 (Mutation)          | 外部 API、Webhook、跨应用调用 |
+| 复杂度   | 低（直接在组件中调用）             | 中（需手动创建 route.ts）     |
+| 类型安全 | ✅ 天然类型安全                    | 需手动定义类型                |
+| 缓存控制 | `revalidatePath` / `revalidateTag` | 手动控制                      |
+| 适用项目 | 全栈 Next.js 应用                  | 对外 API、微服务              |
+
+---
+
+## 五、渲染与性能
+
+### Q13: 什么是 Streaming SSR？如何实现？
+
+Streaming 允许服务端将 HTML **分块发送**给浏览器，先展示不需数据的内容，等数据就绪后再流式发送剩余部分。
+
+```tsx
+// app/dashboard/page.tsx
+import { Suspense } from "react"
+
+export default function Dashboard() {
+  return (
+    <div>
+      <h1>Dashboard</h1>
+
+      {/* 这部分立即渲染，不阻塞 */}
+      <Suspense fallback={<StatsSkeleton />}>
+        <Stats /> {/* 内部 await fetch — 数据就绪后流式发送 */}
+      </Suspense>
+
+      <Suspense fallback={<ChartSkeleton />}>
+        <Chart /> {/* 独立流式传输，互不阻塞 */}
+      </Suspense>
+    </div>
+  )
+}
+
+// loading.tsx 是顶层 Suspense fallback
+export default function Loading() {
+  return <Skeleton />
+}
+```
+
+### Q14: 如何优化图片和字体加载？
+
+```tsx
+// ===== 图片优化 =====
+import Image from "next/image"
+
+// next/image 自动: WebP/AVIF 转换、懒加载、占位模糊、宽高防 CLS
+;<Image
+  src="/hero.jpg"
+  alt="Hero"
+  width={1200}
+  height={600}
+  priority // 首屏图优先级
+  placeholder="blur"
+  loading="eager"
+/>
+
+// 外部图片需在 next.config.ts 配置:
+images: {
+  remotePatterns: [{ protocol: "https", hostname: "cdn.example.com" }]
+}
+
+// ===== 字体优化 =====
+import localFont from "next/font/local"
+
+// 本地字体 — 构建时内联，零网络请求
+const myFont = localFont({ src: "./fonts/MyFont.woff2", variable: "--font-my" })
+
+// Google 字体 — 构建时下载并自托管
+import { Inter } from "next/font/google"
+const inter = Inter({ subsets: ["latin"], display: "swap" })
+
+export default function Layout({ children }) {
+  return <html className={`${inter.variable} ${myFont.variable}`}>{children}</html>
+}
+```
+
+### Q15: 如何减少客户端 JS 体积？
+
+```tsx
+// 1. 默认服务端组件 — 不发送 JS 到客户端
+export default async function Page() {
+  return <div>纯服务端渲染</div>
+}
+
+// 2. 懒加载客户端组件
+import dynamic from "next/dynamic"
+const HeavyChart = dynamic(() => import("./HeavyChart"), {
+  loading: () => <Skeleton />,
+  ssr: false, // 完全禁用 SSR
+})(
+  // 3. 边界标注 'use client' 尽量下沉
+  // ❌ 顶层标记 — 整个页面变客户端
+  "use client"
+)
+export default function Page() {
+  return (
+    <div>
+      <ServerContent />
+    </div>
+  ) // ServerContent 也被客户端化了
+}
+
+// ✅ 只在需要的叶子组件标记
+// components/SearchInput.tsx
+;("use client")
+export function SearchInput() {
+  const [query, setQuery] = useState("")
+  return <input value={query} onChange={(e) => setQuery(e.target.value)} />
+}
+```
+
+---
+
+## 六、数据变更与缓存
+
+### Q16: 如何实现 Optimistic UI（乐观更新）？
+
+```tsx
+;("use client")
+import { useOptimistic } from "react"
+
+export function TodoList({ todos }: { todos: Todo[] }) {
+  const [optimisticTodos, addOptimistic] = useOptimistic(todos, (state, newTodo: Todo) => [
+    newTodo,
+    ...state,
+  ])
+
+  async function handleAdd(formData: FormData) {
+    const title = formData.get("title") as string
+    // 先乐观更新 UI
+    addOptimistic({ id: Date.now(), title, completed: false })
+    // 再实际请求
+    await addTodo(formData)
+  }
+
+  return (
+    <>
+      <form action={handleAdd}>...</form>
+      <ul>
+        {optimisticTodos.map((todo) => (
+          <li key={todo.id}>{todo.title}</li>
+        ))}
+      </ul>
+    </>
+  )
+}
+```
+
+### Q17: 如何实现多级缓存（Request Memoization → Data Cache → Full Route Cache）？
+
+```
+                    fetch 请求
+                        │
+                        ▼
+          Request Memoization (同次渲染去重 — 自动)
+                        │
+                        ▼
+          Data Cache (跨请求缓存 — cache/revalidate 控制)
+                        │
+                        ▼
+          Full Route Cache (整页 HTML — ISR/SSG)
+                        │
+                        ▼
+          客户端 Router Cache (浏览器内存 — 30s 内有效)
+```
+
+```tsx
+// Request Memoization: 同一页面请求多次只发一次网络请求（自动去重）
+let user = await fetch("/api/user") // 网络请求
+let sameUser = await fetch("/api/user") // 不请求，直接用缓存结果
+
+// Data Cache + revalidate
+let posts = await fetch("/api/posts", { next: { revalidate: 60 } })
+
+// 不使用 fetch 的数据缓存
+let data = await unstable_cache(() => db.query("..."), ["key"], { revalidate: 3600 })()
+
+// Router Cache — 客户端缓存页面，30s 内不重新请求服务端
+// 可通过 prefetch 预热
+import Link from "next/link"
+;<Link href="/dashboard" prefetch>
+  Dashboard
+</Link>
+```
+
+---
+
+## 七、认证与安全
+
+### Q18: Next.js 如何实现认证？
+
+```ts
+// 1. 使用 NextAuth (Auth.js) — 配置文件 auth.ts
+import NextAuth from "next-auth"
+import Credentials from "next-auth/providers/credentials"
+
+export const { handlers, signIn, signOut, auth } = NextAuth({
+  providers: [Credentials({ /* ... */ })],
+  callbacks: {
+    jwt({ token, user }) { if (user) token.role = user.role; return token },
+    session({ session, token }) { session.user.role = token.role; return session },
+  },
+})
+
+// 2. 在 Server Component / Server Action 中获取 session
+import { auth } from "@/auth"
+
+export default async function Dashboard() {
+  const session = await auth()
+  if (!session) redirect("/login")
+  return <div>欢迎, {session.user.name}</div>
+}
+
+// 3. 在 middleware 中保护路由
+import { auth } from "@/auth"
+export default auth((req) => {
+  if (!req.auth && req.nextUrl.pathname.startsWith("/dashboard")) {
+    return Response.redirect(new URL("/login", req.url))
+  }
+})
+```
+
+### Q19: Next.js 有哪些内置的安全特性？
+
+| 特性                     | 说明                                             |
+| ------------------------ | ------------------------------------------------ |
+| **CSP**                  | 通过 Headers 配置 Content-Security-Policy        |
+| **Server Actions**       | 自动 CSRF 保护（同源 POST + 加密 token 校验）    |
+| **Image 优化**           | 外部图片需白名单 `remotePatterns` 防止 SSRF      |
+| **环境变量**             | `NEXT_PUBLIC_*` 仅暴露给客户端，其余仅服务端可用 |
+| **中间件校验**           | 在请求到达页面前做鉴权/限流                      |
+| **taintObjectReference** | 标记对象仅服务端可用，防止泄露到客户端（实验性） |
+
+---
+
+## 八、部署
+
+### Q20: Next.js 有哪些部署方案？如何选择？
+
+| 方案                     | 适用       | 说明                                                                            |
+| ------------------------ | ---------- | ------------------------------------------------------------------------------- |
+| **Vercel**               | 全功能     | 零配置、ISR/Streaming/Edge/分析 全部支持                                        |
+| **Docker + Node Server** | 自建服务器 | `next build && next start`，功能完整但无 ISR 的 CDN 优势                        |
+| **Static Export**        | 纯静态网站 | `next build && next export`（仅 SSG/CSR，无 ISR/SSR/middleware/server actions） |
+| **Docker + standalone**  | 容器化部署 | `output: "standalone"` — 最小化依赖，适合 K8s                                   |
+
+```ts
+// next.config.ts — standalone 模式（最小化部署包）
+const nextConfig = {
+  output: "standalone",
+  // Dockerfile 自动生成: .next/standalone
+}
+```
+
+```dockerfile
+FROM node:20-alpine AS base
+FROM base AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM base AS runner
+WORKDIR /app
+COPY --from=builder /app/public ./public
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
+EXPOSE 3000
+CMD ["node", "server.js"]
+```
+
+---
+
+## 九、常见问题排查
+
+### Q21: 如何调试服务端组件中 fetch 失败的问题？
+
+```tsx
+// 1. 查看终端日志 — 服务端组件日志在运行 next dev/build 的终端
+console.log(
+  "服务端日志:",
+  data
+)(
+  // 2. 自定义错误边界 — app/error.tsx
+  "use client"
+)
+export default function Error({ error, reset }) {
+  return (
+    <div>
+      <p>{error.message}</p>
+      <button onClick={reset}>重试</button>
+    </div>
+  )
+}
+
+// 3. 使用 Next.js 内置的错误页 — not-found.tsx
+import { notFound } from "next/navigation"
+export default async function Page({ params }) {
+  const post = await getPost(params.id)
+  if (!post) notFound()
+  return <article>{post.content}</article>
+}
+
+// 4. 检查 fetch 缓存 — 开发模式下可能返回缓存结果
+await fetch(url, { cache: "no-store" })
+```
+
+### Q22: "use client" 导致性能问题的常见原因？
+
+```tsx
+// ❌ 坑1: 顶层标记导致整个子树变客户端
+;("use client")
+export default function Page() {
+  return <HeavyStatic>...大量静态内容...</HeavyStatic>
+}
+
+// ✅ 把 "use client" 推到叶子
+export default function Page() {
+  return (
+    <HeavyStatic>
+      <ClientButton />
+    </HeavyStatic>
+  )
+}
+
+// ❌ 坑2: 在服务端组件中 import 客户端组件时传递了不可序列化的 props
+import ClientComp from "./ClientComp"
+export default async function Page() {
+  const fn = () => {} // 函数不可序列化
+  return <ClientComp onClick={fn} /> // ❌ 报错
+}
+
+// ❌ 坑3: 服务端组件是 async，但被放在了客户端组件的 children 中
+// ✅ 用 "children as prop" 模式 — 客户端包裹服务端
+;("use client")
+export function ClientShell({ children }) {
+  return <div>{children}</div>
+}
+```
+
+---
+
+## 汇总速查表
+
+### 渲染方式速查
+
+| 方式   | 实现                               | 静态/动态 |
+| ------ | ---------------------------------- | --------- |
+| SSR    | `cache: "no-store"` 或不设 cache   | 动态      |
+| SSG    | `cache: "force-cache"`             | 静态      |
+| ISR    | `next: { revalidate: 60 }`         | 定时更新  |
+| Stream | `<Suspense>` + async 组件          | 流式      |
+| CSR    | `"use client"` + `useEffect` fetch | 动态      |
+
+### 缓存 API 速查
+
+| API                                       | 作用                       |
+| ----------------------------------------- | -------------------------- |
+| `fetch(url, { next: { revalidate: N } })` | 设置单次 fetch 的 ISR 间隔 |
+| `fetch(url, { next: { tags: ["x"] } })`   | 按标签分组                 |
+| `revalidateTag("x")`                      | 按标签失效缓存（按需）     |
+| `revalidatePath("/")`                     | 按路径失效缓存（按需）     |
+| `unstable_cache(fn, ["key"])`             | 缓存任意函数               |
+| `generateStaticParams()`                  | SSG 动态路由               |
+
+### 文件约定速查
+
+| 文件                  | 作用                  |
+| --------------------- | --------------------- |
+| `page.tsx`            | 页面                  |
+| `layout.tsx`          | 布局（持久化）        |
+| `template.tsx`        | 模板（每次重置）      |
+| `loading.tsx`         | 加载中 UI             |
+| `error.tsx`           | 错误边界              |
+| `not-found.tsx`       | 404                   |
+| `route.ts`            | API Route             |
+| `middleware.ts`       | 全局/路由中间件       |
+| `default.tsx`         | 并行路由回退          |
+| `opengraph-image.tsx` | OG 图片生成           |
+| `sitemap.ts`          | 自动生成 sitemap.xml  |
+| `robots.ts`           | 自动生成 robots.txt   |
+| `not-found.tsx`       | 404 `notFound()` 跳转 |
+
+---
+
+## 十、高级特性
+
+### Q23: 什么是 Partial Prerendering (PPR)？
+
+PPR 允许在**同一个页面**中同时使用静态渲染和动态渲染（实验性，Next.js 15+）。
+
+```tsx
+// next.config.ts
+const nextConfig = { experimental: { ppr: "incremental" } }
+
+// app/page.tsx
+import { Suspense } from "react"
+
+export default function Page() {
+  return (
+    <div>
+      <h1>静态部分 — 构建时生成</h1>
+      <Suspense fallback={<CartSkeleton />}>
+        <Cart /> {/* 动态部分 — 请求时流式发送 */}
+      </Suspense>
+    </div>
+  )
+}
+```
+
+### Q24: Edge Runtime vs Node.js Runtime 如何选择？
+
+| 维度        | Edge Runtime                   | Node.js Runtime          |
+| ----------- | ------------------------------ | ------------------------ |
+| 启动速度    | 极快（~0ms cold start）        | 较慢（~100ms+）          |
+| 全局部署    | ✅ 全球边缘节点                | ❌ 区域部署              |
+| Node.js API | ❌ 受限（无 fs/net/tls）       | ✅ 完整                  |
+| 数据库直连  | ❌ 需通过 HTTP                 | ✅ 可用 ORM              |
+| npm 兼容性  | 部分兼容（需 Web API 实现）    | ✅ 完全兼容              |
+| 适用        | middleware、API 路由、轻量页面 | 重度业务逻辑、数据库操作 |
+
+```ts
+// 声明 runtime
+export const runtime = "edge" // 或 "nodejs"（默认）
+
+// 限制：Edge Runtime 中不能使用
+// fs.readFile / path / crypto.createHash / tls / net / child_process
+```
+
+### Q25: 如何实现国际化 (i18n)？
+
+```ts
+// next.config.ts
+const nextConfig = {
+  i18n: { locales: ["en", "zh-CN", "ja"], defaultLocale: "en" }, // Pages Router
+}
+
+// App Router — 路由级别 i18n
+// app/[lang]/page.tsx
+export async function generateStaticParams() {
+  return [{ lang: "en" }, { lang: "zh-CN" }, { lang: "ja" }]
+}
+
+export default async function Page({ params }: { params: Promise<{ lang: string }> }) {
+  const { lang } = await params
+  const dict = await getDictionary(lang)
+  return <h1>{dict.welcome}</h1>
+}
+
+// middleware 中语言检测
+import { match } from "@formatjs/intl-localematcher"
+export function middleware(request: NextRequest) {
+  const locale = match(request.headers.get("accept-language") || "", ["en", "zh-CN", "ja"], "en")
+  return NextResponse.redirect(new URL(`/${locale}${request.nextUrl.pathname}`, request.url))
+}
+```
+
+### Q26: Metadata 和 generateMetadata 如何配置？
+
+```tsx
+// 静态 metadata
+import type { Metadata } from "next"
+export const metadata: Metadata = {
+  title: { template: "%s | MyApp", default: "MyApp" },
+  description: "应用描述",
+  metadataBase: new URL("https://example.com"),
+  openGraph: { images: "/og.png" },
+  twitter: { card: "summary_large_image" },
+  robots: { index: false, follow: true },
+}
+
+// 动态 metadata（根据路由参数）
+export async function generateMetadata({ params }): Promise<Metadata> {
+  const post = await getPost(params.id)
+  return {
+    title: post.title,
+    description: post.excerpt,
+    openGraph: { images: [post.coverImage] },
+  }
+}
+
+// Page Router 等价: <Head> 组件: import Head from "next/head"
+```
+
+### Q27: 如何用 react-hook-form + zod + Server Actions 处理复杂表单？
+
+```tsx
+// schema.ts
+import { z } from "zod"
+export const SignupSchema = z.object({
+  name: z.string().min(2, "至少 2 个字符"),
+  email: z.string().email("邮箱格式不对"),
+  age: z.number().min(18, "必须 ≥ 18 岁"),
+})(
+  // actions.ts
+  "use server"
+)
+import { SignupSchema } from "./schema"
+export async function signup(prevState: any, formData: FormData) {
+  const validated = SignupSchema.safeParse(Object.fromEntries(formData))
+  if (!validated.success) {
+    return { errors: validated.error.flatten().fieldErrors }
+  }
+  await db.user.create({ data: validated.data })
+  redirect("/welcome")
+}
+
+// form.tsx
+;("use client")
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { useActionState } from "react"
+import { signup } from "./actions"
+import { SignupSchema } from "./schema"
+
+export default function SignupForm() {
+  const [state, formAction] = useActionState(signup, { errors: {} })
+  const { register } = useForm({ resolver: zodResolver(SignupSchema) })
+
+  return (
+    <form action={formAction}>
+      <input {...register("name")} name="name" />
+      {state.errors?.name && <p>{state.errors.name[0]}</p>}
+      <input {...register("email")} name="email" />
+      <button type="submit">注册</button>
+    </form>
+  )
+}
+```
+
+### Q28: 如何实现实时通信（WebSocket / Server-Sent Events）？
+
+```ts
+// ===== 1. Server-Sent Events (SSE) — 服务端推送 =====
+// app/api/sse/route.ts
+export async function GET() {
+  const stream = new ReadableStream({
+    start(controller) {
+      const timer = setInterval(() => {
+        controller.enqueue(`data: ${JSON.stringify({ time: new Date() })}\n\n`)
+      }, 1000)
+      // 连接断开时清理
+      request.signal.addEventListener("abort", () => clearInterval(timer))
+    },
+  })
+  return new Response(stream, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  })
+}
+
+// 客户端
+const eventSource = new EventSource("/api/sse")
+eventSource.onmessage = (e) => console.log(JSON.parse(e.data))
+
+// ===== 2. WebSocket — 需配合外部服务或自定义 server =====
+// 推荐: 用 Socket.IO 或直接部署独立的 WS 服务
+```
+
+### Q29: 如何集成 tRPC 进行端到端类型安全？
+
+tRPC 提供客户端和服务端之间**自动推导类型**的 RPC 调用，无需手动声明 API 类型。
+
+```ts
+// server/trpc.ts
+import { initTRPC } from "@trpc/server"
+const t = initTRPC.create()
+export const router = t.router
+export const publicProcedure = t.procedure
+
+// server/routers/user.ts
+export const userRouter = router({
+  list: publicProcedure.query(() => db.user.findMany()),
+  byId: publicProcedure
+    .input(z.string())
+    .query(({ input }) => db.user.findUnique({ where: { id: input } })),
+})
+
+// 客户端调用 — 完全类型安全
+const { data } = trpc.user.list.useQuery()
+const { data } = trpc.user.byId.useQuery("user-123") // 参数类型自动推导
+```
+
+### Q30: 如何使用 Playwright 做 E2E 测试和 Vitest 做单元测试？
+
+```ts
+// ===== 单元测试 (Vitest + React Testing Library) =====
+// 服务端组件测试
+import { render, screen } from "@testing-library/react"
+import Page from "./page"
+import { describe, it, vi } from "vitest"
+
+vi.mock("@/lib/data", () => ({ getPosts: vi.fn().mockResolvedValue([{ id: 1, title: "Hello" }]) }))
+
+describe("BlogPage", () => {
+  it("renders posts", async () => {
+    render(await Page())
+    expect(screen.getByText("Hello")).toBeDefined()
+  })
+})
+
+// ===== E2E (Playwright) =====
+import { test, expect } from "@playwright/test"
+
+test("should navigate and submit", async ({ page }) => {
+  await page.goto("/")
+  await page.click("text=Login")
+  await page.fill('input[name="email"]', "test@example.com")
+  await page.click("button[type=submit]")
+  await expect(page.locator("text=Dashboard")).toBeVisible()
+})
+```
+
+---
+
+## 十一、从 Pages Router 迁移
+
+### Q31: Pages Router 如何迁移到 App Router？
+
+| Pages Router                        | App Router                                                      |
+| ----------------------------------- | --------------------------------------------------------------- |
+| `pages/index.tsx`                   | `app/page.tsx`                                                  |
+| `getServerSideProps`                | `async` 组件 + `fetch(url)`                                     |
+| `getStaticProps` + `getStaticPaths` | `generateStaticParams` + `fetch(url, { cache: "force-cache" })` |
+| `_app.tsx`                          | `app/layout.tsx`（Root Layout）                                 |
+| `_document.tsx`                     | `app/layout.tsx` 中引入字体等                                   |
+| `useRouter` (pages)                 | `useRouter` from `next/navigation`                              |
+| `next/head`                         | `generateMetadata` 或 `metadata` 导出                           |
+| `next/link`                         | `<Link>` (App Router 中不需传 `<a>` 子元素)                     |
+| API routes (`pages/api/`)           | `app/api/route.ts`                                              |
+| `getServerSideProps` revalidate     | `next: { revalidate: N }`                                       |
+
+```bash
+# 可以渐进式迁移 — 同时运行 App Router 和 Pages Router
+# App Router: app/ 目录
+# Pages Router: pages/ 目录
+```
+
+---
+
+## 十二、构建与优化
+
+### Q32: 如何分析和优化 Bundle 大小？
+
+```bash
+# Bundle 分析
+ANALYZE=true next build
+# 或 npm install @next/bundle-analyzer
+
+# next.config.ts
+const withBundleAnalyzer = require("@next/bundle-analyzer")({ enabled: process.env.ANALYZE === "true" })
+module.exports = withBundleAnalyzer(nextConfig)
+```
+
+```tsx
+// 1. 动态导入减小首屏 JS
+import dynamic from "next/dynamic"
+const HeavyModal = dynamic(() => import("./HeavyModal"), { ssr: false })
+
+// 2. 按需导入第三方库
+// ❌ import { debounce } from "lodash"
+// ✅ import debounce from "lodash/debounce"
+
+// 3. 使用 next/dynamic 的 loading 避免布局偏移
+const LazyComponent = dynamic(() => import("./Lazy"), {
+  loading: () => <div className="h-96 animate-pulse bg-gray-100" />,
+})
+
+// 4. 检查重复打包
+// npm ls <package> 查看重复版本
+// package.json "overrides" 统一版本
+```
+
+### Q33: CI/CD 中如何利用 Next.js 缓存加速构建？
+
+```yaml
+# GitHub Actions 示例
+- uses: actions/setup-node@v4
+  with: { node-version: 20, cache: "npm" }
+
+# 缓存 Next.js 构建输出
+- uses: actions/cache@v4
+  with:
+    path: |
+      ${{ github.workspace }}/.next/cache
+    key: nextjs-${{ hashFiles('package-lock.json') }}-${{ github.sha }}
+    restore-keys: nextjs-${{ hashFiles('package-lock.json') }}-
+
+- run: npm ci && npm run build
+```
+
+---
+
+## 十三、性能与监控
+
+### Q34: 如何监控 Next.js 应用的性能？
+
+```ts
+// 1. Vercel Analytics — 零配置，自动采集 Web Vitals
+import { Analytics } from "@vercel/analytics/react"
+;<Analytics />
+
+// 2. 自定义 Web Vitals 上报
+import { useReportWebVitals } from "next/web-vitals"
+export function WebVitals() {
+  useReportWebVitals((metric) => {
+    console.log(metric) // { name: "LCP", value: 1200, ... }
+    // 上报到自定义服务
+    fetch("/api/vitals", { method: "POST", body: JSON.stringify(metric) })
+  })
+}
+
+// 3. OpenTelemetry (实验性)
+// next.config.ts: experimental: { instrumentationHook: true }
+// instrumentation.ts
+export async function register() {
+  if (process.env.NEXT_RUNTIME === "nodejs") {
+    await import("tracing.js") // 初始化 OpenTelemetry
+  }
+}
+```
+
+### Q35: 如何避免 Layout 导致的重复请求 (Request Waterfall)？
+
+```tsx
+// ❌ 问题: Layout 和 Page 各自 fetch — 串行请求瀑布
+// app/layout.tsx
+export default async function Layout({ children }) {
+  const config = await getConfig() // 请求 1
+  return <div>{children}</div>
+}
+// app/page.tsx
+export default async function Page() {
+  const posts = await getPosts() // 请求 2 — 等请求 1 完成才发起
+  return <Posts posts={posts} />
+}
+
+// ✅ 解决 1: 利用 fetch 的 Request Memoization（同 URL 自动去重）
+// Layout 和 Page 请求同一个 URL，Next.js 自动合并为一次
+const config = await fetch("/api/config") // 只发一次
+
+// ✅ 解决 2: 并行 fetch
+const [config, posts] = await Promise.all([getConfig(), getPosts()])
+
+// ✅ 解决 3: 预加载模式
+// app/layout.tsx
+export default function Layout() {
+  getConfig() // 不 await，先发起
+  return (
+    <div>
+      <Suspense>
+        <Page />
+      </Suspense>
+    </div>
+  )
+}
+// app/page.tsx
+const posts = await getPosts() // getConfig 已在 Layout 中启动
+```
+
+### Q36: 常用性能优化 Checklist？
+
+```tsx
+// 1. 图片: <Image /> 替代 <img>，设置 priority 给首屏大图
+<Image src="/hero.jpg" width={1200} height={600} priority />
+
+// 2. 字体: next/font 自托管，无外网请求，无 FOIT
+const font = localFont({ src: "./my-font.woff2" })
+
+// 3. Link: 利用 prefetch 预热链接
+<Link href="/about" prefetch>About</Link>
+
+// 4. 动态导入: 非首屏内容懒加载
+const Modal = dynamic(() => import("./Modal"))
+
+// 5. Suspense: 非关键内容 Streaming，优先展示首屏
+<Suspense fallback={<Skeleton />}><Sidebar /></Suspense>
+
+// 6. ISR: 内容不频繁变化的页面用 revalidate
+fetch(url, { next: { revalidate: 3600 } })
+
+// 7. "use client" 下沉: 只标记交互组件，静态部分保持服务端
+
+// 8. middleware: 轻量校验，复杂逻辑放 Server Actions
+
+// 9. 环境变量: 不用 NEXT_PUBLIC_ 前缀暴露敏感信息
+
+// 10. 构建缓存: CI/CD 中缓存 .next/cache
+```
+
+---
+
+## 十四、底层原理
+
+### Q37: Next.js 的 Turbopack 是什么？和 Webpack 有什么区别？
+
+| 维度         | Webpack            | Turbopack                                       |
+| ------------ | ------------------ | ----------------------------------------------- |
+| 语言         | JavaScript         | Rust                                            |
+| HMR 速度     | 慢（大型项目数秒） | 快（< 100ms）                                   |
+| 首次构建速度 | 慢                 | 快（最多 ~10x）                                 |
+| 增量构建     | JS 实现            | Rust + 缓存图                                   |
+| 生产构建     | 成熟               | 实验性（Next.js 15+ 可用 `next build --turbo`） |
+| 插件生态     | 丰富               | 有限（逐步支持）                                |
+
+```bash
+# 启用 Turbopack（开发模式）
+next dev --turbo
+# 生产构建（实验性）
+next build --turbo
+```
+
+### Q38: React Server Components 在 Next.js 底层是如何工作的？
+
+```
+1. 构建/请求时:
+   RSC 在服务端执行 → 序列化为特殊格式 (RSC Payload)
+   → 发送给客户端
+
+2. 客户端:
+   React 用 RSC Payload 协调 (reconcile) DOM
+   → 不下载 RSC 对应的 JS bundle
+
+3. 客户端组件标记 "use client":
+   - 只在需要交互的部分标记
+   - 客户端组件内部可以渲染 RSC (通过 children prop)
+```
+
+### Q39: Next.js 如何处理 Web Vitals（LCP / CLS / INP）优化？
+
+| Web Vital | Next.js 内置优化                                                                     |
+| --------- | ------------------------------------------------------------------------------------ |
+| **LCP**   | `<Image priority>` + `next/font` 无外网加载 + SSG/ISR 预渲染 HTML                    |
+| **CLS**   | `<Image width/height>` 自动预留空间 + `next/font` 无 FOIT                            |
+| **INP**   | 服务端组件减少客户端 JS 体积 + Streaming 不阻塞交互 + `useTransition` 标记非紧急更新 |
+| **TTFB**  | ISR 直接返回 HTML + Edge Runtime 就近响应 + PPR 静态壳即时发送                       |
+
+---
+
+## 十五、补充面试题
+
+### Q40: 为什么有些服务端组件中 import 的库需要在 package.json 中标记为 external？
+
+某些库使用了 Node.js 特定 API（如 `fs`/`path`）且不支持 Webpack 打包，需在 `serverExternalPackages` 中标记：
+
+```ts
+// next.config.ts
+const nextConfig = {
+  serverExternalPackages: ["bcrypt", "sharp"], // 服务端专用，不打包
+}
+// 这些包不会被打包进客户端 bundle，仅服务端可用
+```
+
+### Q41: next/link 的 prefetch 行为在不同版本中有什么变化？
+
+| 版本          | 默认行为                                    |
+| ------------- | ------------------------------------------- |
+| Next.js 12-   | `<Link>` 自动 prefetch（视口内可见的链接）  |
+| Next.js 13-14 | 生产环境自动，开发环境不 prefetch           |
+| Next.js 15+   | **默认不 prefetch**，需显式 `prefetch` prop |
+
+```tsx
+// Next.js 15+: 显式预约
+<Link href="/dashboard" prefetch>
+  Dashboard
+</Link>
+// 鼠标悬停时预加载目标页
+```
+
+### Q42: 如何在 Next.js 中处理 File Upload 的进度？
+
+```tsx
+// Server Actions 不直接支持上传进度，需用 API Route + fetch
+// app/api/upload/route.ts
+export async function POST(req: Request) {
+  const formData = await req.formData()
+  const file = formData.get("file") as File
+  await writeFile(`./uploads/${file.name}`, Buffer.from(await file.arrayBuffer()))
+  return Response.json({ url: `/uploads/${file.name}` })
+}
+
+// 客户端 — XMLHttpRequest 获取进度
+function uploadWithProgress(file: File, onProgress: (pct: number) => void) {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.upload.onprogress = (e) =>
+      e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100))
+    xhr.onload = () => resolve(JSON.parse(xhr.responseText))
+    xhr.onerror = reject
+    const formData = new FormData()
+    formData.append("file", file)
+    xhr.open("POST", "/api/upload")
+    xhr.send(formData)
+  })
+}
+```
+
+### Q43: 如何实现 Next.js 的 Api Route 限流？
+
+```ts
+// middleware.ts — 全局限流
+import { Ratelimit } from "@upstash/ratelimit"
+import { Redis } from "@upstash/redis"
+
+const ratelimit = new Ratelimit({
+  redis: Redis.fromEnv(),
+  limiter: Ratelimit.slidingWindow(10, "10 s"),
+})
+
+export async function middleware(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for") ?? "anonymous"
+  const { success } = await ratelimit.limit(ip)
+  if (!success) {
+    return NextResponse.json({ error: "Too Many Requests" }, { status: 429 })
+  }
+  return NextResponse.next()
+}
+```
+
+### Q44: Monorepo 中使用 Next.js 需要注意什么？
+
+```json
+// 1. next.config.ts 配置 transpilePackages
+{ "transpilePackages": ["@my-org/ui", "@my-org/utils"] }
+
+// 2. TypeScript 路径别名
+// tsconfig.json
+{ "compilerOptions": { "paths": { "@my-org/*": ["../../packages/*/src"] } } }
+
+// 3. 外部包的 CSS 需要导入
+// import "@my-org/ui/dist/index.css"
+
+// 4. package.json 的 dependencies 指向 workspace:*
+// "@my-org/ui": "workspace:*"
+```
+
+### Q45: 使用 Next.js 构建一个真实项目，你会选择哪些技术栈？
+
+```
+核心层:    Next.js 15+ (App Router) + TypeScript
+样式:      Tailwind CSS + shadcn/ui
+数据层:    Prisma + PostgreSQL / Drizzle ORM
+认证:      NextAuth (Auth.js) + JWT
+验证:      zod + react-hook-form
+缓存:      Redis (Upstash) + unstable_cache
+部署:      Vercel / Docker + standalone
+监控:      Vercel Analytics + Sentry
+测试:      Vitest + React Testing Library + Playwright
+CI/CD:     GitHub Actions + Vercel Preview Deploy
+```

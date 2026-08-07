@@ -1,0 +1,201 @@
+# Express.js 面试题
+
+---
+
+## 一、核心概念
+
+### Q1: Express 中间件的本质是什么？洋葱模型如何工作？
+
+中间件 = 签名为 `(req, res, next)` 的函数，在请求到达处理器前依次执行。
+
+```
+请求 →
+ ┌──────┐ next() ┌──────┐ next() ┌─────────┐
+ │Logger│───────▶│ Auth │───────▶│ Handler │
+ │      │◀───────│      │◀───────│         │
+ └──────┘        └──────┘        └─────────┘
+       ←──────── 洋葱模型 ──────────→
+```
+
+```js
+app.use((req, res, next) => {
+  console.log("1: 进入")
+  next()
+  console.log("1: 离开") // next() 之后的代码在下游完成后执行
+})
+```
+
+**关键规则：**
+
+1. 调用 `next()` → 交给下一个中间件
+2. 发送响应 → 终止后续中间件（`res.send()` / `res.json()` 等）
+3. 忘记 `next()` → 请求挂起（一直等到超时）
+
+### Q2: Express 的错误处理中间件怎么写？
+
+签名必须是 **4 个参数** `(err, req, res, next)`。Express 通过参数个数自动识别：
+
+```js
+// 必须 4 个参数！Express 通过参数数量判断这是错误处理中间件
+app.use((err, req, res, next) => {
+  console.error(err.stack)
+  res.status(err.status || 500).json({
+    error: { message: err.message, status: err.status || 500 },
+  })
+})
+
+// 404 —— 在所有路由之后注册（不是错误处理）
+app.use((req, res) => {
+  res.status(404).json({ error: "Not Found" })
+})
+```
+
+**同步 vs 异步错误：**
+
+```js
+// Express 4.x —— 同步抛出的错误自动捕获
+app.get("/sync", (req, res) => {
+  throw new Error("自动处理") // → 到错误处理中间件
+})
+
+// 异步抛出的错误 —— 必须手动 next(err)
+app.get("/async", async (req, res, next) => {
+  try {
+    await doSomething()
+  } catch (err) {
+    next(err) // ⬅ 必须手动传递！
+  }
+})
+
+// 简化方案：express-async-errors
+require("express-async-errors")
+app.get("/async", async (req, res) => {
+  await doSomething() // 抛出错误 → 自动到错误处理中间件
+})
+```
+
+### Q3: app.use 和 app.get 的区别？
+
+|           | app.use                                  | app.get                         |
+| --------- | ---------------------------------------- | ------------------------------- |
+| HTTP 方法 | **所有方法**（GET/POST/PUT...）          | 仅 GET                          |
+| 路径匹配  | **前缀匹配**（`/api` 匹配 `/api/users`） | **精确匹配**（除非有 `:` 参数） |
+| 典型用途  | 全局中间件、挂载子路由                   | 具体路由处理                    |
+
+```js
+app.use("/api", apiRouter) // → /api/users ✅  /api/orders ✅
+app.get("/users", handler) // → 仅 GET /users
+```
+
+### Q4: express.Router 的作用？如何模块化路由？
+
+```js
+// routes/users.js
+const router = require("express").Router()
+
+router.get("/", async (req, res) => {
+  res.json(await User.findAll())
+})
+
+router.get("/:id", async (req, res) => {
+  const user = await User.findById(req.params.id)
+  if (!user) return res.status(404).json({ error: "Not Found" })
+  res.json(user)
+})
+
+module.exports = router
+```
+
+```js
+// app.js
+const usersRouter = require("./routes/users")
+app.use("/users", usersRouter) // → GET /users, GET /users/:id
+```
+
+---
+
+## 二、请求处理
+
+### Q5: req.body 为什么是 undefined？
+
+Express 默认**不解析请求体**。需要显式注册中间件：
+
+```js
+// 4.16+ 内置
+app.use(express.json()) // Content-Type: application/json
+app.use(express.urlencoded({ extended: true })) // Content-Type: application/x-www-form-urlencoded
+
+// multipart/form-data（文件上传）→ 需要 multer
+const multer = require("multer")
+app.post("/upload", multer().single("avatar"), (req, res) => {
+  // req.file → 上传的文件
+  // req.body → 其他字段
+})
+```
+
+### Q6: 如何实现 JWT 认证中间件？
+
+```js
+const jwt = require("jsonwebtoken")
+
+function authenticate(req, res, next) {
+  const auth = req.headers.authorization
+  if (!auth?.startsWith("Bearer ")) {
+    return res.status(401).json({ error: "未提供 Token" })
+  }
+  try {
+    req.user = jwt.verify(auth.split(" ")[1], process.env.JWT_SECRET)
+    next()
+  } catch {
+    res.status(401).json({ error: "Token 无效或已过期" })
+  }
+}
+
+// 使用
+app.get("/me", authenticate, (req, res) => {
+  res.json(req.user)
+})
+```
+
+---
+
+## 三、面试进阶
+
+### Q7: Express vs Koa vs Fastify 的对比？
+
+| 维度     | Express          | Koa                | Fastify              |
+| -------- | ---------------- | ------------------ | -------------------- |
+| 中间件   | `(req,res,next)` | `async (ctx,next)` | `register(fn,opts)`  |
+| 错误处理 | 4 参数中间件     | try-catch          | `setErrorHandler`    |
+| 路由     | 内置             | 需 @koa/router     | 内置（Radix Tree）   |
+| 验证     | 第三方           | 第三方             | **内置 JSON Schema** |
+| Logger   | 第三方           | 第三方             | **内置 pino**        |
+| 性能     | 最低             | 中                 | **最高**             |
+| 生态     | **最大**         | 较小               | 增长中               |
+
+### Q8: Express 的性能瓶颈在哪？
+
+1. **正则路由匹配**：路由多时匹配慢（vs Fastify 的 Radix Tree）
+2. **JSON.stringify**：每次 `res.json()` 都做运行时序列化（vs Fastify 的 Schema 编译）
+3. **无 Schema 验证**：每一次请求从 `req.body` 取字段，无静态类型推断
+
+### Q9: 速查表
+
+| 方法                   | 说明                     |
+| ---------------------- | ------------------------ |
+| `app.use([path], fn)`  | 注册中间件               |
+| `app.get(path, ...fn)` | GET 路由                 |
+| `req.params`           | 路由参数 `:id`           |
+| `req.query`            | Query String             |
+| `req.body`             | 请求体（需 body-parser） |
+| `res.json(obj)`        | 发送 JSON                |
+| `res.status(code)`     | 设置状态码               |
+| `res.redirect(url)`    | 重定向                   |
+| `res.sendFile(path)`   | 发送文件                 |
+| `next()`               | 交给下一个中间件         |
+| `next(err)`            | 交给错误处理中间件       |
+
+**参考文献：**
+
+- [Express 官方文档](https://expressjs.com/)
+- [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)

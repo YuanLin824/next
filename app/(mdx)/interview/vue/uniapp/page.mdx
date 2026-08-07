@@ -1,0 +1,861 @@
+# UniApp 面试题
+
+---
+
+## 一、基础认知
+
+### Q1: UniApp 是什么？和 Taro、原生小程序、Flutter 有什么区别？
+
+UniApp 是 DCloud 推出的**跨端开发框架**，基于 Vue.js 语法，一套代码可同时编译到 iOS/Android/H5 以及微信/支付宝/百度/字节/QQ/快手/飞书/京东等各大小程序平台。
+
+```
+Vue 源码
+    │
+    ▼
+UniApp 编译器
+    │
+    ├── 编译为各小程序原生代码（WXML+WXSS+JS）
+    ├── 编译为 H5（Vue 标准 Web 应用）
+    └── 编译为 App（通过 Weex/原生渲染引擎）
+```
+
+| 维度     | UniApp                    | Taro                         | 原生小程序            | Flutter         |
+| -------- | ------------------------- | ---------------------------- | --------------------- | --------------- |
+| 技术栈   | **Vue.js**                | React/Vue/Nerv               | 小程序原生语法        | Dart            |
+| 跨端范围 | 最广（10+ 小程序+H5+App） | 小程序+H5+RN                 | 仅微信/支付宝等单平台 | iOS/Android     |
+| 学习成本 | 低（会 Vue 即可）         | 中（需学 React 或 Taro DSL） | 低                    | 高（需学 Dart） |
+| 性能     | App 端偏弱                | 接近原生                     | 原生性能              | 接近原生        |
+| 生态     | DCloud 插件市场（丰富）   | npm 生态                     | 仅平台 API            | pub.dev         |
+| 适用场景 | 中小型跨端应用            | 中大型、需 React 技术栈      | 单平台小程序          | 高性能 App      |
+
+**UniApp 的核心优势：**
+
+- 会 Vue 就能开发 10+ 平台
+- 条件编译灵活（`#ifdef` / `#ifndef`）
+- DCloud 插件市场成熟
+- 一套 pages.json 管理所有路由和页面配置
+
+### Q2: UniApp 的编译原理是什么？
+
+```
+Vue SFC (.vue)
+    │
+    ├── <template> → 各平台模板代码
+    │     ├── 小程序：WXML（<view> <text> <image>）
+    │     ├── H5：标准 HTML（<div> <span> <img>）
+    │     └── App：Weex 组件树 / NVue 原生渲染
+    │
+    ├── <script> → 各平台 JS
+    │     ├── 小程序：Page() / Component() 构造器
+    │     ├── H5：Vue 组件
+    │     └── App：Vue 组件 + 原生桥接
+    │
+    └── <style> → 各平台样式
+          ├── 小程序：WXSS（rpx → rpx，原生支持）
+          ├── H5：CSS（rpx → rem）
+          └── App：Weex CSS 子集
+```
+
+**关键点：**
+
+1. **模板标签映射**：`<view>` → 小程序 `<view>` / H5 `<div>`
+2. **API 替换**：`uni.request` → 小程序 `wx.request` / H5 `fetch`
+3. **生命周期映射**：Vue 生命周期 → 小程序 Page/Component 生命周期
+4. **rpx 单位**：750rpx = 屏幕宽度，跨平台自动换算
+
+### Q3: 条件编译 #ifdef 和 #ifndef 的使用场景？
+
+条件编译是 UniApp 实现"一套代码多端运行"的核心机制——在编译阶段根据平台保留或剔除代码：
+
+```html
+<!-- 模板中 -->
+<!-- #ifdef MP-WEIXIN -->
+<button open-type="share">分享</button>
+<!-- #endif -->
+
+<!-- #ifdef H5 -->
+<button @click="copyLink">复制链接</button>
+<!-- #endif -->
+
+<!-- 多平台组合 -->
+<!-- #ifdef MP-WEIXIN || MP-BAIDU -->
+<official-account></official-account>
+<!-- #endif -->
+```
+
+```js
+// 脚本中
+// #ifdef MP-WEIXIN
+wx.showShareMenu()
+// #endif
+
+// #ifndef H5
+// 这段代码仅在非 H5 平台生效
+uni.login()
+// #endif
+```
+
+```css
+/* 样式中 */
+/* #ifdef MP-WEIXIN */
+.header {
+  /* 微信小程序特殊样式 */
+}
+/* #endif */
+```
+
+**常用平台标识：**
+
+| 标识            | 平台                  |
+| --------------- | --------------------- |
+| `MP-WEIXIN`     | 微信小程序            |
+| `MP-ALIPAY`     | 支付宝小程序          |
+| `MP-BAIDU`      | 百度小程序            |
+| `MP-TOUTIAO`    | 字节跳动小程序        |
+| `MP-QQ`         | QQ 小程序             |
+| `MP-KUAISHOU`   | 快手小程序            |
+| `H5`            | 移动端 H5             |
+| `APP`           | App（iOS + Android）  |
+| `APP-PLUS`      | App（使用 5+ API 时） |
+| `MP`            | 所有小程序            |
+| `APP-PLUS-NVUE` | App NVue 页面         |
+
+### Q4: pages.json 的核心配置有哪些？
+
+`pages.json` 是 UniApp 的全局配置文件，相当于小程序的 `app.json` + Vue Router 的整合：
+
+```json
+{
+  // ====== 页面路由 ======
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "首页",
+        "navigationBarBackgroundColor": "#ffffff",
+        "enablePullDownRefresh": true
+      }
+    }
+  ],
+
+  // ====== 子包（分包加载） ======
+  "subPackages": [
+    {
+      "root": "pages-sub/order",
+      "pages": [
+        { "path": "list", "style": { "navigationBarTitleText": "订单列表" } },
+        { "path": "detail", "style": { "navigationBarTitleText": "订单详情" } }
+      ]
+    }
+  ],
+
+  // ====== 全局窗口样式 ======
+  "globalStyle": {
+    "navigationBarTextStyle": "black",
+    "navigationBarTitleText": "我的应用",
+    "navigationBarBackgroundColor": "#F8F8F8",
+    "backgroundColor": "#F8F8F8"
+  },
+
+  // ====== TabBar 配置 ======
+  "tabBar": {
+    "color": "#999999",
+    "selectedColor": "#007AFF",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/home.png",
+        "selectedIconPath": "static/home-active.png"
+      },
+      {
+        "pagePath": "pages/my/my",
+        "text": "我的",
+        "iconPath": "static/my.png",
+        "selectedIconPath": "static/my-active.png"
+      }
+    ]
+  },
+
+  // ====== 平台差异化配置 ======
+  "condition": {
+    // 小程序开发模式下的启动参数
+  },
+
+  // ====== 预加载 ======
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "all",
+      "packages": ["pages-sub/order"]
+    }
+  }
+}
+```
+
+### Q5: UniApp 有哪些常用组件和 API？与 HTML 标签的对应关系？
+
+```html
+<!-- 基础组件 -->
+<view>
+  →
+  <div>
+    (块级容器)
+    <text>
+      →
+      <span>
+        (行内文本，支持 selectable)
+        <image>
+          → <img /> (图片，mode 属性强大：aspectFill/aspectFit/widthFix)
+          <scroll-view>
+            → (可滚动区域，支持横向/纵向/下拉刷新)
+            <swiper>
+              → (轮播图)
+              <navigator>
+                →
+                <a>
+                  (页面跳转)
+
+                  <!-- 表单 -->
+                  <button>
+                    →
+                    <button>
+                      (支持 open-type：share/getUserInfo/contact) <input /> → <input /> (type 支持
+                      number/idcard/digit)
+                      <picker>
+                        →
+                        <select>
+                          (选择器)
+                          <form>
+                            →
+                            <form>
+                              (表单提交)
+
+                              <!-- 媒体 -->
+                              <video>
+                                →
+                                <video>
+                                  <camera> → (相机组件) <map> → (地图组件)</map></camera>
+                                </video>
+                              </video>
+                            </form>
+                          </form>
+                        </select></picker
+                      >
+                    </button>
+                  </button></a
+                ></navigator
+              ></swiper
+            ></scroll-view
+          ></image
+        ></span
+      ></text
+    >
+  </div></view
+>
+```
+
+**UniApp JS API（uni.xxx 统一调用）：**
+
+```js
+// 界面
+uni.showToast({ title: "成功", icon: "success" })
+uni.showLoading({ title: "加载中" })
+uni.showModal({ title: "提示", content: "确认删除？" })
+uni.showActionSheet({ itemList: ["选项A", "选项B"] })
+
+// 导航
+uni.navigateTo({ url: "/pages/detail/detail?id=1" }) // 保留当前页（可返回）
+uni.redirectTo({ url: "/pages/login/login" }) // 关闭当前页
+uni.switchTab({ url: "/pages/index/index" }) // 跳转 TabBar 页
+uni.reLaunch({ url: "/pages/index/index" }) // 关闭所有页
+uni.navigateBack({ delta: 1 }) // 返回
+
+// 存储
+uni.setStorageSync("key", "value")
+const val = uni.getStorageSync("key")
+uni.removeStorageSync("key")
+
+// 网络
+uni.request({ url: "/api/users", method: "GET", success: (res) => {} })
+```
+
+---
+
+## 二、生命周期
+
+### Q6: UniApp 的完整生命周期是怎样的？与 Vue 生命周期的关系？
+
+UniApp 的生命周期 = Vue 生命周期 + 应用生命周期 + 页面生命周期：
+
+```
+应用启动
+    │
+    ▼
+App.vue: onLaunch ──→ App.vue: onShow
+    │
+    ▼
+页面进入
+    │
+    ├── onLoad(options)          ← 页面加载（获取路由参数）
+    ├── onShow()                 ← 页面显示（每次切到此页都触发）
+    ├── created()                ← Vue 实例创建
+    ├── mounted()                ← Vue 挂载完成
+    ├── onReady()                ← 页面初次渲染完成
+    │
+页面隐藏 → onHide()
+后台切回 → onShow()
+页面卸载 → onUnload() → destroyed()
+```
+
+**完整生命周期触发顺序：**
+
+```
+进入页面：  onLoad → onShow → created → mounted → onReady
+离开页面：  onHide（切走）→ onUnload（销毁）
+后台切回：  onShow
+TabBar 切换： onHide（旧页）→ onShow（新页）
+分享/收藏：  onShareAppMessage
+下拉刷新：  onPullDownRefresh
+触底加载：  onReachBottom
+```
+
+```vue
+<script>
+export default {
+  // UniApp 页面生命周期
+  onLoad(options) {
+    console.log("页面加载，参数：", options)
+  },
+  onShow() {
+    console.log("页面显示——每次切到此页都触发")
+    // 适合刷新数据
+  },
+  onReady() {
+    console.log("页面初次渲染完成")
+  },
+  onHide() {
+    console.log("页面隐藏")
+  },
+  onUnload() {
+    console.log("页面卸载——清理定时器/事件监听")
+  },
+  onPullDownRefresh() {
+    // 下拉刷新 → 请求数据 → uni.stopPullDownRefresh()
+  },
+  onReachBottom() {
+    // 触底加载更多
+  },
+  onShareAppMessage() {
+    return { title: "分享标题", path: "/pages/index/index" }
+  },
+
+  // Vue 生命周期
+  created() {
+    console.log("Vue 实例创建")
+  },
+  mounted() {
+    console.log("Vue 挂载完成——可以操作 DOM")
+  },
+}
+</script>
+```
+
+### Q7: App.vue 和页面的生命周期有什么区别？
+
+| 生命周期            | 所属 | 触发次数             | 典型用途                 |
+| ------------------- | ---- | -------------------- | ------------------------ |
+| `onLaunch`          | App  | **全局唯一**（一次） | 获取系统信息、全局初始化 |
+| `onShow`            | App  | 切前台时触发         | 检查更新、刷新全局状态   |
+| `onHide`            | App  | 切后台时触发         | 暂停音乐/定时器          |
+| `onError`           | App  | 脚本错误时           | 全局错误上报             |
+| `onPageNotFound`    | App  | 404 时               | 重定向到首页             |
+| `onLoad`            | Page | 一次（首次进入）     | 接收路由参数、初始化数据 |
+| `onShow`            | Page | 每次显示             | 刷新页面数据             |
+| `onUnload`          | Page | 销毁时               | 清理资源                 |
+| `onPullDownRefresh` | Page | 下拉时               | 刷新数据                 |
+
+### Q8: 组件生命周期有哪些？和页面生命周期的关系？
+
+```js
+// 组件生命周期
+export default {
+  // Vue 3 Options
+  beforeCreate() {
+    // 不能操作 this
+  },
+  created() {
+    // 可以访问 this，适合初始化数据
+  },
+  beforeMount() {},
+  mounted() {
+    // 可以操作 DOM
+  },
+
+  // UniApp 组件专属
+  beforeDestroy() {
+    // 清理定时器、事件监听
+  },
+  destroyed() {},
+
+  // 组件所在页面的生命周期（组件中监听页面事件）
+  onPageShow() {
+    // 所在页面显示时触发
+  },
+  onPageHide() {},
+  onPageResize() {},
+}
+```
+
+**页面与组件的执行顺序：**
+
+```
+页面 onLoad → 组件 created → 组件 mounted → 页面 onReady
+页面 onShow → 组件 onPageShow
+```
+
+---
+
+## 三、跨端适配
+
+### Q9: 不同平台的常见差异有哪些？如何适配？
+
+| 差异       | 说明                            | 解决方案                               |
+| ---------- | ------------------------------- | -------------------------------------- |
+| **样式**   | 不同小程序对 CSS 的支持程度不同 | 条件编译样式 + 慎用高级 CSS            |
+| **API**    | 如 `uni.getUserProfile` 已废弃  | 条件编译调用平台原生 API               |
+| **组件**   | `<button open-type>` 各平台不同 | `#ifdef` 区分                          |
+| **路由**   | 小程序页面栈 10 层限制          | 超过 10 层用 `redirectTo`              |
+| **包大小** | 微信主包 ≤ 2MB                  | 分包 + 按需加载                        |
+| **登录**   | 微信/支付宝/抖音各有各的登录    | 统一 `uni.login` + 各平台差异化配置    |
+| **支付**   | 微信支付 vs 支付宝支付          | `uni.requestPayment` + `provider` 参数 |
+
+```html
+<!-- 典型适配模式 -->
+<!-- #ifdef MP-WEIXIN -->
+<button open-type="getUserInfo" @getuserinfo="onWxLogin">微信登录</button>
+<!-- #endif -->
+<!-- #ifdef MP-ALIPAY -->
+<button @click="onAliLogin">支付宝登录</button>
+<!-- #endif -->
+```
+
+### Q10: rpx 是什么？如何在不同端换算？
+
+rpx（responsive pixel）是 UniApp/微信小程序定义的**响应式像素单位**，基准是**屏幕宽度 = 750rpx**。
+
+```
+设计稿基准：通常 375px（iPhone 6/7/8）
+换算公式：
+  rpx = px * (750 / 设计稿宽度)
+  例：375px 设计稿，20px → 20 * (750 / 375) = 40rpx
+
+不同设备：
+  iPhone SE：    320px  → 750rpx  → 1rpx = 0.426px
+  iPhone 14：    390px  → 750rpx  → 1rpx = 0.52px
+  iPhone 14 Pro Max：430px → 750rpx → 1rpx = 0.573px
+
+编译为 H5 时：rpx → rem（根字号根据屏幕宽度动态计算）
+编译为小程序时：原生支持 rpx
+```
+
+```css
+/* 推荐：按 750 设计稿直接写 rpx */
+.box {
+  margin: 20rpx auto;
+  width: 690rpx; /* 左右各留 30rpx 边距 */
+  height: 200rpx;
+  font-size: 28rpx;
+}
+```
+
+### Q11: nvue 和 vue 页面的区别？什么时候用 nvue？
+
+| 维度     | Vue 页面             | nvue 页面                    |
+| -------- | -------------------- | ---------------------------- |
+| 渲染引擎 | WebView（Web 内核）  | Weex 原生渲染                |
+| CSS 支持 | 完整 CSS3            | CSS 子集（仅 flex 布局）     |
+| DOM API  | 完整                 | 无 DOM（只有 Weex 组件树）   |
+| 性能     | 一般（WebView 开销） | 高性能（原生组件）           |
+| 长列表   | 性能差               | 原生长列表（`<list>` 组件）  |
+| 文本     | `<text>`             | 必须用 `<text>` 包裹         |
+| 调试     | Chrome DevTools      | Weex DevTools                |
+| 适用     | 普通页面             | **首页、长列表、高交互页面** |
+
+> 经验法则：普通页面用 Vue，首页/长列表/动画复杂的页面用 nvue。
+
+---
+
+## 四、路由与通信
+
+### Q12: UniApp 的路由跳转有几种方式？
+
+| 方式           | API                                | 行为      | 页面栈 |
+| -------------- | ---------------------------------- | --------- | ------ |
+| `navigateTo`   | 保留当前页，跳转新页（可返回）     | 栈 +1     |        |
+| `redirectTo`   | 关闭当前页，跳转新页（不可返回）   | 栈不变    |        |
+| `switchTab`    | 跳转 TabBar 页面，关闭其他所有页面 | 重置栈    |        |
+| `reLaunch`     | 关闭所有页面，打开新页             | 重置栈    |        |
+| `navigateBack` | 返回上一页或指定页数               | 栈 -delta |        |
+
+```js
+// 带参数跳转
+uni.navigateTo({ url: "/pages/detail/detail?id=1&name=Alice" })
+
+// 目标页面接收
+onLoad(options) {
+  console.log(options.id) // → "1"
+  console.log(options.name) // → "Alice"
+}
+
+// ⚠️ 注意：url 参数总长度有限制，小程序有长度限制
+// 大量数据用全局变量或 Vuex/Pinia 传递
+
+// 限制：小程序页面栈最多 10 层
+// 超过 10 层用 redirectTo 或 reLaunch
+```
+
+### Q13: 组件间通信有哪些方式？
+
+```js
+// 方式一：Props + $emit（父传子、子传父）
+// 父组件
+<child :user="userInfo" @change="onChange" />
+
+// 子组件
+export default {
+  props: { user: Object },
+  methods: {
+    notifyParent() {
+      this.$emit("change", { id: 1 })
+    },
+  },
+}
+
+// 方式二：全局事件总线（uni.$emit / uni.$on）
+// 发送
+uni.$emit("cart-updated", { count: 5 })
+// 接收（通常在 onLoad 中注册）
+uni.$on("cart-updated", (data) => {
+  this.cartCount = data.count
+})
+// 卸载页面时记得移除
+onUnload() {
+  uni.$off("cart-updated")
+}
+
+// 方式三：Vuex / Pinia（大型项目推荐）
+// 方式四：provide / inject（Vue 3）
+// 方式五：uni.$globalData（简单场景）
+```
+
+---
+
+## 五、性能优化
+
+### Q14: 如何优化小程序的包体积？
+
+| 策略                  | 说明                                                   |
+| --------------------- | ------------------------------------------------------ |
+| **分包加载**          | 主包只放首页/TabBar 页，其余拆到子包                   |
+| **静态资源 CDN**      | 大图放 CDN，不打包进代码                               |
+| **条件编译剔除**      | `#ifndef` 剔除不需要的平台代码                         |
+| **Tree Shaking**      | 使用 ESM 按需引入（如 `import { Button } from 'xxx'`） |
+| **图片压缩**          | 本地图片使用 WebP/TinyPNG 压缩                         |
+| **移除冗余依赖**      | 检查 `package.json` 中未使用的 npm 包                  |
+| **组件化 + 按需加载** | 非首屏组件异步加载                                     |
+
+```json
+// pages.json 分包示例
+{
+  "pages": [{ "path": "pages/index/index" }, { "path": "pages/my/my" }],
+  "subPackages": [
+    { "root": "pages-sub/order", "pages": ["list", "detail"] },
+    { "root": "pages-sub/setting", "pages": ["account", "privacy"] }
+  ],
+  "preloadRule": {
+    "pages/index/index": {
+      "network": "wifi",
+      "packages": ["pages-sub/order"]
+    }
+  }
+}
+```
+
+### Q15: setData 的性能优化策略？
+
+虽然 UniApp 封装了 `setData`，但在小程序端底层仍然通过 `setData` 从逻辑层向渲染层传输数据：
+
+```js
+// ❌ 差：频繁 setData
+for (let i = 0; i < 10; i++) {
+  this.list.push(item)
+  this.list = [...this.list] // 每次触发视图更新
+}
+
+// ✅ 好：合并到一次更新
+const newList = [...this.list]
+for (let i = 0; i < 10; i++) {
+  newList.push(item)
+}
+this.list = newList // 只触发一次更新
+
+// ❌ 差：传输不必要的长列表数据到渲染层
+this.hugeData = largeArray // 视图只用了 hugeData[0]
+
+// ✅ 好：只传视图需要的
+this.displayItem = largeArray[0]
+
+// ✅ 最佳实践
+// 1. 合并多次更新为一次
+// 2. 只传输视图绑定的数据
+// 3. 长列表用虚拟列表或分页加载
+// 4. 复杂页面拆分为组件（各组件独立 setData）
+```
+
+---
+
+## 六、进阶与工程化
+
+### Q16: UniApp 中如何使用状态管理（Vuex/Pinia）？
+
+```js
+// ====== Pinia（Vue 3 推荐） ======
+// store/user.js
+import { defineStore } from "pinia"
+
+export const useUserStore = defineStore("user", {
+  state: () => ({
+    token: uni.getStorageSync("token") || "",
+    userInfo: null,
+  }),
+  getters: {
+    isLoggedIn: (state) => !!state.token,
+  },
+  actions: {
+    async login(credentials) {
+      const res = await uni.request({ url: "/api/login", method: "POST", data: credentials })
+      this.token = res.data.token
+      this.userInfo = res.data.user
+      uni.setStorageSync("token", res.data.token)
+    },
+    logout() {
+      this.token = ""
+      this.userInfo = null
+      uni.removeStorageSync("token")
+    },
+  },
+})
+```
+
+```vue
+<!-- 使用 -->
+<script setup>
+import { useUserStore } from "@/store/user"
+const userStore = useUserStore()
+
+function handleLogin() {
+  await userStore.login({ email, password })
+}
+</script>
+
+<template>
+  <view v-if="userStore.isLoggedIn">{{ userStore.userInfo.name }}</view>
+</template>
+```
+
+### Q17: UniApp 如何实现自定义 TabBar？
+
+```vue
+<!-- custom-tabbar.vue -->
+<template>
+  <view class="tabbar">
+    <view v-for="item in tabs" :key="item.path" class="tabbar-item" @click="switchTab(item.path)">
+      <image :src="currentPath === item.path ? item.selectedIcon : item.icon" />
+      <text :style="{ color: currentPath === item.path ? selectedColor : color }">
+        {{ item.text }}
+      </text>
+    </view>
+  </view>
+</template>
+
+<script>
+export default {
+  data() {
+    return {
+      tabs: [
+        { path: "/pages/index/index", text: "首页", icon: "home.png", selectedIcon: "home-a.png" },
+        {
+          path: "/pages/order/order",
+          text: "订单",
+          icon: "order.png",
+          selectedIcon: "order-a.png",
+        },
+        { path: "/pages/my/my", text: "我的", icon: "my.png", selectedIcon: "my-a.png" },
+      ],
+    }
+  },
+  methods: {
+    switchTab(path) {
+      uni.switchTab({ url: path })
+    },
+  },
+}
+</script>
+```
+
+```json
+// pages.json
+{
+  "tabBar": {
+    "custom": true, // ⬅ 开启自定义 TabBar
+    "list": [{ "pagePath": "pages/index/index" }, { "pagePath": "pages/my/my" }]
+  }
+}
+```
+
+### Q18: App 端的原生能力如何调用？
+
+```js
+// ====== 原生能力调用 ======
+// 扫码
+uni.scanCode({ success: (res) => console.log(res.result) })
+
+// 拍照/选图
+uni.chooseImage({ count: 1, success: (res) => console.log(res.tempFilePaths) })
+
+// 定位
+uni.getLocation({ type: "gcj02", success: (res) => console.log(res.latitude, res.longitude) })
+
+// 拨打电话
+uni.makePhoneCall({ phoneNumber: "13800138000" })
+
+// ====== App 端特有（5+ API） ======
+// #ifdef APP-PLUS
+const main = plus.android.runtimeMainActivity() // Android 原生 Activity
+plus.runtime.install("/path/to/app.apk") // 安装 APK
+// #endif
+
+// ====== 原生插件 ======
+// 1. 从 DCloud 插件市场获取原生插件
+// 2. 在 manifest.json 中配置
+// 3. 使用 uni.requireNativePlugin('plugin-name') 调用
+```
+
+### Q19: UniApp 上架审核需要注意什么？
+
+| 平台             | 关键审核点                                                           |
+| ---------------- | -------------------------------------------------------------------- |
+| **微信小程序**   | 不得诱导分享、不得自动跳转外部 App、登录需用户主动触发、需有隐私协议 |
+| **App Store**    | 需提供登录账号供审核、禁止热更新动态下发代码、UI 不得粗糙            |
+| **安卓市场**     | 需《计算机软件著作权登记证书》、隐私政策、应用不得频繁自启动         |
+| **支付宝小程序** | 不得诱导下载 App、支付类目需额外资质                                 |
+
+**通用注意事项：**
+
+1. **隐私弹窗**：首次启动展示隐私协议，用户同意后才能调用隐私 API
+2. **权限最小化**：只申请必需权限，解释了用途
+3. **内容合规**：无涉黄涉赌、无侵权
+4. **UI 规范**：不模仿系统原生交互误导用户
+
+### Q20: 常用的调试和问题排查方式？
+
+```bash
+# 开发阶段
+1. HBuilderX 内置调试器（类似 Chrome DevTools）
+2. 微信开发者工具 → 调试器 → Sources 断点
+3. 真机调试：HBuilderX → 运行 → 运行到手机
+4. vconsole：H5 端调试利器（npm i vconsole）
+
+# 线上排查
+1. 小程序后台 → 运维中心 → 错误日志
+2. 自建埋点/错误上报（Sentry/自研）
+3. uni.onError + uni.onUnhandledRejection 全局捕获
+```
+
+```js
+// 全局错误捕获
+// App.vue
+export default {
+  onLaunch() {
+    // 同步错误
+    uni.onError((err) => {
+      console.error("全局错误:", err)
+      // 上报到 Sentry
+    })
+
+    // 未处理的 Promise 拒绝
+    uni.onUnhandledRejection((res) => {
+      console.error("未处理 Promise:", res.reason)
+    })
+  },
+}
+```
+
+---
+
+## 七、实战陷阱与速查
+
+### Q21: UniApp 开发中的常见坑
+
+| 问题                          | 原因                                                  | 解决                                 |
+| ----------------------------- | ----------------------------------------------------- | ------------------------------------ |
+| 样式不生效                    | 小程序不支持部分 CSS（如 `overflow:scroll` 部分兼容） | 按官方文档查 CSS 支持度，条件编译    |
+| `onLoad` 中获取不到子组件     | 组件还未挂载                                          | 在 `onReady` 或 `mounted` 中操作     |
+| TabBar 页面 `navigateTo` 失败 | TabBar 页面只能用 `switchTab`                         | 改用 `switchTab` 或改页面类型        |
+| 小程序页面栈超过 10 层        | 微信限制                                              | 中间页用 `redirectTo` 替换           |
+| v-for 不写 `:key`             | 导致视图混乱                                          | 始终添加 `:key="item.id"`            |
+| 图片不显示                    | 本地路径或 HTTPS 要求                                 | 小程序要求 HTTPS；本地图片用绝对路径 |
+| uni.login 失败                | 各平台登录流程不同                                    | 条件编译，按平台文档处理             |
+| 热更新不生效                  | 微信开发者工具缓存                                    | 清除缓存重新编译                     |
+
+### Q22: 速查表
+
+**应用生命周期：**
+
+| 钩子             | 触发时机           |
+| ---------------- | ------------------ |
+| `onLaunch`       | 应用初始化（一次） |
+| `onShow`         | 应用切到前台       |
+| `onHide`         | 应用切到后台       |
+| `onError`        | 脚本错误/API 失败  |
+| `onPageNotFound` | 页面不存在         |
+
+**页面生命周期：**
+
+| 钩子                | 触发时机               |
+| ------------------- | ---------------------- |
+| `onLoad(options)`   | 页面加载，接收路由参数 |
+| `onShow`            | 页面显示（每次）       |
+| `onReady`           | 页面初次渲染完成       |
+| `onHide`            | 页面隐藏               |
+| `onUnload`          | 页面卸载               |
+| `onPullDownRefresh` | 下拉刷新               |
+| `onReachBottom`     | 触底                   |
+| `onShareAppMessage` | 点击分享               |
+| `onPageScroll`      | 页面滚动               |
+
+**路由方法：**
+
+| 方法                        | 说明             |
+| --------------------------- | ---------------- |
+| `uni.navigateTo({url})`     | 保留当前页，跳转 |
+| `uni.redirectTo({url})`     | 关闭当前页，跳转 |
+| `uni.switchTab({url})`      | 跳转 TabBar 页   |
+| `uni.reLaunch({url})`       | 关闭所有页，打开 |
+| `uni.navigateBack({delta})` | 返回             |
+
+**条件编译：**
+
+| 指令               | 说明           |
+| ------------------ | -------------- |
+| `#ifdef PLATFORM`  | 仅在此平台保留 |
+| `#ifndef PLATFORM` | 不在此平台保留 |
+| `#endif`           | 结束条件块     |
+
+### Q23: 参考文献
+
+- [UniApp 官方文档](https://uniapp.dcloud.net.cn/)
+- [微信小程序官方文档](https://developers.weixin.qq.com/miniprogram/dev/framework/)
+- [DCloud 插件市场](https://ext.dcloud.net.cn/)
+- [Vue 3 组合式 API](https://cn.vuejs.org/guide/introduction.html)
+- [Pinia 官方文档](https://pinia.vuejs.org/zh/)

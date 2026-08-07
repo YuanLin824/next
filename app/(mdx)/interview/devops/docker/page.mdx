@@ -1,0 +1,215 @@
+# Docker 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: Docker 是什么？和虚拟机的区别？
+
+Docker 是**容器化平台**，将应用和依赖打包成轻量级容器。与传统虚拟机的关键差异：
+
+```
+虚拟机：                          Docker：
+┌──────────┐                      ┌─────────┐
+│  App A   │                      │  App A  │
+├──────────┤                      ├─────────┤
+│Bins/Libs │                      │Bins/Libs│
+├──────────┤                      ├─────────┤
+│ Guest OS │                      │ Docker  │
+├──────────┤                      ├─────────┤
+│Hypervisor│                      │ Host OS │
+├──────────┤                      ├─────────┤
+│ Host OS  │                      │ 硬件    │
+├──────────┤                      └─────────┘
+│  硬件    │
+└──────────┘
+```
+
+| 维度     | 虚拟机                 | Docker               |
+| -------- | ---------------------- | -------------------- |
+| 启动速度 | 分钟级                 | **秒级**             |
+| 资源占用 | GB 级                  | MB 级                |
+| 隔离级别 | 完全隔离（Hypervisor） | 进程隔离（共享内核） |
+| 镜像大小 | GB 级                  | MB 级（分层复用）    |
+| 移植性   | 差（依赖 Hypervisor）  | **强**（任何 Linux） |
+
+### Q2: Image、Container、Registry 的关系？
+
+```
+Dockerfile ──build──▶ Image ──run──▶ Container
+                        │               │
+                        │ push/pull     │ start/stop/rm
+                        ▼               ▼
+                    Registry        Running Process
+                   (Docker Hub)    (独立文件系统+网络+进程)
+```
+
+| 概念           | 类比         | 说明                           |
+| -------------- | ------------ | ------------------------------ |
+| **Dockerfile** | 菜谱         | 构建镜像的步骤指令             |
+| **Image**      | 类/模板      | 分层的只读文件系统快照         |
+| **Container**  | 对象/实例    | Image 的运行实例，可读写层叠加 |
+| **Registry**   | npm Registry | 存储和分发 Image               |
+
+### Q3: Docker 镜像的分层结构是怎样的？
+
+```
+镜像 layers（只读，从上到下叠加）：
+┌─────────────────────┐
+│R/W Layer (Container)│  ← 容器运行时创建（可写）
+├─────────────────────┤
+│ Layer 3: COPY app/  │  ← 应用代码
+├─────────────────────┤
+│ Layer 2: RUN npm i  │  ← 依赖
+├─────────────────────┤
+│ Layer 1: FROM node  │  ← 基础镜像
+└─────────────────────┘
+
+每层有独立的 SHA256 digest
+→ 层缓存：如果某一层未变，构建时直接复用
+→ 共享：多个镜像共享相同的基础层（节省磁盘）
+```
+
+### Q4: Dockerfile 常用指令有哪些？COPY 和 ADD 的区别？
+
+| 指令         | 说明                                      |
+| ------------ | ----------------------------------------- |
+| `FROM`       | 基础镜像                                  |
+| `WORKDIR`    | 工作目录                                  |
+| `COPY`       | 复制本地文件到镜像                        |
+| `ADD`        | 同 COPY + 支持 URL 下载 + 自动解压 tar    |
+| `RUN`        | 构建时执行命令                            |
+| `CMD`        | 容器启动默认命令（可被覆盖）              |
+| `ENTRYPOINT` | 容器入口（不可被覆盖，除非 --entrypoint） |
+| `ENV`        | 设置环境变量                              |
+| `EXPOSE`     | 声明端口（仅文档作用）                    |
+| `VOLUME`     | 声明挂载点                                |
+
+**COPY vs ADD：** 优先用 `COPY`（语义明确）。只在需要自动解压 tar 时用 `ADD`。
+
+### Q5: CMD 和 ENTRYPOINT 的区别？
+
+```dockerfile
+# CMD —— 提供默认命令（docker run 传参会覆盖）
+CMD ["node", "server.js"]
+
+# ENTRYPOINT —— 固定入口（传参作为追加参数）
+ENTRYPOINT ["node", "server.js"]
+
+# 组合使用（最佳实践）
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["node", "server.js"]
+# docker run myimg test → docker-entrypoint.sh test
+```
+
+---
+
+## 二、网络与存储
+
+### Q6: Docker 的网络模式有哪些？
+
+| 模式               | 命令                      | 说明                               |
+| ------------------ | ------------------------- | ---------------------------------- |
+| **bridge**（默认） | `--network bridge`        | 独立网络栈，端口映射访问           |
+| **host**           | `--network host`          | 共享宿主机网络（无隔离，性能最高） |
+| **none**           | `--network none`          | 无网络（纯隔离）                   |
+| **container**      | `--network container:xxx` | 共享其他容器的网络栈               |
+
+```bash
+# 自定义 bridge 网络（容器间通过名称互相访问）
+docker network create mynet
+docker run -d --name db --network mynet mysql
+docker run -d --name app --network mynet myapp
+# app 容器中：curl http://db:3306 → 直接访问
+```
+
+### Q7: Volume 和 Bind Mount 的区别？
+
+| 维度     | Volume                                    | Bind Mount             |
+| -------- | ----------------------------------------- | ---------------------- |
+| 管理     | Docker 管理（`/var/lib/docker/volumes/`） | 宿主机指定路径         |
+| 权限     | Docker 控制                               | 宿主机权限             |
+| 可移植性 | ✅（独立于宿主机路径）                    | ❌（依赖宿主机路径）   |
+| 推荐     | ✅ 生产环境                               | 开发环境（代码热更新） |
+
+```bash
+# Volume
+docker run -v mydata:/data mysql
+
+# Bind Mount（开发用）
+docker run -v $(pwd)/src:/app/src node
+```
+
+---
+
+## 三、进阶
+
+### Q8: Docker Compose 的作用？和 Dockerfile 的关系？
+
+- **Dockerfile**：构建单个镜像
+- **Docker Compose**：编排多个容器（启动顺序、网络、卷）
+
+```yaml
+# docker-compose.yml
+services:
+  app:
+    build: .
+    ports: ["3000:3000"]
+    depends_on:
+      - db
+  db:
+    image: postgres:16
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+volumes:
+  pgdata:
+```
+
+### Q9: 如何优化 Docker 镜像大小？
+
+| 策略                   | 说明                                          |
+| ---------------------- | --------------------------------------------- |
+| **多阶段构建**         | 构建和运行分离，最终镜像不含编译工具          |
+| **选 Alpine 基础镜像** | alpine 版本仅 ~5MB（vs 完整版 ~1GB）          |
+| **合并 RUN 层**        | 减少层数：`RUN cmd1 && cmd2 && rm -rf /tmp/*` |
+| **.dockerignore**      | 排除 node_modules/.git 等                     |
+
+```dockerfile
+# 多阶段构建（Node.js 示例）
+FROM node:22-alpine AS builder
+WORKDIR /app
+COPY package*.json .
+RUN npm ci
+COPY . .
+RUN npm run build
+
+FROM node:22-alpine AS runner
+WORKDIR /app
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/node_modules ./node_modules
+CMD ["node", "dist/server.js"]
+# → 最终镜像不含 src/ 和 devDependencies
+```
+
+### Q10: Docker 的底层隔离技术是什么？
+
+| 技术          | 作用                                          |
+| ------------- | --------------------------------------------- |
+| **Namespace** | 进程/网络/文件系统/用户隔离（6 种 namespace） |
+| **Cgroups**   | 资源限制（CPU/内存/磁盘 IO）                  |
+| **UnionFS**   | 联合文件系统（分层镜像的基础）                |
+
+---
+
+### Q11: 常见问题速查
+
+| 问题                 | 解决方案                                              |
+| -------------------- | ----------------------------------------------------- |
+| 容器内进程退出即终止 | 前台运行（`tail -f` 或 `node server.js` 不要 daemon） |
+| 无法访问容器端口     | 检查 `-p` 映射 + 服务监听 `0.0.0.0`（非 127.0.0.1）   |
+| 磁盘空间不足         | `docker system prune -a` 清理悬空镜像和停止的容器     |
+| 容器间无法通信       | 使用自定义 network，容器名即 hostname                 |
+
+**参考文献：**
+
+- [Docker 官方文档](https://docs.docker.com/)
+- [Dockerfile 最佳实践](https://docs.docker.com/develop/develop-images/dockerfile_best-practices/)

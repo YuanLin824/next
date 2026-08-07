@@ -1,0 +1,329 @@
+# React Router 面试题
+
+> 涵盖 React Router v6/v7，侧重 v7 新特性。
+
+---
+
+## 一、基础概念
+
+### Q1: React Router 是什么？解决了什么问题？
+
+React Router 是 React 生态系统中的**客户端路由**库，通过 URL 控制组件渲染——实现 SPA（单页应用）页面切换而不刷新浏览器。
+
+```
+传统多页：每次跳转 → 服务器返回新 HTML → 白屏刷新
+React Router：URL 变化 → 匹配组件 → 无刷新的组件切换
+
+工作原理：
+  1. 拦截浏览器导航（History API：pushState / replaceState）
+  2. 监听 URL 变化
+  3. 匹配当前 URL → 渲染对应组件
+  4. 不发送 HTTP 请求到服务器
+```
+
+### Q2: React Router v6+ 的核心组件有哪些？
+
+| 组件              | 作用                                      |
+| ----------------- | ----------------------------------------- |
+| `<BrowserRouter>` | 路由容器——包裹整个应用                    |
+| `<Routes>`        | 路由集合——匹配第一个匹配的路由            |
+| `<Route>`         | 单个路由规则（path + element）            |
+| `<Link>`          | 导航链接（不刷新页面）                    |
+| `<NavLink>`       | 同 Link + 激活样式                        |
+| `<Navigate>`      | 重定向                                    |
+| `<Outlet>`        | 子路由渲染出口（替代 v5 的 `{children}`） |
+
+```jsx
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom"
+
+function App() {
+  return (
+    <BrowserRouter>
+      <nav>
+        <Link to="/">Home</Link>
+        <Link to="/about">About</Link>
+      </nav>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/users/:id" element={<User />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </BrowserRouter>
+  )
+}
+```
+
+### Q3: v5 和 v6/v7 的核心变化？
+
+| 变化       | v5                                      | v6/v7                                         |
+| ---------- | --------------------------------------- | --------------------------------------------- |
+| 路由声明   | `<Route path="/" component={Home}>`     | `<Route path="/" element={<Home />}>`         |
+| 嵌套路由   | 在父组件中声明 `<Route>` + `{children}` | `<Route>` 嵌套 + `<Outlet>`                   |
+| 路由匹配   | 模糊匹配（默认 prefix match）           | **精确匹配** + `*` 通配符                     |
+| Switch     | `<Switch>`                              | `<Routes>`（语义化）                          |
+| 编程式导航 | `history.push("/")`                     | **`useNavigate()`**                           |
+| 路径参数   | `useParams()`                           | `useParams()`（同）                           |
+| 相对链接   | 不支持                                  | **支持**（`<Link to="../">`）                 |
+| 路由配置   | 仅 JSX                                  | JSX + **对象式路由**（`createBrowserRouter`） |
+
+### Q4: Routes 和 Route 的匹配机制？
+
+```jsx
+<Routes>
+  <Route path="/" element={<Home />} />
+  <Route path="/users" element={<Users />} />
+  <Route path="/users/:id" element={<UserDetail />} />
+  <Route path="/users/new" element={<NewUser />} />
+</Routes>
+```
+
+**匹配规则：**
+
+1. Routes 遍历所有子 Route
+2. **匹配第一个**匹配的路由（不像 v5 可能匹配多个）
+3. `/users/new` 优先匹配 `/users/new`（精确的），不会落到 `/users/:id`
+4. 通配符 `*` 兜底匹配所有未匹配的路径
+
+### Q5: 嵌套路由和 Outlet 如何使用？
+
+```jsx
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Layout />}>
+          {/* 嵌套路由 → 渲染在 Layout 的 <Outlet /> 中 */}
+          <Route index element={<Home />} />
+          <Route path="about" element={<About />} />
+          <Route path="users" element={<Users />}>
+            <Route path=":id" element={<UserDetail />} />
+          </Route>
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  )
+}
+
+function Layout() {
+  return (
+    <div>
+      <Header />
+      <Outlet /> {/* ← /about → 渲染 <About />；/ → 渲染 <Home /> */}
+      <Footer />
+    </div>
+  )
+}
+```
+
+---
+
+## 二、Hooks
+
+### Q6: React Router 的核心 Hooks 有哪些？
+
+```js
+import {
+  useParams, // 获取路由参数
+  useNavigate, // 编程式跳转
+  useLocation, // 获取当前 URL 信息
+  useSearchParams, // 管理 query string
+  useMatches, // 当前匹配的路由信息（v6.4+）
+} from "react-router-dom"
+
+function UserDetail() {
+  const { id } = useParams() // /users/42 → { id: "42" }
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+
+  const page = searchParams.get("page") || "1"
+
+  return (
+    <div>
+      <p>User: {id}</p>
+      <p>Page: {page}</p>
+      <button onClick={() => navigate("/")}>返回首页</button>
+      <button onClick={() => setSearchParams({ page: "2" })}>第 2 页</button>
+    </div>
+  )
+}
+```
+
+### Q7: useNavigate 和 Link 的区别？什么时候用哪个？
+
+|          | `<Link>`                        | `useNavigate()`                         |
+| -------- | ------------------------------- | --------------------------------------- |
+| 场景     | **声明式导航**（UI 中的链接）   | **编程式导航**（代码中跳转）            |
+| 示例     | `<Link to="/users">用户</Link>` | `navigate("/users")`                    |
+| 替换历史 | `<Link replace>`                | `navigate("/users", { replace: true })` |
+| 数字导航 | —                               | `navigate(-1)` 返回上一页               |
+
+**时机：** 用户可见的链接用 `<Link>`（SEO/可访问性/右键新标签）；提交后跳转、权限判断后跳转用 `navigate()`。
+
+### Q8: useSearchParams 和 URLSearchParams 的作用？
+
+```js
+// useSearchParams → 读写 URL 中的查询参数
+const [searchParams, setSearchParams] = useSearchParams()
+
+// 读取
+searchParams.get("q") // → "keyword"
+searchParams.getAll("tag") // → ["js", "react"]
+searchParams.toString() // → "q=keyword&tag=js&tag=react"
+
+// 写入（同时更新 URL）
+setSearchParams({ q: "new", page: "1" }) // → URL 更新为 ?q=new&page=1
+
+// 相对于传统方案
+// ❌ useState + useEffect 监听 URL 变化
+// ✅ useSearchParams → 直接读写，和 URL 同步
+```
+
+---
+
+## 三、v6.4+ 数据路由与 v7
+
+### Q9: createBrowserRouter 和组件式路由（BrowserRouter）的区别？
+
+v6.4 引入了**数据路由**（Data Router）——将路由配置从 JSX 移到对象，支持 loader/action：
+
+```jsx
+// ====== v7 对象式路由（推荐新项目） ======
+import { createBrowserRouter, RouterProvider } from "react-router-dom"
+
+const router = createBrowserRouter([
+  {
+    path: "/",
+    element: <Layout />,
+    children: [
+      { index: true, element: <Home /> },
+      {
+        path: "users/:id",
+        loader: async ({ params }) => {
+          return fetch(`/api/users/${params.id}`).then((r) => r.json())
+        },
+        element: <User />,
+      },
+    ],
+  },
+])
+
+function App() {
+  return <RouterProvider router={router} />
+}
+
+// User 组件中直接使用 loader 的数据（不需要自己的 useEffect）
+function User() {
+  const data = useLoaderData() // ← loader 返回的数据
+  return <div>{data.name}</div>
+}
+```
+
+### Q10: loader 和 action 解决了什么痛点？
+
+```js
+// ❌ v6 之前的常见模式：每个组件自己管理数据加载
+function User() {
+  const { id } = useParams()
+  const [user, setUser] = useState(null)
+
+  useEffect(() => {
+    fetch(`/api/users/${id}`).then((r) => r.json()).then(setUser)
+  }, [id])
+  // 问题：loading 闪烁、waterfall 请求、错误处理不一致
+}
+
+// ✅ v6.4+ loader：数据在路由匹配时就开始加载
+{
+  path: "users/:id",
+  loader: async ({ params }) => {
+    return fetch(`/api/users/${params.id}`).then(r => r.json())
+  },
+  element: <User />,
+  errorElement: <ErrorPage />, // ← loader 错误自动处理
+}
+function User() {
+  const user = useLoaderData() // ← 数据就绪时才渲染（无 loading 闪烁）
+  return <div>{user.name}</div>
+}
+```
+
+**优势：** 数据在渲染之前加载（无闪烁）、错误自动处理、支持并行加载、表单提交用 action。
+
+### Q11: React Router v7 的新特性？
+
+| 特性                 | 说明                                            |
+| -------------------- | ----------------------------------------------- |
+| **React 19 集成**    | 利用 React 19 的新特性                          |
+| **RSC 支持**         | React Server Components 兼容                    |
+| **类型安全**         | `createBrowserRouter` 更好的 TypeScript 推断    |
+| **框架模式**         | v7 可作为**全栈框架**使用（类似 Remix/Next.js） |
+| **view transitions** | 页面切换时的动画支持                            |
+
+### Q12: React Router 如何处理 URL 参数和状态传递？
+
+```js
+// 方式一：URL 参数（适合浅层数据）——可分享链接
+navigate(`/users/${id}?page=${page}`)
+
+// 方式二：state（适合复杂数据）——不显示在 URL 中
+navigate("/result", { state: { from: "search", results: data } })
+// 目标页：const { state } = useLocation()
+
+// 方式三：loader params + searchParams（v6.4+ 推荐）
+{
+  path: "users/:id",
+  loader: async ({ params, request }) => {
+    const url = new URL(request.url)
+    const page = url.searchParams.get("page")
+    return fetchUser(params.id, page)
+  }
+}
+```
+
+---
+
+## 四、常见问题与速查
+
+### Q13: 常见错误与排查
+
+| 问题                                                     | 原因                                       | 解决                           |
+| -------------------------------------------------------- | ------------------------------------------ | ------------------------------ |
+| Router 报错 "useNavigate() must be used within a Router" | `<BrowserRouter>` 没有包裹组件             | Router 必须放在最外层          |
+| 嵌套路由不渲染                                           | 父组件缺少 `<Outlet />`                    | 加 `<Outlet />` 作为子路由出口 |
+| 404 匹配不到                                             | v6 是精确匹配，`/users` 不匹配 `/users/42` | 加子路由 `:id` 或用 `*` 通配   |
+| 路由不生效                                               | 多个 `<Routes>` 嵌套或拼写错误             | 确保只有一个顶层 `<Routes>`    |
+| 页面切换状态丢失                                         | 组件被卸载重新挂载                         | 用状态管理或 URL 参数持久化    |
+
+### Q14: 速查表
+
+**组件：**
+
+| 组件            | 说明                         |
+| --------------- | ---------------------------- |
+| `BrowserRouter` | 路由容器（基于 History API） |
+| `HashRouter`    | 路由容器（基于 URL hash）    |
+| `Routes`        | 路由集合                     |
+| `Route`         | 路由规则                     |
+| `Link`          | 导航链接                     |
+| `NavLink`       | 导航链接 + 激活样式          |
+| `Navigate`      | 重定向                       |
+| `Outlet`        | 子路由出口                   |
+
+**Hooks：**
+
+| Hook                | 说明                           |
+| ------------------- | ------------------------------ |
+| `useParams()`       | 路由参数                       |
+| `useNavigate()`     | 编程式导航                     |
+| `useLocation()`     | 当前 URL 信息                  |
+| `useSearchParams()` | Query String 管理              |
+| `useLoaderData()`   | loader 返回的数据              |
+| `useMatches()`      | 当前匹配的路由信息             |
+| `useNavigation()`   | 导航状态（loading/submitting） |
+
+**参考文献：**
+
+- [React Router 官方文档](https://reactrouter.com/)
+- [React Router v6 迁移指南](https://reactrouter.com/en/main/upgrading/v5)

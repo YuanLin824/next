@@ -1,0 +1,236 @@
+# Jenkins 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: CI/CD 是什么？Jenkins 在其中的角色？
+
+```
+CI（持续集成）                    CD（持续交付/部署）
+代码 Push → 自动构建+测试         测试通过 → 自动部署到环境
+    │                                  │
+    └──────── Jenkins 负责 ────────────┘
+```
+
+| 概念                             | 说明                                             |
+| -------------------------------- | ------------------------------------------------ |
+| **CI（Continuous Integration）** | 开发者频繁 merge 代码 → 自动构建 + 单元测试      |
+| **CD（Continuous Delivery）**    | CI 通过后 → 自动部署到 staging，手动确认后到生产 |
+| **CD（Continuous Deployment）**  | CI 通过后 → 全自动部署到生产（无人工确认）       |
+
+Jenkins 是最流行的开源 CI/CD 工具——通过 Pipeline 定义构建、测试、部署的整个流程。
+
+### Q2: Jenkins Pipeline 的两种写法（Declarative vs Scripted）？
+
+```groovy
+// ====== Declarative Pipeline（推荐：结构化，易读） ======
+pipeline {
+    agent any
+    stages {
+        stage('Build') {
+            steps {
+                sh 'npm ci'
+                sh 'npm run build'
+            }
+        }
+        stage('Test') {
+            steps {
+                sh 'npm test'
+            }
+        }
+        stage('Deploy') {
+            when { branch 'main' }   // 只有 main 分支部署
+            steps {
+                sh 'rsync -avz dist/ server:/var/www/'
+            }
+        }
+    }
+    post {
+        failure { emailext to: 'team@example.com', subject: "构建失败: ${env.JOB_NAME}" }
+    }
+}
+
+
+// ====== Scripted Pipeline（灵活：Groovy 脚本控制流） ======
+node {
+    stage('Checkout') { git 'https://github.com/...' }
+    stage('Build') { sh 'npm ci && npm run build' }
+    stage('Test') {
+        try {
+            sh 'npm test'
+        } catch(e) {
+            emailext to: 'team@example.com', subject: 'Test Failed'
+            throw e
+        }
+    }
+}
+```
+
+| 维度     | Declarative | Scripted       |
+| -------- | ----------- | -------------- |
+| 语法     | 结构化块    | Groovy 脚本    |
+| 学习曲线 | 低          | 高             |
+| 灵活性   | 较低        | **极高**       |
+| 可读性   | ✅          | 较差           |
+| 推荐     | ✅ 90% 场景 | 需要复杂逻辑时 |
+
+### Q3: Jenkins 的 agent（节点）有几种类型？
+
+| agent 类型                             | 说明                                       |
+| -------------------------------------- | ------------------------------------------ |
+| `agent any`                            | 任意可用节点                               |
+| `agent { label 'linux' }`              | 匹配标签的节点                             |
+| `agent { docker { image 'node:22' } }` | **在 Docker 容器中执行（推荐：环境一致）** |
+| `agent none`                           | 不分配全局 agent，每个 stage 各自指定      |
+
+```groovy
+pipeline {
+    agent none
+    stages {
+        stage('Build') { agent { docker { image 'node:22-alpine' } }
+            steps { sh 'npm run build' }
+        }
+        stage('Deploy') { agent { label 'production' }
+            steps { sh './deploy.sh' }
+        }
+    }
+}
+```
+
+---
+
+## 二、进阶
+
+### Q4: 如何在 Jenkins Pipeline 中管理凭据？
+
+```groovy
+// withCredentials —— 安全注入凭据
+pipeline {
+    agent any
+    environment {
+        // 方式一：environment 块中绑定（所有 stage 可用）
+        DOCKER_PASSWORD = credentials('docker-hub-password')
+    }
+    stages {
+        stage('Deploy') {
+            steps {
+                // 方式二：withCredentials 代码块中注入
+                withCredentials([
+                    string(credentialsId: 'api-key', variable: 'API_KEY'),
+                    usernamePassword(credentialsId: 'nexus', usernameVariable: 'U', passwordVariable: 'P'),
+                    file(credentialsId: 'kubeconfig', variable: 'KUBECONFIG')
+                ]) {
+                    sh 'curl -H "Authorization: $API_KEY" https://api.example.com'
+                }
+            }
+        }
+    }
+}
+```
+
+### Q5: Jenkinsfile 如何实现多分支流水线？
+
+```
+仓库结构：
+├── Jenkinsfile        ← 所有分支共享的 Pipeline
+
+Multibranch Pipeline:
+  main       → 触发构建
+  develop    → 触发构建
+  feature/*  → 触发构建
+  PR-*       → 仅 Build + Test（不 Deploy）
+```
+
+```groovy
+pipeline {
+    agent any
+    stages {
+        stage('Build & Test') {
+            steps { sh 'npm ci && npm test' }
+        }
+        stage('Deploy Staging') {
+            when { branch 'develop' }
+            steps { sh './deploy-staging.sh' }
+        }
+        stage('Deploy Production') {
+            when { branch 'main' }
+            steps {
+                input { message '确认发布到生产环境？' }
+                sh './deploy-prod.sh'
+            }
+        }
+    }
+}
+```
+
+### Q6: Jenkins 如何与 Docker 和 K8s 集成？
+
+**Docker 集成：**
+
+```groovy
+stage('Build & Push') {
+    steps {
+        script {
+            def app = docker.build("myapp:${env.BUILD_NUMBER}")
+            docker.withRegistry('https://registry.example.com', 'docker-creds') {
+                app.push()
+                app.push('latest')
+            }
+        }
+    }
+}
+```
+
+**K8s 集成：**
+
+```groovy
+stage('Deploy to K8s') {
+    steps {
+        // 方式一：kubectl
+        sh "kubectl set image deployment/myapp myapp=myapp:${env.BUILD_NUMBER}"
+
+        // 方式二：Helm
+        sh "helm upgrade myapp ./chart --set image.tag=${env.BUILD_NUMBER}"
+    }
+}
+```
+
+### Q7: 常见 Jenkins 优化策略？
+
+| 策略                         | 说明                                           |
+| ---------------------------- | ---------------------------------------------- |
+| **并行 stage**               | 不依赖的任务放在 `parallel` 块中               |
+| **增量构建**                 | 利用缓存（node_modules/.m2），避免重复下载     |
+| **agent 合理分配**           | 轻任务用 Docker agent，重任务用专属 label 节点 |
+| **定期清理**                 | `buildDiscarder` 限制保留历史数                |
+| **共享库（Shared Library）** | 公共 Pipeline 逻辑提取为共享库                 |
+
+```groovy
+// 并行执行
+stage('Test') {
+    parallel {
+        stage('Unit') { steps { sh 'npm run test:unit' } }
+        stage('Lint') { steps { sh 'npm run lint' } }
+        stage('TypeCheck') { steps { sh 'npx tsc --noEmit' } }
+    }
+}
+```
+
+---
+
+### Q8: 速查表
+
+| 概念                 | 说明                                  |
+| -------------------- | ------------------------------------- |
+| Jenkinsfile          | Pipeline 即代码，放项目根目录         |
+| Multibranch Pipeline | 自动为每个分支创建 Pipeline           |
+| Shared Library       | 复用 Pipeline 代码（`@Library` 引入） |
+| Blue Ocean           | 可视化 Pipeline 运行视图              |
+| buildDiscarder       | 限制保留的构建历史数量                |
+| input                | 等待人工确认                          |
+
+**参考文献：**
+
+- [Jenkins Pipeline 官方文档](https://www.jenkins.io/doc/book/pipeline/)
+- [Jenkins Shared Libraries](https://www.jenkins.io/doc/book/pipeline/shared-libraries/)

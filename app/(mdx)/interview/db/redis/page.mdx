@@ -1,0 +1,309 @@
+# Redis 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: Redis 是什么？为什么这么快？
+
+Redis 是**基于内存的键值数据存储**，主要用作缓存、队列、实时统计等。速度快的原因：
+
+| 原因               | 说明                                                        |
+| ------------------ | ----------------------------------------------------------- |
+| **纯内存**         | 数据存在 RAM，微秒级延迟                                    |
+| **单线程命令执行** | 无上下文切换、无锁竞争（6.0+ I/O 多线程，命令执行仍单线程） |
+| **高效数据结构**   | 每种类型高度优化（Skiplist、ZipList、QuickList）            |
+| **I/O 多路复用**   | epoll/kqueue 处理大量并发连接                               |
+| **简单 RESP 协议** | 解析开销极低                                                |
+
+### Q2: Redis 的五种基础数据类型及应用场景？
+
+| 类型           | 底层结构              | 场景                                     |
+| -------------- | --------------------- | ---------------------------------------- |
+| **String**     | SDS（简单动态字符串） | 缓存、计数器（INCR）、分布式锁（SET NX） |
+| **Hash**       | HashTable + ZipList   | 对象缓存、Session 存储                   |
+| **List**       | QuickList（3.2+）     | 消息队列（BLPOP）、时间线                |
+| **Set**        | HashTable + IntSet    | 标签、去重、共同好友（SINTER）           |
+| **Sorted Set** | Skiplist + HashTable  | 排行榜、延时队列（score=时间戳）         |
+
+### Q3: Redis 为什么用单线程？6.0 后的多线程是怎么回事？
+
+```
+Redis 6.0 之前：
+  I/O 读取（单线程）+ 命令执行（单线程）+ I/O 写出（单线程）
+
+Redis 6.0+：
+  I/O 读取（多线程）+ 命令执行（单线程）+ I/O 写出（多线程）
+                    ▲
+              核心逻辑仍单线程！
+```
+
+- **命令执行永远是单线程的**——避免了锁和竞态
+- 多线程仅用于**网络 I/O**（读写 socket），解决大流量下的网络瓶颈
+- 默认关闭，设置 `io-threads 4` 开启
+
+---
+
+## 二、数据结构原理
+
+### Q4: Sorted Set 的底层实现是什么？
+
+**跳表（Skiplist）+ 哈希表**：
+
+```
+Skiplist：保证按 score 排序（O(log N) 增删改查）
+HashTable：保证按 member 查 score（O(1)）
+
+Level 3:  head ──────────────────▶ [B:85]
+Level 2:  head ────────▶ [A:50] ──▶ [B:85] ──▶ [D:120]
+Level 1:  head ──▶ [C:30] ──▶ [A:50] ──▶ [B:85] ──▶ [D:120]
+Level 0:  head ──▶ [C:30] ──▶ [A:50] ──▶ [B:85] ──▶ [D:120]
+```
+
+**为什么用跳表而不是红黑树？**
+
+- 跳表实现简单（平衡不需要旋转）
+- 支持范围查询（按 score 取连续元素）
+- 易于实现 ZRANK/ZREVRANK
+
+### Q5: Hash 和 String 存对象的区别？
+
+```bash
+# String 方式：整个对象序列化为 JSON
+SET user:1001 '{"name":"Alice","age":25,"email":"alice@x.com"}'
+GET user:1001 # → 整存整取
+
+# Hash 方式：按字段存储
+HSET user:1001 name "Alice" age 25 email "alice@x.com"
+HGET user:1001 name # → 只取 name，不需要反序列化整个对象
+HINCRBY user:1001 age 1 # → 原子递增单个字段
+```
+
+| 维度         | String + JSON              | Hash                       |
+| ------------ | -------------------------- | -------------------------- |
+| 读单个字段   | 需反序列化全部             | 直接取                     |
+| 更新单个字段 | 需序列化全部再写           | 原子修改                   |
+| 内存占用     | 小（少开销）               | 略大（每个字段有开销）     |
+| 适用         | 字段少、整体读写的简单对象 | 字段多、需要独立更新的对象 |
+
+### Q6: List 的 QuickList 是什么？
+
+Redis 3.2 之前：`LinkedList`（内存碎片）+ `ZipList`（连续内存，但太长了操作慢）。
+
+3.2+：**QuickList** = LinkedList 的每个节点是一个 ZipList：
+
+```
+QuickList:
+[ZipList: a,b,c] ←→ [ZipList: d,e,f] ←→ [ZipList: g,h,i]
+
+每个 ZipList 大小可配置（list-max-ziplist-size）
+→ 兼顾内存紧凑和操作效率
+```
+
+---
+
+## 三、持久化
+
+### Q7: RDB 和 AOF 的区别？什么时候选哪个？
+
+| 维度     | RDB（快照）          | AOF（日志）                 |
+| -------- | -------------------- | --------------------------- |
+| 原理     | 定时全量快照         | 每次写操作追加日志          |
+| 文件大小 | 小（二进制压缩）     | 大（文本命令，随时间增长）  |
+| 恢复速度 | **快**               | 慢（重放每条命令）          |
+| 数据安全 | 可能丢最后几分钟数据 | **最多丢 1 秒**（everysec） |
+| 性能影响 | fork 时 CPU/内存峰值 | 持续 fsync 开销             |
+
+**生产推荐：** 同时开启 + 启用混合持久化（4.0+）：
+
+```conf
+save 900 1
+save 300 100
+save 60 10000
+appendonly yes
+appendfsync everysec
+aof-use-rdb-preamble yes  # 混合持久化
+```
+
+### Q8: AOF 重写（Rewrite）的原理？
+
+AOF 文件随时间增大 → 重写创建一个**紧凑版** AOF：
+
+```
+原 AOF（记录了每次操作）：
+SET counter 1 → INCR counter → INCR counter → DECR counter
+
+重写后（只保留最终状态）：
+SET counter 1
+```
+
+**重写不阻塞主进程：** fork 子进程 → 子进程扫描内存生成新 AOF → 将重写期间的增量追加到新 AOF → 原子替换旧文件。
+
+---
+
+## 四、内存管理
+
+### Q9: Redis 的内存淘汰策略有哪些？
+
+| 策略              | 行为                                       |
+| ----------------- | ------------------------------------------ |
+| `noeviction`      | 拒绝写入（默认——不推荐）                   |
+| **`allkeys-lru`** | 所有键中淘汰最近最少使用的（推荐缓存场景） |
+| `allkeys-lfu`     | 所有键中淘汰使用频率最低的                 |
+| `allkeys-random`  | 随机淘汰                                   |
+| `volatile-lru`    | 仅带 TTL 的键中淘汰 LRU                    |
+| `volatile-lfu`    | 仅带 TTL 的键中淘汰 LFU                    |
+| `volatile-ttl`    | 淘汰最快过期的                             |
+
+```conf
+maxmemory 512mb
+maxmemory-policy allkeys-lru
+```
+
+### Q10: 过期键的删除策略？
+
+Redis 使用**惰性删除 + 定期删除**组合：
+
+- **惰性删除**：访问 key 时检查，过期则删（不访问的 key 会残留）
+- **定期删除**：每 100ms 随机抽一批 key，过期则删（25% 过期率阈值）
+
+> 这也是为什么不能单纯靠 TTL 做精确的过期控制——过期 ≠ 立即删除。
+
+---
+
+## 五、高可用与集群
+
+### Q11: 主从复制的原理？
+
+```
+Slave → SYNC/PSYNC → Master → fork 子进程 → RDB 全量传 Slave
+                                        → 之后增量命令流持续同步
+```
+
+**全量复制 vs 增量复制：**
+
+- **全量**（SYNC）：Slave 初次连接 → Master 生成 RDB 全量传
+- **增量**（PSYNC 2.8+）：基于 replication offset 断点续传
+
+### Q12: Sentinel 哨兵的工作原理？
+
+Sentinel 是 Redis 官方的 HA 方案——监控 + 自动故障转移：
+
+```
+至少 3 个 Sentinel 节点（防止脑裂）
+
+1. 监控：每秒 PING，超时 → 主观下线（SDOWN）
+2. 投票：多个 Sentinel 确认 → 客观下线（ODOWN）
+3. 选主：在 Slave 中选一个升级为新 Master
+4. 通知：通知所有 Slave 复制新 Master，通知客户端
+```
+
+### Q13: Redis Cluster 的数据分布机制？
+
+**16384 个哈希槽（hash slot）：**
+
+```
+HASH_SLOT = CRC16(key) % 16384
+
+Node A: slot 0-5460
+Node B: slot 5461-10922
+Node C: slot 10923-16383
+```
+
+**多键操作限制：** 所有 key 必须在同一个 slot。用 `{}` hash tag 强制同槽：
+
+```bash
+SET user:{1001}:name "Alice"
+SET user:{1001}:age 25
+# → 根据 {1001} 计算 slot，保证在一起
+```
+
+---
+
+## 六、缓存问题与工程实践
+
+### Q14: 缓存穿透/击穿/雪崩怎么解决？
+
+| 问题     | 描述                                     | 方案                                      |
+| -------- | ---------------------------------------- | ----------------------------------------- |
+| **穿透** | 查数据库中也不存在的 key → 每次穿透到 DB | **布隆过滤器** + 缓存空值（短 TTL）       |
+| **击穿** | 热点 key 过期 → 瞬时大量请求打到 DB      | **互斥锁**（SET NX）+ 永不过期 + 异步刷新 |
+| **雪崩** | 大量 key 同时过期 → DB 瞬时压力剧增      | TTL + 随机值、多级缓存、限流降级          |
+
+```bash
+# 穿透——缓存空值
+SET cache:notfound "null" EX 60
+
+# 击穿——互斥锁
+# 获取失败 → 一个线程去加载，其余等待重试
+
+# 雪崩——随机过期时间
+EXPIRE cache:key 3600 + (RANDOM % 300)
+```
+
+### Q15: 分布式锁如何实现？Redlock 是什么？
+
+```bash
+# 单实例分布式锁
+SET lock:order:1001 "unique_token" NX EX 10  # 获取锁
+
+# 释放锁（Lua 原子——只删自己的锁）
+EVAL "
+  if redis.call('GET', KEYS[1]) == ARGV[1] then
+    return redis.call('DEL', KEYS[1])
+  end
+  return 0
+" 1 lock:order:1001 unique_token
+```
+
+**Redlock**：在 N/2+1 个独立 Redis 节点上成功获取才算成功。解决单实例故障时锁丢失问题。
+
+### Q16: 如何保证缓存与数据库的一致性？
+
+**Cache-Aside（旁路缓存）——最常用：**
+
+```
+读：缓存命中 → 返回
+    缓存未命中 → 查 DB → 写入缓存 → 返回
+
+写：先更新 DB → 再删除缓存
+    原因：删除缓存是无状态操作，避免并发更新的数据竞争
+```
+
+**延迟双删（兜底）：** 写 DB 前删一次 → 写 DB → 延迟几百 ms → 再删一次。
+
+### Q17: 大 Key 和热 Key 如何排查和解决？
+
+```bash
+# 排查
+redis-cli --bigkeys          # 扫描大 Key
+redis-cli --hotkeys           # 扫描热 Key
+redis-cli MEMORY USAGE key    # 单个 key 内存
+
+# 大 Key 处理
+# - String → 分片存储
+# - Hash → HSCAN 分批读
+# - List/Set → 拆成多个小集合
+
+# 热 Key 处理
+# - 多副本（读分散到多个 Slave）
+# - 本地缓存（短 TTL）
+# - 随机过期时间
+```
+
+---
+
+### Q18: 速查表
+
+| 数据类型   | 独有操作                       | 面试场景           |
+| ---------- | ------------------------------ | ------------------ |
+| String     | INCR, SET NX EX                | 计数器、分布式锁   |
+| Hash       | HINCRBY, HSETNX                | 对象缓存、部分更新 |
+| List       | BLPOP, BRPOPLPUSH              | 消息队列           |
+| Set        | SINTER, SPOP                   | 标签、共同好友     |
+| Sorted Set | ZRANGE, ZINCRBY, ZRANGEBYSCORE | 排行榜、延时队列   |
+
+**参考文献：**
+
+- [Redis 官方文档](https://redis.io/docs/latest/)
+- [Redlock 分布式锁](https://redis.io/docs/latest/develop/use/patterns/distributed-locks/)

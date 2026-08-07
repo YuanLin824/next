@@ -1,0 +1,1296 @@
+# UniApp 学习指南
+
+> 难度递进式 UniApp 学习文档，从零到跨端发布。
+
+---
+
+## 第一阶段：认识 UniApp（入门）
+
+### 1. UniApp 是什么？
+
+DCloud 推出的**跨端框架**，基于 Vue 语法，一套代码编译到 iOS/Android/H5 + 微信/支付宝/百度/字节等小程序。
+
+```
+Vue 源码 → UniApp 编译 → 各平台原生代码
+```
+
+### 2. 创建项目
+
+```bash
+# Vue 3 + Vite + TypeScript（推荐）
+npx degit dcloudio/uni-preset-vue#vite-ts my-project
+cd my-project && npm install
+
+npm run dev:mp-weixin   # 微信小程序 → 微信开发者工具打开 dist/dev/mp-weixin
+npm run dev:h5           # H5 → http://localhost:5173
+npm run dev:app          # App
+```
+
+### 3. 项目结构
+
+```
+src/
+├── pages/               # 页面目录（每个页面一个文件夹）
+│   └── index/index.vue  # 首页
+├── static/              # 静态资源
+├── App.vue              # 根组件（应用生命周期）
+├── main.ts              # 入口文件
+├── pages.json           # 页面路由 + 全局配置（核心文件）
+├── manifest.json        # 应用配置
+└── uni.scss             # 全局 SCSS 变量
+```
+
+### 4. 核心组件（替代 HTML 标签）
+
+```html
+<view>
+  <!-- div 等价物 -->
+  <text>
+    <!-- span，文本必须用 text 包裹才能长按选中 -->
+    <image>
+      <!-- img -->
+      <button>
+        <!-- 按钮，支持 open-type 微信能力 -->
+        <input />
+        <!-- 输入框 -->
+        <scroll-view>
+          <!-- 可滚动区域 -->
+          <swiper>
+            /
+            <swiper-item>
+              <!-- 轮播 -->
+              <navigator> <!-- 页面跳转 --></navigator></swiper-item
+            ></swiper
+          ></scroll-view
+        >
+      </button></image
+    ></text
+  ></view
+>
+```
+
+> **小结**：理解 UniApp 定位（跨端编译框架），能创建项目、了解目录结构和核心组件。
+
+---
+
+## 第二阶段：页面路由与配置（核心机制）
+
+### 5. pages.json — 路由与全局配置
+
+```json
+{
+  "pages": [
+    { "path": "pages/index/index", "style": { "navigationBarTitleText": "首页" } },
+    { "path": "pages/detail/index", "style": { "navigationBarTitleText": "详情" } }
+  ],
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#fff",
+    "navigationBarTitleText": "My App"
+  },
+  "tabBar": {
+    "color": "#999",
+    "selectedColor": "#007aff",
+    "list": [
+      {
+        "pagePath": "pages/index/index",
+        "text": "首页",
+        "iconPath": "static/home.png",
+        "selectedIconPath": "static/home-active.png"
+      },
+      {
+        "pagePath": "pages/user/index",
+        "text": "我的",
+        "iconPath": "static/user.png",
+        "selectedIconPath": "static/user-active.png"
+      }
+    ]
+  },
+  "subPackages": [{ "root": "pages-sub/order", "pages": [{ "path": "list/index" }] }],
+  "preloadRule": { "pages/index/index": { "network": "all", "packages": ["pages-sub/order"] } }
+}
+```
+
+### 6. 路由跳转 API
+
+```ts
+// navigateTo — 保留当前页，打开新页（最多 10 层）
+uni.navigateTo({ url: "/pages/detail/index?id=123" })
+
+// redirectTo — 关闭当前页，打开新页
+uni.redirectTo({ url: "/pages/login/index" })
+
+// switchTab — 跳转到 tabBar 页面
+uni.switchTab({ url: "/pages/index/index" })
+
+// navigateBack — 返回
+uni.navigateBack({ delta: 1 })
+
+// reLaunch — 关闭所有页面，打开新页面
+uni.reLaunch({ url: "/pages/index/index" })
+```
+
+### 7. 路由传参
+
+```ts
+// 发送 — URL 参数拼接（仅支持字符串）
+uni.navigateTo({ url: "/pages/detail/index?id=123&name=hello" })
+
+// 接收 — onLoad 中获取
+import { onLoad } from "@dcloudio/uni-app"
+onLoad((options) => {
+  console.log(options?.id)
+})
+
+// 复杂数据 — 全局事件总线或本地存储
+uni.setStorageSync("detailData", complexObject)
+uni.navigateTo({ url: "/pages/detail/index" })
+```
+
+> **小结**：pages.json 管理所有路由，掌握四种跳转 API 和传参方式。
+
+---
+
+## 第三阶段：组件化与生命周期
+
+### 8. Vue 3 组件（script setup）
+
+```vue
+<template>
+  <view class="container">
+    <text class="title">{{ title }}</text>
+    <Counter :initial="0" @change="onChange" />
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue"
+import Counter from "@/components/counter.vue"
+
+const title = ref("Hello UniApp")
+const onChange = (val: number) => console.log(val)
+</script>
+
+<style lang="scss" scoped>
+.container {
+  padding: 20rpx;
+}
+.title {
+  font-weight: bold;
+  font-size: 36rpx;
+}
+</style>
+```
+
+### 9. 页面生命周期
+
+```vue
+<script setup lang="ts">
+import { onLoad, onShow, onReady, onHide, onUnload } from "@dcloudio/uni-app"
+
+onLoad((options) => {
+  /* 页面加载，一次，获取路由参数 */
+})
+onShow(() => {
+  /* 页面每次显示 */
+})
+onReady(() => {
+  /* 首次渲染完成 */
+})
+onHide(() => {
+  /* 页面隐藏 */
+})
+onUnload(() => {
+  /* 页面卸载 */
+})
+
+// 下拉刷新 / 触底 / 分享
+onPullDownRefresh(async () => {
+  await refresh()
+  uni.stopPullDownRefresh()
+})
+onReachBottom(() => {
+  loadMore()
+})
+onShareAppMessage(() => ({ title: "分享", path: "/pages/index/index" }))
+</script>
+```
+
+### 10. 应用生命周期（App.vue）
+
+```vue
+<script setup lang="ts">
+import { onLaunch, onShow, onHide } from "@dcloudio/uni-app"
+onLaunch(() => {
+  console.log("App 启动")
+})
+onShow(() => {
+  console.log("App 从后台进入前台")
+})
+onHide(() => {
+  console.log("App 进入后台")
+})
+</script>
+```
+
+> **小结**：掌握 Vue 3 Composition API 写法、页面/应用生命周期。
+
+---
+
+## 第四阶段：样式与单位
+
+### 11. 尺寸单位
+
+| 单位          | 说明                          |
+| ------------- | ----------------------------- |
+| `rpx`（推荐） | 响应式像素，750rpx = 屏幕宽度 |
+| `px`          | 逻辑像素                      |
+| `vw/vh`       | 视口百分比（H5 端）           |
+
+### 12. 条件编译
+
+```vue
+<template>
+  <!-- #ifdef MP-WEIXIN -->
+  <button open-type="share">微信分享</button>
+  <!-- #endif -->
+  <!-- #ifdef H5 -->
+  <a href="https://example.com">外部链接</a>
+  <!-- #endif -->
+</template>
+
+<script setup lang="ts">
+// #ifdef MP-WEIXIN
+import WxPlugin from "@/wx-plugin"
+// #endif
+</script>
+
+<style lang="scss">
+/* #ifdef MP-WEIXIN */
+.title {
+  font-size: 32rpx;
+} /* #endif */
+/* #ifdef H5 */
+.title {
+  font-size: 24px;
+} /* #endif */
+</style>
+```
+
+---
+
+## 第五阶段：API 与网络请求
+
+### 13. uni API 速查
+
+```ts
+// 存储
+uni.setStorageSync("token", "abc")
+const val = uni.getStorageSync("token")
+
+// 交互
+uni.showToast({ title: "成功", icon: "success" })
+uni.showLoading({ title: "加载中" })
+uni.hideLoading()
+uni.showModal({ title: "确认？", success: (res) => res.confirm && onDelete() })
+
+// 系统信息
+const { platform, windowWidth } = await uni.getSystemInfo()
+
+// 媒体/设备
+uni.chooseImage({ count: 1 })
+uni.previewImage({ urls: [] })
+uni.makePhoneCall({ phoneNumber: "10086" })
+uni.scanCode()
+uni.getLocation({ type: "gcj02" })
+```
+
+### 14. 网络请求封装
+
+```ts
+const BASE_URL = "https://api.example.com"
+
+const request = <T = any>(options: UniApp.RequestOptions): Promise<T> => {
+  const token = uni.getStorageSync("token")
+  return new Promise((resolve, reject) => {
+    uni.request({
+      ...options,
+      url: `${BASE_URL}${options.url}`,
+      header: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.header,
+      },
+      success: (res) => {
+        if (res.statusCode === 200) resolve(res.data as T)
+        else if (res.statusCode === 401) {
+          uni.reLaunch({ url: "/pages/login/index" })
+          reject(res)
+        } else {
+          uni.showToast({ title: "请求失败", icon: "none" })
+          reject(res)
+        }
+      },
+      fail: reject,
+    })
+  })
+}
+
+// 文件上传
+await uni.uploadFile({
+  url: `${BASE_URL}/upload`,
+  filePath,
+  name: "file",
+  formData: { type: "avatar" },
+})
+```
+
+---
+
+## 第六阶段：状态管理（Pinia）
+
+```ts
+// store/counter.ts
+import { defineStore } from "pinia"
+
+export const useCounterStore = defineStore("counter", () => {
+  const count = ref(0)
+  const double = computed(() => count.value * 2)
+  const increment = () => count.value++
+  return { count, double, increment }
+})
+
+// Options 写法
+export const useUserStore = defineStore("user", {
+  state: () => ({ user: null }),
+  getters: { isLoggedIn: (s) => !!s.user },
+  actions: {
+    async login(u, p) {
+      this.user = await api.login(u, p)
+    },
+  },
+})
+```
+
+```vue
+<script setup lang="ts">
+import { useCounterStore } from "@/store/counter"
+import { storeToRefs } from "pinia"
+
+const store = useCounterStore()
+const { count, double } = storeToRefs(store) // 保持响应式
+</script>
+```
+
+---
+
+## 第七阶段：组件通信与 easycom
+
+### 15. 组件通信方式
+
+| 方向     | 方式                    |
+| -------- | ----------------------- |
+| 父→子    | Props                   |
+| 子→父    | emits                   |
+| 双向     | `v-model`               |
+| 跨层级   | provide / inject        |
+| 全局事件 | `uni.$emit` / `uni.$on` |
+
+```ts
+// 全局事件总线
+uni.$emit("updateData", { id: 1 })
+uni.$on("updateData", handler)
+// ⚠️ onUnload 中 uni.$off 必须解绑
+```
+
+### 16. easycom — 组件自动导入
+
+```json
+// pages.json
+{
+  "easycom": {
+    "autoscan": true, // 默认开启
+    "custom": { "^my-(.*)": "@/components/my-$1/my-$1.vue" }
+  }
+}
+```
+
+```html
+<!-- 无需 import，自动导入 -->
+<uni-card /><my-button />
+```
+
+---
+
+## 第八阶段：编译到多平台
+
+### 17. 平台标识
+
+| 值          | 平台            |
+| ----------- | --------------- |
+| `MP-WEIXIN` | 微信小程序      |
+| `MP-ALIPAY` | 支付宝小程序    |
+| `MP-BAIDU`  | 百度小程序      |
+| `H5`        | 移动端 H5       |
+| `APP-PLUS`  | App             |
+| `APP-NVUE`  | App（原生渲染） |
+
+### 18. 多平台命令
+
+```bash
+npm run dev:mp-weixin; npm run build:mp-weixin
+npm run dev:h5; npm run build:h5
+npm run dev:mp-alipay; npm run dev:mp-baidu
+```
+
+### 19. 跨端注意事项
+
+```ts
+// 1. 无 DOM API — 用 uni.createSelectorQuery() 获取节点信息
+const query = uni.createSelectorQuery()
+query
+  .select("#target")
+  .boundingClientRect((rect) => console.log(rect))
+  .exec()
+
+// 2. 安全区域适配
+// padding-top: var(--status-bar-height);
+// padding-bottom: env(safe-area-inset-bottom);
+
+// 3. 环境判断
+const { platform } = uni.getSystemInfoSync()
+if (platform === "ios") {
+  /* iOS 处理 */
+}
+```
+
+---
+
+## 第九阶段：工程化配置
+
+```bash
+npm install -D prettier eslint @commitlint/cli @commitlint/config-conventional husky
+```
+
+```json
+// package.json scripts
+{
+  "format": "prettier --write ./src",
+  "lint": "eslint .",
+  "commit": "czg",
+  "prepare": "husky"
+}
+```
+
+---
+
+## 补充速查表
+
+### 生命周期速查
+
+| Hook                | 原生     | 触发                       |
+| ------------------- | -------- | -------------------------- |
+| `onLoad`            | onLoad   | 页面加载（一次，获取参数） |
+| `onShow`            | onShow   | 页面显示                   |
+| `onReady`           | onReady  | 首次渲染完成               |
+| `onHide`            | onHide   | 页面隐藏                   |
+| `onUnload`          | onUnload | 页面卸载                   |
+| `onPullDownRefresh` | —        | 下拉刷新                   |
+| `onReachBottom`     | —        | 触底                       |
+| `onLaunch`          | App      | 应用启动                   |
+
+### 导航 API 对照
+
+| API            | 页面栈 | 可返回 |
+| -------------- | ------ | ------ |
+| `navigateTo`   | +1     | ✅     |
+| `redirectTo`   | 替换   | ❌     |
+| `switchTab`    | 清空+1 | ❌     |
+| `navigateBack` | -n     | ✅     |
+| `reLaunch`     | 清空   | ❌     |
+
+### UniApp vs Taro vs RN
+
+| 维度   | UniApp     | Taro       | React Native |
+| ------ | ---------- | ---------- | ------------ |
+| 语法   | Vue        | React/Vue  | React        |
+| 小程序 | ✅         | ✅         | ❌           |
+| H5     | ✅         | ✅         | ❌           |
+| App    | ✅ WebView | ✅ WebView | ✅ 原生      |
+| 生态   | uniCloud   | 京东生态   | Meta         |
+
+### 学习路径总结
+
+| 阶段 | 核心内容                                        |
+| ---- | ----------------------------------------------- |
+| 1    | 概念/项目搭建/目录结构/核心组件 view text image |
+| 2    | pages.json/tabBar/分包/四种导航/传参            |
+| 3    | Vue3 Composition API/页面生命周期/应用生命周期  |
+| 4    | rpx 单位/条件编译                               |
+| 5    | uni API/请求封装 Token                          |
+| 6    | Pinia 状态管理                                  |
+| 7    | 组件通信/easycom 自动导入                       |
+| 8    | 多平台编译/平台差异/安全区域适配                |
+| 9    | 工程化 Prettier+ESLint+commitlint+husky         |
+
+---
+
+## 第十阶段：uni-ui 组件库与插件市场
+
+### 20. uni-ui 安装与使用
+
+```bash
+# uni_modules 方式（推荐）：插件市场直接导入
+# npm 方式：
+npm install @dcloudio/uni-ui
+```
+
+```vue
+<template>
+  <uni-card title="卡片标题" note="描述信息">
+    <text>卡片内容</text>
+  </uni-card>
+  <uni-list>
+    <uni-list-item title="列表项" note="副标题" show-arrow />
+  </uni-list>
+  <uni-forms :model="form" :rules="rules" ref="formRef">
+    <uni-forms-item label="姓名" name="name">
+      <uni-easyinput v-model="form.name" placeholder="请输入" />
+    </uni-forms-item>
+  </uni-forms>
+  <uni-popup ref="popup" type="center">
+    <view class="popup-content">弹窗内容</view>
+  </uni-popup>
+  <uni-nav-bar title="导航栏" left-icon="back" @clickLeft="goBack" />
+  <uni-grid :column="3">
+    <uni-grid-item v-for="item in 6" :key="item" text="功能" />
+  </uni-grid>
+</template>
+```
+
+### 21. 常用 uni-ui 组件
+
+| 组件                       | 用途                   |
+| -------------------------- | ---------------------- |
+| `uni-card`                 | 卡片容器               |
+| `uni-list/uni-list-item`   | 列表                   |
+| `uni-forms/uni-forms-item` | 表单（内置校验）       |
+| `uni-easyinput`            | 增强输入框             |
+| `uni-popup`                | 弹窗/底部弹出/消息提示 |
+| `uni-nav-bar`              | 自定义导航栏           |
+| `uni-grid/uni-grid-item`   | 宫格布局               |
+| `uni-badge`                | 角标/徽章              |
+| `uni-tag`                  | 标签                   |
+| `uni-steps`                | 步骤条                 |
+| `uni-load-more`            | 加载更多状态           |
+| `uni-swiper-dot`           | 轮播指示点             |
+
+### 22. 插件市场
+
+```bash
+# HBuilderX → 工具 → 插件市场
+# 或网址: https://ext.dcloud.net.cn/
+
+常用插件:
+- uView UI — 全面的 UI 组件库（Vue2）
+- uView Plus — uView Vue3 版本
+- uni-read-pages — 自动读取 pages.json 生成路由表
+- uni-simple-router — Vue Router 风格的编程式路由
+```
+
+---
+
+## 第十一阶段：uniCloud 云开发
+
+### 23. uniCloud 基础
+
+```bash
+# HBuilderX 中右键项目 → 创建 uniCloud 云开发环境
+# 选择阿里云 / 腾讯云 → 创建
+```
+
+```
+uniCloud/
+├── cloudfunctions/       # 云函数目录
+│   └── user-center/
+│       ├── index.js       # 云函数入口
+│       └── package.json
+└── database/              # 数据库 Schema
+    └── users.schema.json
+```
+
+### 24. 云函数
+
+```js
+// cloudfunctions/user-center/index.js
+"use strict"
+const db = uniCloud.database()
+
+exports.main = async (event, context) => {
+  const { action, data } = event
+
+  switch (action) {
+    case "getUser":
+      return await db.collection("users").where({ _id: data.id }).get()
+    case "createUser":
+      return await db.collection("users").add(data)
+    default:
+      return { code: -1, msg: "未知操作" }
+  }
+}
+```
+
+```ts
+// 前端调用
+const res = await uniCloud.callFunction({
+  name: "user-center",
+  data: { action: "getUser", data: { id: "xxx" } },
+})
+```
+
+### 25. 云数据库
+
+```ts
+const db = uniCloud.database()
+
+// 查询
+const res = await db
+  .collection("users")
+  .where({ age: dbCmd.gt(18) })
+  .limit(10)
+  .get()
+
+// 新增
+await db.collection("users").add({ name: "Alice", age: 18 })
+
+// 更新
+await db.collection("users").doc("id").update({ name: "Bob" })
+
+// 删除
+await db.collection("users").doc("id").remove()
+```
+
+---
+
+## 第十二阶段：uView UI（最流行的 uni-app UI 库）
+
+### 26. uView Plus (Vue 3)
+
+```bash
+# uni_modules 方式：HBuilderX 插件市场搜索 uview-plus 导入
+# npm 方式：
+npm install uview-plus
+```
+
+```ts
+// main.ts
+import uviewPlus from "uview-plus"
+app.use(uviewPlus)
+
+// uni.scss 中引入
+@import "uview-plus/theme.scss"
+```
+
+```vue
+<template>
+  <u-button type="primary" text="主要按钮" @click="handleClick" />
+  <u-input v-model="value" placeholder="请输入" border="surround" />
+  <u-cell-group>
+    <u-cell title="单元格" value="内容" isLink />
+  </u-cell-group>
+  <u-popup :show="show" @close="show = false" mode="bottom" round>
+    <view class="p-20">底部弹出内容</view>
+  </u-popup>
+  <u-loading-page :loading="loading" />
+  <u-empty text="暂无数据" mode="data" />
+  <u-toast ref="toast" />
+</template>
+```
+
+| uView 常用组件        | 说明                           |
+| --------------------- | ------------------------------ |
+| `u-button`            | 按钮（支持多种主题/尺寸/图标） |
+| `u-input`             | 输入框                         |
+| `u-cell/u-cell-group` | 单元格列表                     |
+| `u-popup`             | 弹出层                         |
+| `u-form/u-form-item`  | 表单（带校验）                 |
+| `u-picker`            | 选择器                         |
+| `u-upload`            | 上传组件                       |
+| `u-tabs`              | 标签页                         |
+| `u-loadmore`          | 加载更多                       |
+| `u-empty`             | 空状态                         |
+| `u-toast`             | 轻提示                         |
+| `u-icon`              | 图标库（数千图标）             |
+
+### 27. uView 全局配置
+
+```ts
+// main.ts 中
+import uviewPlus from "uview-plus"
+app.use(uviewPlus, {
+  config: {
+    unit: "rpx", // 默认单位
+    primary: "#3c9cff", // 主题色
+  },
+  props: {
+    button: { hairline: true }, // 全局按钮默认细边框
+  },
+})
+```
+
+---
+
+## 第十三阶段：实战案例
+
+### 28. 完整分页列表
+
+```vue
+<template>
+  <view>
+    <u-cell-group v-for="item in list" :key="item.id">
+      <u-cell :title="item.name" :label="item.desc" isLink @click="goDetail(item.id)" />
+    </u-cell-group>
+    <u-loadmore :status="loadStatus" @loadmore="loadMore" />
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue"
+import { onLoad, onPullDownRefresh, onReachBottom } from "@dcloudio/uni-app"
+
+const list = ref([])
+const page = ref(1)
+const loadStatus = ref("loadmore") // loadmore | loading | nomore
+
+const fetchData = async () => {
+  loadStatus.value = "loading"
+  const res = await request({ url: "/api/list", data: { page: page.value, size: 20 } })
+  list.value = page.value === 1 ? res.items : [...list.value, ...res.items]
+  loadStatus.value = res.items.length < 20 ? "nomore" : "loadmore"
+}
+
+onLoad(() => fetchData())
+onPullDownRefresh(async () => {
+  page.value = 1
+  await fetchData()
+  uni.stopPullDownRefresh()
+})
+onReachBottom(() => {
+  if (loadStatus.value === "loadmore") {
+    page.value++
+    fetchData()
+  }
+})
+</script>
+```
+
+### 29. 登录 + Token 管理
+
+```ts
+// services/auth.ts
+export async function login(code: string) {
+  const res = await request({ url: "/api/login", method: "POST", data: { code } })
+  uni.setStorageSync("token", res.token)
+  uni.setStorageSync("userInfo", res.user)
+  return res.user
+}
+
+export async function checkLogin(): Promise<boolean> {
+  try {
+    await uni.checkSession() // 检查微信 session 是否过期
+    return !!uni.getStorageSync("token")
+  } catch {
+    return false
+  }
+}
+
+// pages/login/index.vue
+const handleLogin = async () => {
+  const { code } = await uni.login({ provider: "weixin" })
+  await login(code)
+  uni.switchTab({ url: "/pages/index/index" })
+}
+```
+
+### 30. 自定义 TabBar
+
+```json
+// pages.json
+{
+  "tabBar": {
+    "custom": true,
+    "list": [
+      /* ... */
+    ]
+  }
+}
+```
+
+```vue
+<!-- custom-tab-bar/index.vue -->
+<template>
+  <view class="tab-bar">
+    <view
+      v-for="(item, idx) in tabs"
+      :key="idx"
+      class="tab-item"
+      :class="{ active: current === idx }"
+      @click="switchTab(idx)"
+    >
+      <text>{{ item.text }}</text>
+    </view>
+  </view>
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue"
+const current = ref(0)
+const tabs = [
+  { pagePath: "/pages/index/index", text: "首页" },
+  { pagePath: "/pages/user/index", text: "我的" },
+]
+const switchTab = (idx: number) => {
+  current.value = idx
+  uni.switchTab({ url: tabs[idx].pagePath })
+}
+</script>
+```
+
+---
+
+## 补充速查表
+
+### uni 全局 API 分类速查
+
+| 分类 | API                                                                   |
+| ---- | --------------------------------------------------------------------- |
+| 存储 | `setStorageSync` `getStorageSync` `removeStorageSync`                 |
+| 路由 | `navigateTo` `redirectTo` `switchTab` `navigateBack` `reLaunch`       |
+| 提示 | `showToast` `showLoading` `hideLoading` `showModal` `showActionSheet` |
+| 系统 | `getSystemInfo` `getNetworkType` `onNetworkStatusChange`              |
+| 支付 | `requestPayment`                                                      |
+| 媒体 | `chooseImage` `previewImage` `saveImageToPhotosAlbum`                 |
+| 文件 | `uploadFile` `downloadFile`                                           |
+
+### 条件编译平台标识
+
+| 标识         | 平台            |
+| ------------ | --------------- |
+| `MP-WEIXIN`  | 微信小程序      |
+| `MP-ALIPAY`  | 支付宝小程序    |
+| `MP-BAIDU`   | 百度小程序      |
+| `MP-TOUTIAO` | 字节小程序      |
+| `MP-QQ`      | QQ 小程序       |
+| `H5`         | 移动端浏览器    |
+| `APP-PLUS`   | App（5+App）    |
+| `APP-NVUE`   | App（原生渲染） |
+
+### easycom 自定义规则
+
+```json
+{
+  "easycom": {
+    "custom": {
+      "^uni-(.*)": "@/components/uni-$1/uni-$1.vue",
+      "^my-(.*)": "@/components/my-$1/my-$1.vue"
+    }
+  }
+}
+// 使用: <uni-card /> <my-button /> → 自动导入，无需 import
+```
+
+---
+
+## 第十四阶段：App 端发布与原生能力
+
+### 31. App 端打包发布
+
+```bash
+# HBuilderX → 发行 → 原生 App-云打包
+# 配置: manifest.json → App 模块配置 → 选择需要的能力(地图/支付/推送等)
+# 证书: iOS 需配置证书和描述文件 / Android 需签名证书
+```
+
+### 32. plus API — App 端原生能力
+
+```ts
+// plus 是 App 端专属的增强 API（5+ Runtime）
+// #ifdef APP-PLUS
+const main = plus.android.runtimeMainActivity() // Android 原生 Activity
+plus.device.vibrate(200) // 振动
+plus.push.getClientInfo() // 推送信息
+plus.runtime.install(filePath) // 安装 APK
+plus.geolocation.getCurrentPosition() // 原生定位
+// #endif
+```
+
+| plus API 分类           | 能力                    |
+| ----------------------- | ----------------------- |
+| `plus.device`           | 设备信息/振动/音量/亮度 |
+| `plus.geolocation`      | 原生定位                |
+| `plus.push`             | 推送（UniPush/个推）    |
+| `plus.runtime`          | 应用管理/版本/热更新    |
+| `plus.io`               | 文件系统读写            |
+| `plus.android/plus.ios` | 调用原生对象            |
+| `plus.payment`          | 原生支付（支付宝/微信） |
+| `plus.webview`          | WebView 管理            |
+
+### 33. nvue — 原生渲染
+
+nvue 使用 weex 原生渲染引擎，适合高性能列表和复杂动画。
+
+```vue
+<!-- pages/list/list.nvue — 文件名以 .nvue 结尾 -->
+<template>
+  <list @loadmore="loadMore">
+    <cell v-for="item in items" :key="item.id">
+      <text class="title">{{ item.name }}</text>
+    </cell>
+  </list>
+</template>
+```
+
+```css
+/* nvue 仅支持 flex 布局，默认 display: flex */
+/* 不支持 % / vw/vh，宽高必填 */
+/* 仅支持部分 CSS 属性 */
+```
+
+| 场景          | 推荐             |
+| ------------- | ---------------- |
+| 普通业务页面  | Vue (.vue)       |
+| 长列表/高性能 | nvue             |
+| App 首页混合  | nvue（加速首屏） |
+
+### 34. 热更新 / wgt 增量升级
+
+```bash
+# HBuilderX → 发行 → 制作移动 App 资源升级包(wgt)
+# 生成 .wgt 文件 → 上传到服务器
+```
+
+```ts
+// 检测更新
+plus.runtime.getProperty(plus.runtime.appid, (info) => {
+  const res = await uni.request({ url: "/api/version/check", data: { version: info.version } })
+  if (res.data.hasNew) {
+    uni.downloadFile({
+      url: res.data.wgtUrl,
+      success: ({ tempFilePath }) => {
+        plus.runtime.install(tempFilePath, { force: false }, () => {
+          plus.runtime.restart() // 安装完成，重启应用
+        })
+      },
+    })
+  }
+})
+```
+
+---
+
+## 第十五阶段：国际化 (i18n)
+
+### 35. vue-i18n 集成
+
+```bash
+npm install vue-i18n@9
+```
+
+```ts
+// locale/index.ts
+import { createI18n } from "vue-i18n"
+
+const i18n = createI18n({
+  legacy: false,
+  locale: uni.getStorageSync("locale") || "zh-CN",
+  messages: {
+    "zh-CN": { welcome: "欢迎", login: "登录" },
+    "en-US": { welcome: "Welcome", login: "Login" },
+  },
+})
+
+export default i18n
+```
+
+```vue
+<script setup lang="ts">
+import { useI18n } from "vue-i18n"
+const { t, locale } = useI18n()
+const toggleLang = () => {
+  locale.value = locale.value === "zh-CN" ? "en-US" : "zh-CN"
+  uni.setStorageSync("locale", locale.value)
+}
+</script>
+<template>
+  <text>{{ t("welcome") }}</text>
+  <button @click="toggleLang">切换语言</button>
+</template>
+```
+
+---
+
+## 第十六阶段：调试与性能优化
+
+### 36. 调试工具
+
+```bash
+# H5 — 浏览器 DevTools
+# 微信小程序 — 微信开发者工具调试
+# App — HBuilderX 内置调试器 / Chrome DevTools (插 USB 远程调试)
+# vconsole — 移动端调试面板
+```
+
+```ts
+// #ifdef H5
+if (process.env.NODE_ENV === "development") {
+  import("vconsole").then(({ default: VConsole }) => new VConsole())
+}
+// #endif
+```
+
+### 37. 性能优化清单
+
+```txt
+1. 减少 setData（Vue 的响应式数据变化会触发 setData）
+   → 合并多次赋值、使用 computed 缓存
+2. 首屏优化
+   → 分包 + preloadRule + 骨架屏
+3. 图片优化
+   → 压缩/WebP/懒加载/ mode="aspectFill"
+4. 长列表
+   → 分页加载 / nvue 原生渲染 / recycle-list
+5. 避免 onPageScroll 中频繁 setData
+   → 防抖/节流
+6. 合理使用 v-if vs v-show
+   → 频繁切换用 v-show，少切换用 v-if
+7. 清理定时器/事件监听
+   → onUnload / onHide 中清理
+```
+
+---
+
+## 补充速查表
+
+### App 端特有 API 速查
+
+| API                        | 能力                      |
+| -------------------------- | ------------------------- |
+| `plus.device.vibrate`      | 振动                      |
+| `plus.push`                | UniPush 推送              |
+| `plus.runtime.install`     | 热更新安装新包            |
+| `plus.geolocation`         | 原生定位（精度更高）      |
+| `plus.payment.getChannels` | 获取支付通道              |
+| `plus.downloader`          | 增强下载（支持断点续传）  |
+| `plus.uploader`            | 增强上传                  |
+| `plus.camera`              | 自定义相机界面            |
+| `plus.barcode`             | 条码/二维码扫描（增强版） |
+
+### 完整学习路径
+
+| 阶段  | 核心内容                                    |
+| ----- | ------------------------------------------- |
+| 1-3   | 项目搭建/pages.json 路由/组件/生命周期/通信 |
+| 4-5   | rpx 单位/条件编译/uni API/请求封装          |
+| 6-7   | Pinia 状态/easycom 自动导入                 |
+| 8-9   | 多平台编译/安全区域/工程化                  |
+| 10-12 | uni-ui 组件库/uView Plus/插件市场           |
+| 13    | 实战: 分页列表/登录Token/自定义TabBar       |
+| 14-15 | App 原生能力/nvue 高性能渲染/热更新/国际化  |
+| 16    | 调试工具/性能优化 7 点                      |
+
+---
+
+## 第十七阶段：媒体与地图能力
+
+### 38. 地图组件
+
+```vue
+<template>
+  <map
+    :latitude="39.909"
+    :longitude="116.397"
+    :markers="markers"
+    @markertap="onMarkerTap"
+    @regionchange="onRegionChange"
+    style="width: 100%; height: 400rpx"
+  />
+</template>
+
+<script setup lang="ts">
+import { ref } from "vue"
+const markers = ref([
+  {
+    id: 1,
+    latitude: 39.909,
+    longitude: 116.397,
+    title: "天安门",
+    iconPath: "/static/marker.png",
+    width: 30,
+    height: 30,
+  },
+])
+
+// 打开地图导航 / 选择位置
+const chooseLocation = async () => {
+  const res = await uni.chooseLocation()
+  console.log(res.name, res.address, res.latitude, res.longitude)
+}
+uni.openLocation({ latitude: 39.9, longitude: 116.4, name: "天安门", scale: 15 })
+</script>
+```
+
+### 39. 音频/视频
+
+```vue
+<!-- 背景音频（后台播放） -->
+<script setup lang="ts">
+const audio = uni.getBackgroundAudioManager()
+audio.title = "歌曲名"
+audio.src = "https://example.com/music.mp3"
+audio.play()
+audio.pause()
+
+// 前台音频
+const innerAudio = uni.createInnerAudioContext()
+innerAudio.src = "https://example.com/sound.mp3"
+innerAudio.play()
+innerAudio.onEnded(() => console.log("播放结束"))
+</script>
+
+<template>
+  <!-- 视频播放器 -->
+  <video
+    src="https://example.com/video.mp4"
+    controls
+    autoplay
+    muted
+    object-fit="contain"
+    :danmu-list="danmu"
+    enable-danmu
+    @play="onPlay"
+    @ended="onEnded"
+    style="width: 100%"
+  />
+</template>
+```
+
+### 40. Camera 与录音
+
+```vue
+<template>
+  <camera device-position="back" flash="off" @error="onError" style="width: 100%; height: 300rpx" />
+</template>
+
+<script setup lang="ts">
+// 录音
+const recorder = uni.getRecorderManager()
+recorder.start({ duration: 60000, sampleRate: 44100, numberOfChannels: 1 })
+recorder.onStop(({ tempFilePath }) => {
+  console.log("录音文件:", tempFilePath)
+})
+// recorder.stop()
+
+// 语音识别 (App 端/H5)
+// #ifdef APP-PLUS
+const options = { engine: "iFly" }
+plus.speech.startRecognize(options, (text) => console.log("识别结果:", text))
+// #endif
+</script>
+```
+
+### 41. Canvas 绘图
+
+```vue
+<template>
+  <canvas canvas-id="myCanvas" id="myCanvas" style="width: 300rpx; height: 300rpx" />
+</template>
+
+<script setup lang="ts">
+import { onReady } from "@dcloudio/uni-app"
+
+onReady(() => {
+  const ctx = uni.createCanvasContext("myCanvas")
+  ctx.setFillStyle("red")
+  ctx.fillRect(10, 10, 100, 80)
+  ctx.setFontSize(20)
+  ctx.fillText("Hello", 10, 150)
+  ctx.beginPath()
+  ctx.arc(150, 75, 40, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.draw()
+})
+
+// 新版 Canvas 2D API（同 Web Canvas API）
+const query = uni.createSelectorQuery()
+query
+  .select("#myCanvas")
+  .fields({ node: true, size: true })
+  .exec((res) => {
+    const canvas = res[0].node
+    const ctx = canvas.getContext("2d")
+    // 同 Web Canvas 2D API
+  })
+</script>
+```
+
+---
+
+## 第十八阶段：支付与推送
+
+### 42. 微信支付
+
+```ts
+// 后端返回支付参数 → 调起支付
+const pay = async (orderId: string) => {
+  const payParams = await request({ url: "/api/pay", method: "POST", data: { orderId } })
+  const res = await uni.requestPayment({
+    provider: "wxpay",
+    timeStamp: payParams.timeStamp,
+    nonceStr: payParams.nonceStr,
+    package: payParams.package,
+    signType: payParams.signType || "MD5",
+    paySign: payParams.paySign,
+  })
+  // 支付成功 → 跳转
+}
+```
+
+### 43. UniPush 推送
+
+```ts
+// App 端使用 UniPush（个推）
+// #ifdef APP-PLUS
+plus.push.addEventListener("receive", (msg) => {
+  // msg.content — 透传消息内容
+  uni.showToast({ title: msg.content })
+})
+const clientInfo = plus.push.getClientInfo()
+console.log("clientId:", clientInfo.clientid) // 用于服务端推送
+// #endif
+```
+
+---
+
+## 补充速查表
+
+### 媒体 API 速查
+
+| API                             | 用途             |
+| ------------------------------- | ---------------- |
+| `uni.chooseImage`               | 选择图片         |
+| `uni.previewImage`              | 预览图片         |
+| `uni.saveImageToPhotosAlbum`    | 保存到相册       |
+| `uni.chooseVideo`               | 选择视频         |
+| `uni.createInnerAudioContext`   | 前台音频播放     |
+| `uni.getBackgroundAudioManager` | 背景音频         |
+| `uni.createCameraContext`       | 相机控制         |
+| `uni.getRecorderManager`        | 录音             |
+| `uni.createCanvasContext`       | Canvas 旧 API    |
+| `uni.createSelectorQuery`       | Canvas 2D 新 API |
+
+### 支付方式速查
+
+| provider   | 平台             | 说明       |
+| ---------- | ---------------- | ---------- |
+| `wxpay`    | 微信小程序/App   | 微信支付   |
+| `alipay`   | 支付宝小程序/App | 支付宝支付 |
+| `appleiap` | iOS App          | 苹果内购   |

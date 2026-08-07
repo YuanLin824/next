@@ -1,5 +1,5 @@
-import Home from "./(other)/home/page"
+import Study from "./(other)/study/page"
 
 export default function Page() {
-  return <Home />
+  return <Study />
 }

@@ -1,0 +1,1028 @@
+# React 面试题
+
+---
+
+## 一、核心概念
+
+### Q1: React 的设计理念是什么？为什么选择 React？
+
+| 理念                   | 说明                                     |
+| ---------------------- | ---------------------------------------- |
+| **声明式**             | 描述 UI 应该是什么样，React 负责更新 DOM |
+| **组件化**             | UI 拆分为独立、可复用的组件              |
+| **一次学习，随处编写** | Web / React Native / 服务端 SSR          |
+| **单向数据流**         | 父 → 子 props 传递，数据流清晰可追踪     |
+
+### Q2: JSX 是什么？为什么需要它？
+
+JSX 是 JavaScript 的语法扩展，通过 Babel 编译为 `React.createElement` 调用。
+
+```jsx
+// JSX
+;<div className="box">
+  <h1>{title}</h1>
+</div>
+
+// 编译为
+React.createElement("div", { className: "box" }, React.createElement("h1", null, title))
+```
+
+- JSX 不是模板语言，是 JavaScript 表达式（可赋值、传参、返回）
+- 防止 XSS：JSX 默认转义所有嵌入值
+- React 17+ 不再需要显式 `import React`（新的 JSX 转换）
+
+### Q3: 虚拟 DOM (Virtual DOM) 是什么？怎么工作？
+
+```
+JSX → Virtual DOM (JS对象) → Diff 算法 → 最小化 DOM 操作 → 真实 DOM
+```
+
+```js
+// 真实 DOM
+// <div id="app"><span>hello</span></div>
+
+// 虚拟 DOM 对象
+{
+  type: "div",
+  props: { id: "app", children: [{ type: "span", props: { children: "hello" } }] },
+}
+```
+
+**工作流程**：
+
+1. 状态变化 → 生成新的 VNode 树
+2. Diff 对比新旧 VNode → 找到差异
+3. 批量更新真实 DOM（fiber 架构下可中断）
+
+### Q4: React Fiber 是什么？解决了什么问题？
+
+Fiber 是 React 16 的**重写架构**，将渲染工作拆成可中断的小单元（Fiber Node）。
+
+| 问题 (React 15 Stack Reconciler) | Fiber 的解决方案                             |
+| -------------------------------- | -------------------------------------------- |
+| 递归不可中断 → 长任务阻塞帧      | **可中断的链表遍历**                         |
+| 所有更新同等优先级               | **优先级调度**（用户输入 > 动画 > 数据加载） |
+| 无法丢弃已完成的工作             | 可抛弃并重做（Concurrent Mode）              |
+
+```
+Fiber 工作流程:
+render 阶段（可中断）→ 构建 Fiber Tree → 标记副作用
+commit 阶段（不可中断）→ 批量更新 DOM → 执行生命周期
+```
+
+---
+
+## 二、组件与生命周期
+
+### Q5: 类组件和函数组件的区别？为什么现在推荐函数组件？
+
+| 维度       | 类组件                         | 函数组件            |
+| ---------- | ------------------------------ | ------------------- |
+| 写法       | `class X extends Component`    | `function X(props)` |
+| 状态       | `this.state` + `this.setState` | `useState`          |
+| 生命周期   | `componentDidMount` 等         | `useEffect`         |
+| this       | ✅ 有（需 bind）               | ❌ 无               |
+| 逻辑复用   | HOC / Render Props             | **自定义 Hook**     |
+| 性能       | 略重（实例化）                 | 略轻（无实例）      |
+| 打包体积   | 较大                           | 较小                |
+| TypeScript | 类型推导较弱                   | 类型推导更好        |
+
+### Q6: 函数组件的生命周期（useEffect）如何模拟类组件生命周期？
+
+```jsx
+// componentDidMount — 依赖为空数组
+useEffect(() => {
+  console.log("mount")
+}, [])
+
+// componentDidUpdate — 依赖变化时（不含 mount）
+const mounted = useRef(false)
+useEffect(() => {
+  if (mounted.current) {
+    console.log("update")
+  } else {
+    mounted.current = true
+  }
+}, [dep])
+
+// componentWillUnmount — 返回清理函数
+useEffect(() => {
+  const timer = setInterval(() => {}, 1000)
+  return () => clearInterval(timer) // 清理
+}, [])
+```
+
+### Q7: React 18 中 useEffect 执行两次是什么原因？
+
+React 18 在**开发模式 Strict Mode**下会模拟**挂载 → 卸载 → 重新挂载**，以检测副作用是否正确清理。
+
+```jsx
+// Strict Mode 下 mount 时：
+// 1. effect 执行
+// 2. cleanup 执行（模拟卸载）
+// 3. effect 再次执行（模拟重新挂载）
+
+// ✅ 正确处理：
+useEffect(() => {
+  const controller = new AbortController()
+  fetch(url, { signal: controller.signal })
+  return () => controller.abort() // 清理函数
+}, [])
+```
+
+---
+
+## 三、Hooks
+
+### Q8: useState 的注意事项？
+
+```jsx
+// 1. 异步更新（批量合并）
+const [count, setCount] = useState(0)
+setCount(count + 1) // 不会立即更新
+console.log(count) // 还是旧值 0
+
+// 2. 函数式更新（基于前一个值）
+setCount((prev) => prev + 1)
+
+// 3. 惰性初始化（函数只执行一次）
+const [state, setState] = useState(() => expensiveComputation())
+
+// 4. 对象/数组更新需替换（不要 mutate）
+const [obj, setObj] = useState({ a: 1 })
+// ❌ obj.a = 2; setObj(obj)            // 引用不变，不触发渲染
+setObj((prev) => ({ ...prev, a: 2 })) // ✅ 新引用
+
+// 5. 更新相同的值（Object.is）不会触发重渲染
+setCount(0) // 如果已经是 0，不会重渲染
+```
+
+### Q9: useMemo / useCallback / React.memo 怎么用？什么时候不该用？
+
+```jsx
+// useMemo — 缓存计算结果（依赖不变不重新计算）
+const sortedList = useMemo(() => list.sort((a, b) => a.name.localeCompare(b.name)), [list])
+
+// useCallback — 缓存函数引用（传给 memo 子组件时避免不必要的重渲染）
+const handleClick = useCallback((id) => setSelected(id), [])
+
+// React.memo — 缓存组件（props 不变不重渲染）
+const ExpensiveList = React.memo(function ExpensiveList({ items }) {
+  return items.map((item) => <Item key={item.id} {...item} />)
+})
+```
+
+| 场景                                | 该不该用                       |
+| ----------------------------------- | ------------------------------ |
+| 传给 `memo` 子组件的 callback       | ✅ `useCallback`               |
+| 昂贵的计算（排序/过滤/大循环）      | ✅ `useMemo`                   |
+| 渲染次数多且 props 不变时不需要更新 | ✅ `React.memo`                |
+| 简单的表达式或原始值                | ❌ 不需要（开销大于收益）      |
+| 组件本身已经很快                    | ❌ `React.memo` 的比较也有开销 |
+
+### Q10: useRef 的三大用途？
+
+```jsx
+// 1. DOM 引用
+const inputRef = useRef < HTMLInputElement > null
+useEffect(() => inputRef.current?.focus(), [])
+
+// 2. 存储可变值（不触发重渲染）
+const prevValue = useRef(value)
+useEffect(() => {
+  prevValue.current = value
+}, [value])
+// 适合存储 timer、prevProps、subscription
+
+// 3. forwardRef — 父组件访问子组件 DOM
+const Child = forwardRef < HTMLInputElement > ((props, ref) => <input ref={ref} />)
+// 父: <Child ref={inputRef} />
+```
+
+### Q11: useReducer 和 useState 怎么选择？
+
+```jsx
+// useState — 简单状态
+const [name, setName] = useState("")
+
+// useReducer — 复杂状态逻辑（多个相关状态、状态过渡有明确规则）
+const [state, dispatch] = useReducer(reducer, { count: 0, loading: false, error: null })
+
+function reducer(state, action) {
+  switch (action.type) {
+    case "increment":
+      return { ...state, count: state.count + 1 }
+    case "setLoading":
+      return { ...state, loading: action.payload }
+    default:
+      return state
+  }
+}
+```
+
+| useState           | useReducer                    |
+| ------------------ | ----------------------------- |
+| 简单独立状态       | 多个相关状态、复杂更新逻辑    |
+| `setState(newVal)` | `dispatch({ type, payload })` |
+| 状态逻辑分散       | 状态逻辑集中在 reducer 中     |
+
+### Q12: useLayoutEffect 和 useEffect 有什么区别？
+
+```jsx
+// useEffect — 异步执行（浏览器绘制后），不阻塞渲染
+useEffect(() => {
+  /* 绘制后执行 */
+})
+
+// useLayoutEffect — 同步执行（DOM 更新后、浏览器绘制前），阻塞渲染
+useLayoutEffect(() => {
+  /* 绘制前同步执行 — 适合读取 DOM 尺寸并同步修改 */
+})
+
+// 典型场景：防止闪烁
+useLayoutEffect(() => {
+  // 先读 DOM 尺寸，再设置 state，浏览器用最终值一次性绘制，避免闪烁
+  const { width } = ref.current.getBoundingClientRect()
+  setWidth(width)
+}, [])
+```
+
+> `useLayoutEffect` 会阻塞浏览器绘制，谨慎使用。90% 场景用 `useEffect`。
+
+### Q13: 自定义 Hook 如何设计？
+
+```jsx
+// 设计原则：1. 以 use 开头  2. 可组合（调用其他 Hooks）
+function useRequest<T>(url: string) {
+  const [data, setData] = useState<T | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+    setLoading(true)
+    fetch(url, { signal: controller.signal })
+      .then(r => r.json())
+      .then(setData)
+      .catch(e => e.name !== "AbortError" && setError(e.message))
+      .finally(() => setLoading(false))
+    return () => controller.abort()
+  }, [url])
+
+  return { data, loading, error }
+}
+
+// 常见自定义 Hook 命名
+// useRequest / useLocalStorage / useDebounce / usePrevious / useWindowSize / useIntersectionObserver
+```
+
+---
+
+## 四、状态管理
+
+### Q14: React 状态提升和 Context 的适用场景？
+
+```jsx
+// 状态提升 — 共享状态提升到最近的公共祖先
+const Parent = () => {
+  const [value, setValue] = useState("")
+  return (
+    <>
+      <InputA value={value} onChange={setValue} />
+      <InputB value={value} />
+    </>
+  )
+}
+
+// Context — 跨层级传递（主题、语言、登录用户）
+const ThemeContext = createContext("light")
+const App = () => (
+  <ThemeContext.Provider value="dark">
+    <DeepChild /> {/* 无论多深都能拿到 */}
+  </ThemeContext.Provider>
+)
+const DeepChild = () => {
+  const theme = useContext(ThemeContext)
+}
+
+// ⚠️ Context 值变化时所有消费者都会重渲染
+// ✅ 优化: 拆分 Context（ThemeContext + UserContext）或 useMemo 包裹 value
+```
+
+### Q15: Redux / Zustand / Jotai 如何选择？
+
+| 维度       | Redux Toolkit         | Zustand    | Jotai      |
+| ---------- | --------------------- | ---------- | ---------- |
+| 体积       | ~12KB                 | ~1KB       | ~2KB       |
+| 模板代码   | 较多（slice/reducer） | 极少       | 极少       |
+| TypeScript | 好                    | 完美       | 完美       |
+| 中间件     | 丰富（redux-saga 等） | 简洁       | 插件机制   |
+| 适用       | 大型复杂应用          | 中小型应用 | 原子化状态 |
+| 学习曲线   | 较高                  | 低         | 低         |
+
+```ts
+// Zustand
+const useStore = create((set) => ({
+  count: 0,
+  increment: () => set((s) => ({ count: s.count + 1 })),
+}))
+const count = useStore((s) => s.count) // 精确订阅，只订阅 count 不订阅 increment
+
+// Jotai（原子化）
+const countAtom = atom(0)
+const doubleAtom = atom((get) => get(countAtom) * 2)
+const [count, setCount] = useAtom(countAtom)
+```
+
+---
+
+## 五、路由
+
+### Q16: React Router v6 的核心变化？
+
+```jsx
+// v5 → v6 主要变化
+// Switch   → Routes
+// exact    → 默认精确匹配
+// useHistory → useNavigate
+// component → element
+// Redirect → Navigate
+
+;<Routes>
+  <Route path="/" element={<Home />} />
+  <Route path="/users/:id" element={<User />} />
+  <Route path="*" element={<NotFound />} />
+</Routes>
+
+// 嵌套路由 — 子路由写在父组件中用 <Outlet />
+// useNavigate 替代 useHistory
+const navigate = useNavigate()
+navigate("/users/1") // push
+navigate("/users/1", { replace: true }) // replace
+
+// 获取参数
+const { id } = useParams()
+const [searchParams] = useSearchParams()
+```
+
+---
+
+## 六、性能优化
+
+### Q17: React 性能优化全链路？
+
+| 阶段       | 手段                                                           |
+| ---------- | -------------------------------------------------------------- |
+| **代码层** | `React.memo` / `useMemo` / `useCallback` / 拆分组件 / 状态下沉 |
+| **渲染层** | `useTransition` / `useDeferredValue` / `key` 的正确使用        |
+| **加载层** | `React.lazy` + `Suspense` 代码分割 / 路由懒加载                |
+| **数据层** | 精确订阅（Zustand selector）/ 避免不必要的 Context 更新        |
+| **DOM层**  | 虚拟列表 (react-window) / 避免匿名函数/对象作为 props          |
+
+```jsx
+// useTransition — 标记非紧急更新
+const [isPending, startTransition] = useTransition()
+startTransition(() => {
+  setFilteredList(heavyFilter(list, keyword))
+}) // 低优先级更新
+{
+  isPending && <Spinner />
+}
+
+// useDeferredValue — 延迟值（等紧急更新完成后再更新）
+const deferredQuery = useDeferredValue(query) // query 变化时先用旧值，空闲时更新
+```
+
+### Q18: React.memo 失效的常见原因？
+
+```jsx
+// ❌ 每次渲染都是新引用 → memo 失效
+<Child onClick={() => {}} style={{ color: "red" }} />
+<Child arr={[1, 2, 3]} />
+
+// ✅ 缓存引用
+const onClick = useCallback(() => {}, [])
+const style = useMemo(() => ({ color: "red" }), [])
+const arr = useMemo(() => [1, 2, 3], [])
+<Child onClick={onClick} style={style} arr={arr} />
+
+// ✅ 自定义比较函数
+React.memo(Child, (prev, next) => prev.id === next.id && prev.name === next.name)
+```
+
+---
+
+## 七、错误边界与并发
+
+### Q19: Error Boundary 怎么用？能捕获哪些错误？
+
+```jsx
+class ErrorBoundary extends React.Component {
+  state = { hasError: false, error: null }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error }
+  }
+
+  componentDidCatch(error, info) {
+    console.error(error, info.componentStack)
+    // 上报错误到 Sentry/自定义服务
+  }
+
+  render() {
+    if (this.state.hasError) return <h2>出错了: {this.state.error.message}</h2>
+    return this.props.children
+  }
+}
+
+// 使用
+;<ErrorBoundary>
+  <RiskyComponent />
+</ErrorBoundary>
+
+// ✅ 能捕获：渲染生命周期中的错误、子组件构造函数中的错误
+// ❌ 不能捕获：事件处理器 / 异步代码 / SSR / Error Boundary 自身的错误
+// 事件处理器用 try/catch
+```
+
+### Q20: Suspense 的使用场景？
+
+```jsx
+// 1. 懒加载组件
+const LazyComp = lazy(() => import("./LazyComp"))
+<Suspense fallback={<Skeleton />}><LazyComp /></Suspense>
+
+// 2. 数据获取（React 18+ — 实验性，配合支持 Suspense 的库如 react-query）
+<Suspense fallback={<Loading />}><Profile /></Suspense>
+
+// 3. 嵌套 Suspense（不同粒度）
+<Suspense fallback={<PageSkeleton />}>
+  <Header /> {/* 立即渲染 */}
+  <Suspense fallback={<SidebarSkeleton />}><Sidebar /></Suspense>
+  <Suspense fallback={<MainSkeleton />}><MainContent /></Suspense>
+</Suspense>
+```
+
+---
+
+## 八、Refs 与 DOM
+
+### Q21: forwardRef 和 useImperativeHandle 配合使用？
+
+```jsx
+const FancyInput = forwardRef((props, ref) => {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  // 暴露给父组件的自定义方法
+  useImperativeHandle(ref, () => ({
+    focus: () => inputRef.current?.focus(),
+    clear: () => { if (inputRef.current) inputRef.current.value = "" },
+    getValue: () => inputRef.current?.value,
+  }))
+
+  return <input ref={inputRef} {...props} />
+})
+
+// 父组件
+const parentRef = useRef<{ focus: () => void; clear: () => void }>(null)
+parentRef.current?.focus()
+parentRef.current?.clear()
+```
+
+---
+
+## 九、高级模式
+
+### Q22: 高阶组件 (HOC)、Render Props、自定义 Hook 如何选择？
+
+| 模式             | 原理                   | 适用场景                         |
+| ---------------- | ---------------------- | -------------------------------- |
+| **HOC**          | 函数接收组件返回新组件 | 权限控制、主题注入、`withRouter` |
+| **Render Props** | 通过 prop 传递渲染函数 | 共享复杂状态逻辑（已较少用）     |
+| **自定义 Hook**  | 组合 React Hooks       | **首选** — 状态逻辑复用          |
+
+```jsx
+// HOC — 权限控制
+function withAuth(Component) {
+  return function Protected(props) {
+    const { user } = useAuth()
+    if (!user) return <Navigate to="/login" />
+    return <Component {...props} user={user} />
+  }
+}
+
+// 自定义 Hook — 逻辑复用
+function useAuth() {
+  const [user, setUser] = useState(null)
+  useEffect(() => {
+    fetchUser().then(setUser)
+  }, [])
+  const login = (cred) => fetch("/login").then(setUser)
+  const logout = () => setUser(null)
+  return { user, login, logout }
+}
+```
+
+### Q23: Compound Components (组合组件) 模式？
+
+```jsx
+// 不用 compound: <Select options={data} value={val} onChange={fn} />
+// ✅ compound: 灵活组装
+;<Select value={val} onChange={setVal}>
+  <Select.Option value="1">选项1</Select.Option>
+  <Select.Option value="2" disabled>
+    选项2
+  </Select.Option>
+  <Select.Option value="3">
+    <Icon name="star" /> 选项3
+  </Select.Option>
+</Select>
+
+// 实现 — 用 Context 共享状态
+const SelectContext = createContext(null)
+function Select({ children, value, onChange }) {
+  return <SelectContext.Provider value={{ value, onChange }}>{children}</SelectContext.Provider>
+}
+Select.Option = function Option({ children, value, disabled }) {
+  const ctx = useContext(SelectContext)
+  return <div onClick={() => !disabled && ctx.onChange(value)}>{children}</div>
+}
+```
+
+---
+
+## 十、React 19 新特性
+
+### Q24: React 19 有哪些重要更新？
+
+| 特性                        | 说明                                                 |
+| --------------------------- | ---------------------------------------------------- |
+| **Server Components (RSC)** | 服务端组件正式可用（通过 Next.js）                   |
+| **Actions**                 | `useActionState` / `useFormStatus` / `useOptimistic` |
+| **use() API**               | 在渲染中读取 Promise/Context                         |
+| **ref 作为 prop**           | 不再需要 `forwardRef`                                |
+| **document metadata**       | `<title>` `<meta>` `<link>` 原生支持                 |
+| **preload / preconnect**    | `preload()` / `preconnect()` API                     |
+
+```jsx
+// React 19 — ref 直接作为 prop
+function MyInput({ ref, ...props }) {
+  return <input ref={ref} {...props} />
+}
+
+// use() API — 读取 Promise（替代 await + Suspense）
+function Profile() {
+  const user = use(fetchUserPromise)
+  return <div>{user.name}</div>
+}
+
+// useActionState — 表单 Action
+const [state, formAction] = useActionState(submitForm, { error: null })
+<form action={formAction}>...</form>
+
+// useFormStatus — 表单提交状态
+function SubmitButton() {
+  const { pending } = useFormStatus()
+  return <button disabled={pending}>{pending ? "提交中..." : "提交"}</button>
+}
+```
+
+---
+
+## 十一、手写实现
+
+### Q25: 手写 useState（简化版）
+
+```js
+let memorizedStates = []
+let cursor = 0
+
+function useState(initialValue) {
+  const currentCursor = cursor
+  memorizedStates[currentCursor] = memorizedStates[currentCursor] ?? initialValue
+
+  const setState = (newValue) => {
+    memorizedStates[currentCursor] = newValue
+    render() // 触发渲染
+  }
+
+  cursor++
+  return [memorizedStates[currentCursor], setState]
+}
+
+function render() {
+  cursor = 0
+  ReactDOM.render(<App />, root)
+}
+```
+
+### Q26: 手写 useEffect（简化版）
+
+```js
+let effects = []
+let effectCursor = 0
+let cleanupFns = []
+
+function useEffect(callback, deps) {
+  const currentCursor = effectCursor
+  const prevDeps = effects[currentCursor]
+
+  if (!prevDeps || deps.some((d, i) => d !== prevDeps[i])) {
+    // 执行前先清理上一次的 cleanup
+    cleanupFns[currentCursor]?.()
+    // 执行 effect，收集 cleanup
+    cleanupFns[currentCursor] = callback()
+    effects[currentCursor] = deps
+  }
+
+  effectCursor++
+}
+```
+
+### Q27: 手写 useMemo / useCallback
+
+```js
+// useMemo — 依赖不变返回缓存值
+let memos = []
+let memoCursor = 0
+
+function useMemo(factory, deps) {
+  const currentCursor = memoCursor
+  const prev = memos[currentCursor]
+
+  if (!prev || deps.some((d, i) => d !== prev.deps[i])) {
+    memos[currentCursor] = { value: factory(), deps }
+  }
+
+  memoCursor++
+  return memos[currentCursor].value
+}
+
+// useCallback = useMemo 记忆函数
+function useCallback(fn, deps) {
+  return useMemo(() => fn, deps)
+}
+```
+
+---
+
+## 十二、对比与选型
+
+### Q28: React vs Vue 选型对比？
+
+| 维度     | React                           | Vue                             |
+| -------- | ------------------------------- | ------------------------------- |
+| 核心思想 | 纯函数 UI = f(state)            | 响应式 + 模板                   |
+| 语法     | JSX (JS)                        | SFC (template + script + style) |
+| 状态管理 | 第三方（Redux/Zustand）         | Pinia（官方）                   |
+| 路由     | React Router                    | Vue Router（官方）              |
+| 响应式   | 手动 setState                   | 自动（`ref`/`reactive`）        |
+| 学习曲线 | 中等（需学 JSX/Hooks/第三方库） | 平滑（模板接近 HTML）           |
+| 生态     | 第三方为主                      | 官方+社区配套                   |
+| 适用     | 大型应用、跨平台                | 快速开发、中小型项目            |
+
+---
+
+## 十三、测试与调试
+
+### Q29: React Testing Library 怎么用？
+
+```jsx
+import { render, screen, fireEvent, waitFor } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
+
+test("提交表单", async () => {
+  const onSubmit = vi.fn()
+  render(<LoginForm onSubmit={onSubmit} />)
+
+  // 填写表单
+  await userEvent.type(screen.getByLabelText("邮箱"), "test@example.com")
+  await userEvent.type(screen.getByLabelText("密码"), "password123")
+
+  // 提交
+  await userEvent.click(screen.getByRole("button", { name: "登录" }))
+
+  // 断言
+  await waitFor(() =>
+    expect(onSubmit).toHaveBeenCalledWith({
+      email: "test@example.com",
+      password: "password123",
+    })
+  )
+})
+```
+
+### Q30: 如何排查 React 性能问题？
+
+```bash
+# React DevTools Profiler — 录制交互，查看哪些组件重渲染
+# React Developer Tools → Components → 勾选 "Highlight updates when components render"
+
+# 排查方法:
+# 1. Profiler: 查看渲染耗时 + 原因
+# 2. why-did-you-render: 运行时检测不必要的渲染 (npm i @welldone-software/why-did-you-render)
+# 3. Chrome Performance: 录制帧率，定位长任务
+# 4. React.memo + useMemo: 跳过已知慢的组件
+```
+
+---
+
+## 汇总速查表
+
+### Hooks 速查
+
+| Hook                   | 用途            | 返回                 |
+| ---------------------- | --------------- | -------------------- |
+| `useState`             | 状态            | `[value, setter]`    |
+| `useEffect`            | 副作用          | —                    |
+| `useRef`               | DOM引用/可变值  | `{ current }`        |
+| `useMemo`              | 缓存值          | 缓存值               |
+| `useCallback`          | 缓存函数        | 缓存函数             |
+| `useReducer`           | 复杂状态        | `[state, dispatch]`  |
+| `useContext`           | 读取 Context    | Context 值           |
+| `useLayoutEffect`      | 同步副作用      | —                    |
+| `useTransition`        | 过渡更新        | `[isPending, start]` |
+| `useDeferredValue`     | 延迟值          | 延迟值               |
+| `useImperativeHandle`  | 限制 ref 暴露   | —                    |
+| `useId`                | 生成唯一 ID     | string               |
+| `useSyncExternalStore` | 外部 store 订阅 | 最新值               |
+| `useInsertionEffect`   | CSS-in-JS 注入  | —                    |
+
+### 生命周期对照 (Class vs Hooks)
+
+| Class                      | Hooks                                     |
+| -------------------------- | ----------------------------------------- |
+| `constructor`              | `useState(init)` / `useRef`               |
+| `componentDidMount`        | `useEffect(()=>{}, [])`                   |
+| `componentDidUpdate`       | `useEffect(()=>{}, [deps])`               |
+| `componentWillUnmount`     | `useEffect(() => { return cleanup }, [])` |
+| `shouldComponentUpdate`    | `React.memo`                              |
+| `getDerivedStateFromProps` | 渲染时直接计算                            |
+
+---
+
+## 十四、React 18 Concurrent Features
+
+### Q31: Concurrent Mode 解决的问题？startTransition 的作用？
+
+```jsx
+// 问题: 输入搜索时，输入框响应被过滤列表的昂贵渲染阻塞
+const [query, setQuery] = useState("")
+const [filtered, setFiltered] = useState(list)
+
+// ❌ 紧急更新(输入)被非紧急更新(渲染长列表)阻塞
+function handleChange(e) {
+  setQuery(e.target.value) // 紧急
+  setFiltered(heavyFilter(list, e.target.value)) // 非紧急
+}
+
+// ✅ 用 useTransition 标记非紧急更新
+const [isPending, startTransition] = useTransition()
+function handleChange(e) {
+  setQuery(e.target.value) // 紧急 — 立即更新输入框
+  startTransition(() => {
+    setFiltered(heavyFilter(list, e.target.value)) // 非紧急 — 可被中断
+  })
+}
+```
+
+### Q32: useDeferredValue vs useTransition 的区别？
+
+| 维度         | `useTransition`                      | `useDeferredValue`                        |
+| ------------ | ------------------------------------ | ----------------------------------------- |
+| 控制方       | 你自己控制何时开始                   | React 自动处理                            |
+| 用法         | `startTransition(() => setState(v))` | `const d = useDeferredValue(value)`       |
+| 适用         | 你能控制 setState 的地方             | 你无法控制状态来源（如 props 传入的数据） |
+| pending 状态 | ✅ `isPending` 可显示 loading        | ❌ 对比 `value !== deferredValue` 判断    |
+
+### Q33: 自动批处理 (Automatic Batching) 是什么？
+
+React 18 中，所有更新（包括 `setTimeout`/`Promise`/原生事件中的）都会**自动批量处理**，减少重渲染次数。
+
+```jsx
+// React 17: 只有合成事件中的更新会批处理
+setTimeout(() => {
+  setCount((c) => c + 1) // 触发渲染
+  setFlag((f) => !f) // 又触发一次渲染 → 共两次
+}, 0)
+
+// React 18: 所有更新自动批处理 → 只触发一次渲染
+setTimeout(() => {
+  setCount((c) => c + 1) // ┐
+  setFlag((f) => !f) // ┘ 合并为一次渲染
+}, 0)
+
+// 手动退出批处理（极少需要）
+import { flushSync } from "react-dom"
+flushSync(() => setCount((c) => c + 1)) // 立即渲染
+```
+
+---
+
+## 十五、数据流与请求
+
+### Q34: React Query (TanStack Query) 如何管理服务端状态？
+
+```jsx
+// useQuery — 自动缓存、后台刷新、loading/error 管理
+const { data, isLoading, error } = useQuery({
+  queryKey: ["users", userId],
+  queryFn: () => fetch(`/api/users/${userId}`).then((r) => r.json()),
+  staleTime: 5 * 60 * 1000, // 5 分钟内不重新请求
+})
+
+// useMutation — 数据变更 + 乐观更新
+const mutation = useMutation({
+  mutationFn: (newUser) => fetch("/api/users", { method: "POST", body: JSON.stringify(newUser) }),
+  onMutate: async (newUser) => {
+    // 乐观更新前
+    await queryClient.cancelQueries(["users"])
+    const previous = queryClient.getQueryData(["users"])
+    queryClient.setQueryData(["users"], (old) => [...old, { ...newUser, id: "temp" }])
+    return { previous } // 用于回滚
+  },
+  onError: (err, newUser, context) => {
+    // 失败回滚
+    queryClient.setQueryData(["users"], context.previous)
+  },
+  onSettled: () => queryClient.invalidateQueries(["users"]),
+})
+
+// 核心优势 vs 手动 useEffect fetch:
+// ✅ 缓存 & 去重       ✅ 后台自动刷新
+// ✅ 乐观更新 & 回滚     ✅ 窗口重新聚焦时刷新
+// ✅ 分页/无限滚动      ✅ DevTools 调试
+```
+
+### Q35: React 中如何设计性能良好的全局状态？
+
+```ts
+// 原则 1: 状态下沉 — 不需要全局的状态不要放全局
+// ❌ 全局
+const [modalOpen, setModalOpen] = useState(false) // 放全局
+// ✅ 局部
+function Modal() { const [open, setOpen] = useState(false) }
+
+// 原则 2: 精确订阅 — 只订阅需要的字段（Zustand selector）
+const count = useStore(s => s.count) // ✅ 只订阅 count
+const store = useStore()              // ❌ 订阅全部，任何变化都重渲染
+
+// 原则 3: 拆分 Context — 避免不相关的状态聚合
+<ThemeContext.Provider value={theme}>    // 主题变化 ≠ 用户变化
+  <UserContext.Provider value={user}>
+
+// 原则 4: useRef 存储不触发渲染的数据
+const timerRef = useRef<NodeJS.Timeout>()
+```
+
+---
+
+## 十六、合成事件与 DOM
+
+### Q36: React 合成事件 (SyntheticEvent) 是什么？为什么需要？
+
+```jsx
+// React 的事件对象是 SyntheticEvent — 跨浏览器封装
+// 所有事件通过事件委托绑定在 root 节点上（React 17+）
+// React 16: 委托到 document
+// React 17+: 委托到 root 挂载节点
+
+function handleClick(e: React.MouseEvent) {
+  e.preventDefault()       // ✅
+  e.stopPropagation()      // ⚠️ 只阻止合成事件冒泡，不阻止原生事件
+  e.nativeEvent             // 访问原生事件
+}
+
+// 为什么需要合成事件:
+// 1. 跨浏览器一致性
+// 2. 事件池复用 (React 16, React 17+ 已移除事件池)
+// 3. 自动清理监听（组件卸载时不需要手动 removeEventListener）
+```
+
+### Q37: dangerouslySetInnerHTML 的使用和安全风险？
+
+```jsx
+// ⚠️ 插入原始 HTML — XSS 风险
+;<div dangerouslySetInnerHTML={{ __html: userContent }} />
+
+// ✅ 安全处理
+import DOMPurify from "dompurify"
+;<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(userContent) }} />
+
+// 替代方案:
+// 1. 尽量用 JSX
+// 2. 必须用 HTML 时，服务端白名单过滤
+// 3. 前端用 DOMPurify 二次净化
+```
+
+---
+
+## 十七、SSR 与 Next.js
+
+### Q38: React SSR 的原理和局限性？
+
+```
+SSR 流程:
+1. renderToString(<App />) → HTML 字符串
+2. 返回 HTML → 浏览器展示（不可交互）
+3. 加载 JS bundle → React.hydrate() → 绑定事件 → 可交互
+
+局限性:
+- 服务端需要 Node.js
+- 首次交互等待 JS 加载 + hydration（TTI 长）
+- 第三方库可能需要 window（需要条件判断）
+- 内存/CPU 开销
+```
+
+### Q39: React Server Components (RSC) 解决了什么问题？
+
+```jsx
+// 传统 SSR: 所有代码都在服务端执行一次 + 客户端再执行一次
+// RSC: 组件分为 Server Component 和 Client Component
+
+// Server Component — 仅在服务端运行，不发送 JS bundle
+async function PostList() {
+  const posts = await db.post.findMany() // 直接查数据库，无 API 中间层
+  return (
+    <ul>
+      {posts.map((p) => (
+        <li key={p.id}>{p.title}</li>
+      ))}
+    </ul>
+  )
+}
+
+// Client Component — 需要交互时标记 "use client"
+;("use client")
+function LikeButton() {
+  const [likes, setLikes] = useState(0)
+  return <button onClick={() => setLikes((l) => l + 1)}>👍 {likes}</button>
+}
+
+// 好处:
+// ✅ 减少客户端 JS 体积（Server Component 不发送 JS）
+// ✅ 直接访问数据库/文件系统
+// ✅ 自动代码分割（Client Component 导入点即分割点）
+```
+
+### Q40: React Portals 的使用场景？
+
+```jsx
+import { createPortal } from "react-dom"
+
+// 将组件渲染到 DOM 树的另一个位置（保持 React 组件树中的上下文）
+function Modal({ children }) {
+  return createPortal(
+    <div className="modal-overlay">{children}</div>,
+    document.getElementById("modal-root")!  // 渲染到 <div id="modal-root">
+  )
+}
+
+// 使用场景: 弹窗/下拉菜单/提示框 — DOM 上脱离父组件(避免 overflow/truncate/z-index 问题)，但保持 React 树中的事件冒泡和 Context
+```
+
+---
+
+## 补充速查表
+
+### useState 更新模式
+
+| 写法                                    | 说明               |
+| --------------------------------------- | ------------------ |
+| `setState(val)`                         | 直接设值           |
+| `setState(prev => prev + 1)`            | 基于旧值           |
+| `setState(prev => ({ ...prev, a: 1 }))` | 对象更新（新引用） |
+| `setState(() => expensiveInit)`         | 惰性初始化         |
+
+### useEffect 的执行时机
+
+| deps                       | 执行时机                         |
+| -------------------------- | -------------------------------- |
+| `undefined` (无第二个参数) | 每次渲染后                       |
+| `[]`                       | 仅 mount 后一次                  |
+| `[a, b]`                   | mount + a 或 b 变化时            |
+| cleanup 函数               | unmount 前 / deps 变化重新执行前 |
+
+### ref 的三种使用方式
+
+| 方式             | 说明                        |
+| ---------------- | --------------------------- |
+| `useRef(init)`   | 对象/组件 ref               |
+| `ref={callback}` | 回调 ref（`(el) => {...}`） |
+| `forwardRef`     | 转发 ref 到子组件           |
+
+### 常见代码分割方式
+
+```jsx
+// 1. 路由懒加载
+const About = lazy(() => import("./About"))
+
+// 2. 组件懒加载
+const Chart = lazy(() => import("./Chart"))
+
+// 3. 条件加载
+if (needAnalytics) {
+  const analytics = await import("./analytics")
+  analytics.init()
+}
+```

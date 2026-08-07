@@ -6,7 +6,7 @@ export default function SiteHeader() {
     <header className="bg-background/70 supports-backdrop-filter:bg-background/60 sticky top-0 z-50 flex w-full justify-center border-b backdrop-blur-md">
       <div className="container flex h-14 max-w-7xl items-center px-2.5">
         {/* Logo / 站点名称 */}
-        <a href="/home" className="mr-6 flex items-center gap-2 text-sm font-semibold">
+        <a href="/study" className="mr-6 flex items-center gap-2 text-sm font-semibold">
           <div className="bg-primary text-primary-foreground flex size-6 items-center justify-center rounded-md text-xs font-bold">
             M
           </div>
@@ -14,8 +14,11 @@ export default function SiteHeader() {
         </a>
 
         {/* 导航链接 */}
-        <a href="/home" className={navigationMenuTriggerStyle()}>
-          首页
+        <a href="/study" className={navigationMenuTriggerStyle()}>
+          学习文档
+        </a>
+        <a href="/interview" className={navigationMenuTriggerStyle()}>
+          面试题文档
         </a>
         <a href="/about" className={navigationMenuTriggerStyle()}>
           关于

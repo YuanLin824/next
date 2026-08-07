@@ -1,0 +1,1482 @@
+# Taro 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: 什么是 Taro？它的核心设计理念是什么？
+
+Taro 是京东凹凸实验室开源的**跨端开发框架**，一套代码编译到多个平台。
+
+| 能力           | 说明                                                      |
+| -------------- | --------------------------------------------------------- |
+| **跨端编译**   | 微信/支付宝/百度/字节/QQ/京东小程序 + H5 + React Native   |
+| **多框架支持** | React / Vue 3 / Vue 2 / Nerv（类 React）                  |
+| **一致的 API** | 统一 `Taro.*` API（`Taro.request`、`Taro.navigateTo` 等） |
+| **组件化**     | 内置 View/Text/Image/ScrollView 等跨端组件                |
+| **CSS 预处理** | 支持 Sass/Less/Stylus + Tailwind CSS（通过插件）          |
+
+### Q2: Taro 的编译原理是什么？
+
+```
+源码（React/Vue 组件）
+    ↓ Babel / SWC 转译
+Taro 中间代码（抽象语法树 AST）
+    ↓ 各平台插件处理
+目标平台代码（WXML/WXSS/JS → 小程序 / HTML/CSS/JS → H5）
+```
+
+关键步骤：
+
+1. **模板编译**：React/Vue 的 JSX → 小程序 WXML 模板
+2. **样式编译**：CSS/Sass → WXSS（小程序）/ CSS（H5）
+3. **运行时**：Taro Runtime 在目标平台上模拟 React/Vue 生命周期
+
+### Q3: Taro 和 uni-app 有什么区别？
+
+| 维度       | Taro                  | uni-app             |
+| ---------- | --------------------- | ------------------- |
+| 框架支持   | React + Vue 3 + Vue 2 | Vue 为主            |
+| 开发体验   | 类 React DSL          | Vue DSL             |
+| 跨端范围   | 6 小程序 + H5 + RN    | 多小程序 + App + H5 |
+| 社区生态   | React 生态            | Vue 生态            |
+| TypeScript | 原生支持              | 支持                |
+| 编译方式   | 模板编译 + 运行时     | 编译时模板转换      |
+| 学\*曲线   | React 开发者友好      | Vue 开发者友好      |
+| 公司       | 京东                  | DCloud              |
+
+---
+
+## 二、项目配置与 CLI
+
+### Q4: Taro 如何创建和配置项目？
+
+```bash
+# 安装 CLI
+npm install -g @tarojs/cli
+
+# 创建项目
+taro init myApp
+# 交互式选择: 框架(React/Vue) + CSS 预处理器 + 模板
+
+# 快速创建 React + TypeScript 项目
+npx @tarojs/cli init myApp --template react-ts
+
+# 启动
+npm run dev:weapp   # 微信小程序
+npm run dev:h5       # H5
+npm run dev:alipay   # 支付宝小程序
+npm run dev:swan     # 百度小程序
+npm run dev:tt       # 字节小程序
+npm run dev:qq       # QQ 小程序
+npm run dev:jd       # 京东小程序
+npm run dev:rn       # React Native
+
+# 构建
+taro build --type weapp --watch
+```
+
+### Q5: Taro 的项目目录结构是怎样的？
+
+```
+myApp/
+├── config/
+│   ├── index.ts          # 主配置（入口文件、输出目录、插件等）
+│   ├── dev.ts            # 开发环境配置
+│   └── prod.ts           # 生产环境配置
+├── src/
+│   ├── pages/            # 页面（每个页面一个文件夹）
+│   │   └── index/
+│   │       ├── index.tsx          # 页面逻辑
+│   │       ├── index.config.ts    # 页面配置（title/导航栏等）
+│   │       └── index.scss         # 页面样式
+│   ├── components/       # 组件
+│   ├── hooks/            # 自定义 Hooks
+│   ├── utils/            # 工具函数
+│   ├── services/         # API 请求
+│   ├── store/            # 状态管理
+│   ├── app.config.ts     # 全局配置（pages/window/tabBar 等）
+│   ├── app.tsx           # App 入口
+│   ├── app.scss          # 全局样式
+│   └── index.html        # H5 入口 HTML
+├── package.json
+├── project.config.json   # 微信小程序项目配置
+├── tsconfig.json
+└── babel.config.js
+```
+
+### Q6: config/index.ts 有哪些核心配置项？
+
+```ts
+// config/index.ts
+const config = {
+  projectName: "myApp", // 项目名
+  date: "2024-01-01",
+  designWidth: 750, // 设计稿宽度（默认 750，1rpx = 1px 设计稿）
+
+  // 各平台源码输出目录
+  sourceRoot: "src",
+  outputRoot: {
+    weapp: "dist-weapp", // 微信小程序
+    h5: "dist-h5",
+    alipay: "dist-alipay",
+  },
+
+  // 插件
+  plugins: [
+    "@tarojs/plugin-html", // 支持 HTML 标签（div → View）
+    "@tarojs/plugin-http", // HTTP 请求插件
+  ],
+
+  // 框架配置
+  framework: "react", // react / vue3 / vue2
+
+  // 编译配置
+  compiler: {
+    type: "webpack5", // webpack5 / vite
+    prebundle: { enable: true }, // 预编译优化
+  },
+
+  // 别名
+  alias: { "@": path.resolve(__dirname, "..", "src") },
+
+  // 小程序配置
+  mini: {
+    postcss: {
+      pxtransform: { enable: true, config: {} }, // px → rpx 转换
+    },
+  },
+
+  // H5 配置
+  h5: {
+    publicPath: "/",
+    staticDirectory: "static",
+    esnextModules: ["taro-ui"], // 需要额外编译的 node_modules
+  },
+}
+```
+
+---
+
+## 三、组件与渲染
+
+### Q7: Taro 的内置组件有哪些？和 HTML 标签如何对应？
+
+| Taro 组件                   | HTML 标签                   | 说明                                     |
+| --------------------------- | --------------------------- | ---------------------------------------- |
+| `<View>`                    | `<div>`                     | 容器组件                                 |
+| `<Text>`                    | `<span>`                    | 文本（小程序内只有 Text 内的文字可选中） |
+| `<Image>`                   | `<img>`                     | 图片（需显式设宽高）                     |
+| `<ScrollView>`              | `<div>` + `overflow:scroll` | 可滚动区域                               |
+| `<Swiper>` / `<SwiperItem>` | —                           | 轮播图                                   |
+| `<Input>`                   | `<input>`                   | 输入框                                   |
+| `<Button>`                  | `<button>`                  | 按钮（小程序有 open-type）               |
+| `<Navigator>`               | `<a>`                       | 导航跳转                                 |
+| `<Canvas>`                  | `<canvas>`                  | 画布                                     |
+| `<Video>`                   | `<video>`                   | 视频播放器                               |
+| `<Map>`                     | —                           | 地图                                     |
+| `<WebView>`                 | `<iframe>`                  | 内嵌网页                                 |
+| `<Block>`                   | `<></> (Fragment)`          | 不渲染实际节点的包裹元素                 |
+
+```tsx
+// 开启 HTML 标签支持（安装 @tarojs/plugin-html 后可直接用 div/span/img）
+export default function Page() {
+  return (
+    <View>
+      <Text selectable>可选中的文本</Text>
+      <Image src={img} mode="aspectFill" style={{ width: 100, height: 100 }} />
+    </View>
+  )
+}
+```
+
+### Q8: Taro 如何处理样式和 rpx 单位？
+
+```scss
+// 设计稿 750px → 1rpx = 1px（设计稿）
+// 实际设备上 Taro 自动转换：rpx → 小程序 rpx / H5 rem
+
+.container {
+  padding: 24rpx;
+  width: 750rpx; // 设计稿整屏宽度
+
+  // 条件编译
+  // #ifdef H5
+  color: blue; // 仅在 H5 编译
+  // #endif
+  // #ifdef WEAPP
+  color: green; // 仅在微信小程序编译
+  font-size: 28rpx;
+  // #endif
+}
+
+// px → rpx 自动转换可关闭
+// config/index.ts → mini.postcss.pxtransform.enable = false
+```
+
+### Q9: Taro 如何做条件编译？
+
+同一套代码中按平台编写不同逻辑：
+
+```tsx
+// ===== 方式 1: 环境变量判断（运行时） =====
+import Taro from "@tarojs/taro"
+
+if (process.env.TARO_ENV === "weapp") {
+  // 微信小程序专属
+} else if (process.env.TARO_ENV === "h5") {
+  // H5 专属
+}
+
+// ===== 方式 2: 条件编译注释（构建时剔除，更推荐） =====
+// #ifdef WEAPP
+console.log("这段只在微信小程序中编译")
+// #endif
+
+// #ifndef H5
+console.log("除了 H5 外的所有平台都编译")
+// #endif
+
+// ===== 方式 3: 文件级条件编译 =====
+// 文件名: index.weapp.tsx → 微信小程序用
+// 文件名: index.h5.tsx → H5 用
+// 导入时: import Comp from "./index" → 自动根据平台选择
+
+// ===== 方式 4: 条件导出 =====
+export { default } from "./weapp-only" // 仅 weapp
+// export { default } from "./h5-only" // 仅 h5
+```
+
+---
+
+## 四、路由与导航
+
+### Q10: Taro 的路由系统和导航 API？
+
+```ts
+import Taro from "@tarojs/taro"
+
+// 跳转到非 TabBar 页面 → 保留当前页
+Taro.navigateTo({ url: "/pages/detail/detail?id=123" })
+
+// 跳转到 TabBar 页面 → 关闭所有非 TabBar 页面
+Taro.switchTab({ url: "/pages/index/index" })
+
+// 关闭当前页，跳转到新页
+Taro.redirectTo({ url: "/pages/login/login" })
+
+// 关闭所有页面，打开新页
+Taro.reLaunch({ url: "/pages/index/index" })
+
+// 返回
+Taro.navigateBack({ delta: 1 })
+
+// 获取当前页面实例
+const pages = Taro.getCurrentPages()
+const current = pages[pages.length - 1]
+console.log(current.route) // 当前页面路径
+console.log(current.options) // 页面参数
+```
+
+```tsx
+// 路由传参与接收
+// 跳转
+Taro.navigateTo({ url: "/pages/detail/detail?id=123&name=Alice" })
+
+// 目标页面获取参数
+import { useRouter, useDidShow, getCurrentInstance } from "@tarojs/taro"
+
+// React Hooks 方式
+const router = useRouter()
+console.log(router.params.id) // "123"
+
+// Class 组件方式
+componentDidMount() {
+  const { router } = getCurrentInstance()
+  console.log(router.params)
+}
+```
+
+### Q11: app.config.ts 如何配置页面和 TabBar？
+
+```ts
+// src/app.config.ts
+export default {
+  pages: [
+    "pages/index/index", // 首页
+    "pages/detail/detail", // 详情页
+    "pages/user/user", // 用户页
+  ],
+
+  window: {
+    navigationBarTitleText: "我的应用",
+    navigationBarBackgroundColor: "#fff",
+    navigationBarTextStyle: "black",
+  },
+
+  tabBar: {
+    color: "#999",
+    selectedColor: "#333",
+    backgroundColor: "#fff",
+    list: [
+      {
+        pagePath: "pages/index/index",
+        text: "首页",
+        iconPath: "assets/home.png",
+        selectedIconPath: "assets/home-active.png",
+      },
+      {
+        pagePath: "pages/user/user",
+        text: "我的",
+        iconPath: "assets/user.png",
+        selectedIconPath: "assets/user-active.png",
+      },
+    ],
+  },
+
+  // 分包
+  subPackages: [{ root: "packageA", pages: ["pages/cat/cat", "pages/dog/dog"] }],
+
+  // 预下载
+  preloadRule: {
+    "pages/index/index": { network: "all", packages: ["packageA"] },
+  },
+
+  // 权限
+  permission: { "scope.userLocation": { desc: "获取您的位置信息" } },
+}
+```
+
+---
+
+## 五、API 与能力
+
+### Q12: Taro 如何调用各平台的原生 API？
+
+```ts
+import Taro from "@tarojs/taro"
+
+// ===== 网络请求 =====
+const res = await Taro.request({
+  url: "https://api.example.com/data",
+  method: "GET",
+  data: { page: 1 },
+})
+// 跨端请求 — 小程序用 wx.request / H5 用 fetch
+
+// ===== 存储 =====
+Taro.setStorageSync("token", "abc123")
+Taro.getStorageSync("token")
+
+// ===== 界面 =====
+Taro.showToast({ title: "操作成功", icon: "success", duration: 2000 })
+Taro.showModal({ title: "确认删除？", content: "该操作不可撤销" })
+Taro.showLoading({ title: "加载中" })
+Taro.hideLoading()
+
+// ===== 文件 =====
+Taro.chooseImage({ count: 1, sizeType: ["compressed"], sourceType: ["album", "camera"] })
+Taro.previewImage({ urls: [imageUrl], current: imageUrl })
+
+// ===== 位置 =====
+Taro.getLocation({ type: "gcj02" })
+Taro.chooseLocation()
+
+// ===== 设备 =====
+const systemInfo = Taro.getSystemInfoSync() // { platform: "ios", model: "iPhone 14", ... }
+Taro.scanCode({ onlyFromCamera: false })
+Taro.makePhoneCall({ phoneNumber: "10086" })
+Taro.vibrateShort()
+Taro.setClipboardData({ data: "要复制的内容" })
+
+// ===== 用户与授权 =====
+Taro.getUserProfile({ desc: "用于完善会员资料" })
+Taro.login() // 微信登录 → 获取 code
+Taro.getSetting() // 查询授权状态
+Taro.openSetting() // 打开设置页
+
+// ===== 支付 =====
+Taro.requestPayment({ timeStamp, nonceStr, package: "", signType: "RSA", paySign })
+```
+
+### Q13: Taro 的 API 和原生小程序 API 有什么区别？
+
+| 维度             | Taro API                        | 原生小程序 API                           |
+| ---------------- | ------------------------------- | ---------------------------------------- |
+| 调用方式         | `Taro.request()`                | `wx.request()`                           |
+| 跨平台           | ✅ 自动适配（H5 用 fetch 模拟） | ❌ 仅微信                                |
+| API 命名         | 驼峰 `getSystemInfoSync`        | —                                        |
+| 部分独有 API     | `Taro.getCurrentInstance`       | 微信独有 API（如 `wx.openBusinessView`） |
+| 未包装的原生 API | `Taro` 对象上找不到的直接调原生 | `wx.xxx` / `my.xxx`（支付宝）            |
+
+```ts
+// 调用 Taro 未封装的平台独有 API
+if (process.env.TARO_ENV === "weapp") {
+  const wx = requirePlugin("wx-plugin") // 微信插件
+}
+```
+
+---
+
+## 六、状态管理与数据
+
+### Q14: Taro 项目中有哪些状态管理方案？
+
+```tsx
+// ===== 1. Redux / Zustand / MobX =====
+// Taro 3+ 完整支持 React 生态的状态库
+import { create } from "zustand"
+
+const useStore = create((set) => ({
+  count: 0,
+  increment: () => set((s) => ({ count: s.count + 1 })),
+}))
+
+// ===== 2. Taro 内置状态（最轻量）— useDidShow + 全局变量 =====
+// 通过 Taro.eventCenter 通信
+import Taro from "@tarojs/taro"
+
+// 触发事件
+Taro.eventCenter.trigger("dataChange", { key: "value" })
+
+// 监听事件
+Taro.eventCenter.on("dataChange", (data) => console.log(data))
+// 注意：页面卸载前需 off 防止内存泄漏
+
+// ===== 3. useShareAppMessage — 页面共享数据 =====
+// 小程序 onShareAppMessage 对应
+Page({
+  onShareAppMessage() {
+    return { title: "分享标题", path: "/pages/index/index?id=123" }
+  },
+})
+```
+
+### Q15: 小程序中的全局数据和页面间如何通信？
+
+```ts
+// ===== 方式 1: getApp() =====
+// app.tsx
+class App extends Component {
+  globalData = { user: null }
+}
+
+// 任意页面
+const app = Taro.getApp()
+console.log(app.globalData.user)
+
+// ===== 方式 2: Taro.eventCenter（事件总线） =====
+// 页面 A
+Taro.eventCenter.trigger("cartUpdate", { count: 5 })
+
+// 页面 B
+useEffect(() => {
+  const handler = (data) => setCount(data.count)
+  Taro.eventCenter.on("cartUpdate", handler)
+  return () => Taro.eventCenter.off("cartUpdate", handler) // 必须解绑
+}, [])
+
+// ===== 方式 3: 路由参数 / 本地存储 =====
+Taro.setStorageSync("tempData", JSON.stringify(data)) // 页面 A
+const data = JSON.parse(Taro.getStorageSync("tempData")) // 页面 B
+```
+
+---
+
+## 七、性能优化
+
+### Q16: Taro 小程序性能优化有哪些核心手段？
+
+```tsx
+// 1. VirtualList — 虚拟列表（长列表性能优化，必须用）
+import { VirtualList } from "@tarojs/components"
+
+// 2. 减少 setData（React 的 setState 会触发 setData）
+// 合并多次 setState、使用 shouldComponentUpdate / React.memo
+
+// 3. 图片优化
+;<Image lazyLoad src={img} /> // 懒加载
+// WebP 格式 + CDN 压缩
+
+// 4. 首屏优化
+// 骨架屏 + 预加载 + 分包
+// 非首屏代码异步加载
+
+// 5. 避免不必要的 onPageScroll 更新
+const throttleScroll = useCallback(
+  throttle((e) => setScrollTop(e.scrollTop), 100),
+  []
+)
+
+// 6. 预拉取数据（基础库 2.11.1+）
+Taro.preload({ url: "/api/data" })
+
+// 7. 背景音频/视频延迟加载
+```
+
+### Q17: 小程序的分包策略怎么设计？
+
+```ts
+// app.config.ts
+export default {
+  pages: [
+    "pages/index/index", // 主包 — 首页 + 核心页
+    "pages/cart/cart",
+  ],
+  subPackages: [
+    {
+      root: "packageUser",
+      pages: ["pages/login/login", "pages/register/register", "pages/settings/settings"],
+    },
+    {
+      root: "packageOrder",
+      pages: ["pages/list/list", "pages/detail/detail"],
+      independent: true, // 独立分包（可脱离主包单独启动 — 如秒杀页面）
+    },
+  ],
+  preloadRule: {
+    // 进入首页时后台预下载订单分包
+    "pages/index/index": { network: "all", packages: ["packageOrder"] },
+    // 进入购物车时预下载用户分包
+    "pages/cart/cart": { network: "wifi", packages: ["packageUser"] },
+  },
+}
+```
+
+| 策略       | 说明                                        |
+| ---------- | ------------------------------------------- |
+| 主包 ≤ 2MB | 只放首页和公共组件                          |
+| 分包按功能 | user/order/product 各一个                   |
+| 独立分包   | 临时性页面（活动/秒杀），可绕过主包直接打开 |
+| 预加载     | 高频路径提前下载                            |
+| 公共资源   | 放在主包或独立分包中引用                    |
+
+---
+
+## 八、Hooks 与自定义 Hook
+
+### Q18: Taro 提供了哪些实用的 Hooks？
+
+```tsx
+import {
+  useRouter, // 获取路由信息（params/path/等）
+  useDidShow, // 页面显示时执行（onShow）
+  useDidHide, // 页面隐藏
+  useReady, // 页面初次渲染完成（onReady）
+  usePullDownRefresh, // 下拉刷新回调
+  useReachBottom, // 触底回调
+  usePageScroll, // 页面滚动
+  useShareAppMessage, // 分享（分享给好友）
+  useShareTimeline, // 分享到朋友圈
+  useTabItemTap, // 点击 Tab Bar
+  useLoad, // 页面加载（onLoad）
+  useUnload, // 页面卸载
+  useResize, // Canvas 尺寸变化 / 屏幕旋转
+  useAddToFavorites, // 收藏
+  useOptionMenuClick, // 标题栏按钮点击
+} from "@tarojs/taro"
+
+// 使用
+function Index() {
+  useDidShow(() => {
+    console.log("页面显示了")
+  })
+
+  usePullDownRefresh(() => {
+    refreshData().then(() => Taro.stopPullDownRefresh())
+  })
+
+  useReachBottom(() => {
+    loadMore()
+  })
+
+  return <View>内容</View>
+}
+```
+
+### Q19: useDidShow 和 useEffect 的区别？useDidShow 什么时候执行？
+
+| Hook                       | 触发时机                                                 | 适用场景           |
+| -------------------------- | -------------------------------------------------------- | ------------------ |
+| `useDidShow`               | 页面显示（onShow）：首次进入、从后台切回、从其他页面返回 | 刷新数据、重置状态 |
+| `useEffect(()=>{}, [])`    | 组件挂载一次                                             | 初始化逻辑         |
+| `useEffect(()=>{}, [dep])` | 组件挂载 + dep 变化                                      | 响应数据变化       |
+| `useReady`                 | 页面初次渲染完成（onReady）                              | DOM 就绪后的操作   |
+| `useLoad`                  | 页面加载时（onLoad），只一次                             | 获取路由参数       |
+
+```tsx
+// 典型场景
+useLoad((options) => {
+  // 获取路由参数
+  const id = options.id
+  getDetail(id)
+})
+
+useDidShow(() => {
+  // 每次进入页面都刷新 — 比如回到列表页看到新增的数据
+  refreshList()
+})
+```
+
+---
+
+## 九、UI 库与生态
+
+### Q20: Taro 社区有哪些常用 UI 库？
+
+| UI 库         | 框架             | 特点                                           |
+| ------------- | ---------------- | ---------------------------------------------- |
+| **Taro UI**   | React/Vue        | 官方维护，组件全面（Flex/Grid/ActionSheet 等） |
+| **NutUI**     | Vue 3            | 京东出品，电商风格，Taro 原生支持              |
+| **taroify**   | React            | 类似 Vant 风格，功能完整                       |
+| **TDesign**   | React/Vue/小程序 | 腾讯出品，企业级设计规范                       |
+| **antd-mini** | React            | 支付宝风格，纯 React 实现                      |
+
+```bash
+# 安装 Taro UI
+npm install taro-ui
+
+# app.tsx 引入全局样式
+import "taro-ui/dist/style/index.scss"
+```
+
+```tsx
+import { AtButton, AtInput, AtToast } from "taro-ui"
+
+export default function Login() {
+  const [toast, setToast] = useState(false)
+  return (
+    <View>
+      <AtInput name="email" placeholder="邮箱" />
+      <AtButton type="primary" onClick={() => setToast(true)}>
+        登录
+      </AtButton>
+      <AtToast isOpened={toast} text="登录成功" onClose={() => setToast(false)} />
+    </View>
+  )
+}
+```
+
+---
+
+## 十、兼容性与调试
+
+### Q21: 如何调试 Taro 应用？
+
+```bash
+# 微信小程序 — 微信开发者工具
+#   dist 目录导入 → 选择 dist-weapp
+# H5 — 浏览器 DevTools
+#   直接 npm run dev:h5 → 打开 http://localhost:10086
+
+# React Native — Metro 调试
+npm run dev:rn
+
+# Taro Inspector (实验性)
+#   在浏览器中可视化调试 Taro 组件树
+```
+
+```ts
+// 常用调试方法
+// 1. vconsole（H5 移动端调试）
+import VConsole from "vconsole"
+if (process.env.TARO_ENV === "h5") new VConsole()
+
+// 2. 多平台日志
+console.log(process.env.TARO_ENV) // "weapp" / "h5" / "alipay"
+
+// 3. 小程序真机调试
+// 微信开发者工具 → 预览 → 扫码 → 真机控制台
+```
+
+### Q22: 如何解决跨平台兼容性问题？
+
+```tsx
+// 1. 条件编译 — 构建时剔除平台无关代码（推荐）
+// #ifdef WEAPP
+wx.showShareMenu({ withShareTicket: true })
+// #endif
+
+// 2. 运行时平台检测
+switch (process.env.TARO_ENV) {
+  case "weapp":
+    /* 微信 */ break
+  case "alipay":
+    /* 支付宝 */ break
+  case "h5":
+    /* H5 */ break
+  case "rn":
+    /* React Native */ break
+}
+
+// 3. 文件级条件编译
+// utils/index.weapp.ts → 微信平台实现
+// utils/index.h5.ts → H5 实现
+// utils/index.ts → 兜底
+import utils from "./utils" // 自动根据平台选择文件
+
+// 4. 小程序特有 API 的跨端兼容
+// H5 中 Taro 模拟了大部分小程序 API
+Taro.request({ url }) // 微信用 wx.request / H5 用 fetch
+// 部分不支持的需要降级
+if (process.env.TARO_ENV === "h5") {
+  // H5 降级方案
+} else {
+  Taro.makePhoneCall({ phoneNumber: "10086" }) // 仅小程序支持
+}
+```
+
+---
+
+## 十一、React Native 适配
+
+### Q23: Taro 如何适配 React Native？
+
+```bash
+# 启动 RN 开发
+npm run dev:rn
+
+# 依赖配置 — 需要 RN 原生环境
+# iOS: cd ios && pod install
+# Android: 配置 Android SDK + NDK
+```
+
+| 限制          | 说明                                           |
+| ------------- | ---------------------------------------------- |
+| 样式子集      | 仅支持 flex 布局（无 Grid）、部分 CSS 属性受限 |
+| Text 必须嵌套 | RN 中文本必须放在 Text 内                      |
+| 动画          | 使用 `Taro.createAnimation` 或 RN Animated API |
+| 原生模块      | 需通过 `nativeModules` 桥接                    |
+| 热更新        | 可使用 CodePush 或其他方案                     |
+
+```tsx
+// RN 中特别注意
+;<View>
+  <Text>文本必须用 Text 包裹</Text>
+  {/* ❌ <View>裸文本</View> — RN 报错 */}
+</View>
+
+// 样式适配
+const style = {
+  display: "flex", // RN 默认 flex
+  // float: "left",       // ❌ RN 不支持 float
+  // grid-template-xxx    // ❌ RN 不支持 Grid
+}
+```
+
+---
+
+## 十二、常见问题排查
+
+### Q24: 常见的坑和解决方案？
+
+```tsx
+// 坑 1: 小程序不支持直接操作 DOM
+// ❌ document.querySelector / document.getElementById
+// ✅ Taro.createSelectorQuery().select("#id").boundingClientRect()
+Taro.createSelectorQuery()
+  .select("#myElement")
+  .boundingClientRect((rect) => console.log(rect.width, rect.height))
+  .exec()
+
+// 坑 2: 小程序组件生命周期与 React 不同
+// ✅ 用 useDidShow / useReady / usePullDownRefresh 替代
+
+// 坑 3: H5 和小程序的 Storage 不互通
+// 不同平台的 Storage 是隔离的
+
+// 坑 4: 小程序的请求超时
+// wx.request 默认超时 60s，Taro.request 可自定义
+Taro.request({ url, timeout: 30000 })
+
+// 坑 5: 富文本渲染
+// 小程序用 <RichText nodes={nodes} />，不支持 HTML 字符串直接渲染
+
+// 坑 6: 背景图片
+// ❌ 小程序不支持本地图片作为 background-image
+// ✅ 用 base64 或网络图片，或者用 <Image> 组件代替
+
+// 坑 7: Canvas 尺寸单位
+// 小程序 Canvas 的单位是 px，不是 rpx
+const { pixelRatio } = Taro.getSystemInfoSync()
+ctx.scale(pixelRatio, pixelRatio) // 适配高清屏
+```
+
+---
+
+## 十三、实战场景
+
+### Q25: 如何实现一个完整的分页列表？
+
+```tsx
+function PagedList() {
+  const [list, setList] = useState([])
+  const [page, setPage] = useState(1)
+  const [loading, setLoading] = useState(false)
+  const [hasMore, setHasMore] = useState(true)
+
+  const fetchData = useCallback(async () => {
+    if (loading || !hasMore) return
+    setLoading(true)
+    try {
+      const res = await Taro.request({ url: "/api/list", data: { page, size: 20 } })
+      const newList = res.data.items
+      setList((prev) => (page === 1 ? newList : [...prev, ...newList]))
+      setHasMore(newList.length === 20)
+      setLoading(false)
+    } catch {
+      setLoading(false)
+    }
+  }, [page, loading, hasMore])
+
+  useEffect(() => {
+    fetchData()
+  }, [page])
+
+  usePullDownRefresh(async () => {
+    setPage(1)
+    setHasMore(true)
+    await fetchData()
+    Taro.stopPullDownRefresh()
+  })
+
+  useReachBottom(() => {
+    if (!loading && hasMore) setPage((p) => p + 1)
+  })
+
+  return (
+    <ScrollView scrollY style={{ height: "100vh" }}>
+      {list.map((item) => (
+        <Item key={item.id} data={item} />
+      ))}
+      {loading && <View className="loading">加载中...</View>}
+      {!hasMore && <View className="no-more">没有更多了</View>}
+    </ScrollView>
+  )
+}
+```
+
+### Q26: 如何实现自定义 TabBar？
+
+```tsx
+// app.config.ts → 开启自定义 tabBar
+export default {
+  tabBar: {
+    custom: true, // 关键
+    list: [
+      /* ... */
+    ],
+  },
+}
+
+// custom-tab-bar/index.tsx
+import Taro, { useDidShow } from "@tarojs/taro"
+
+export default function CustomTabBar() {
+  const [selected, setSelected] = useState(0)
+  const pageList = ["/pages/index/index", "/pages/cart/cart", "/pages/user/user"]
+
+  useDidShow(() => {
+    const pages = Taro.getCurrentPages()
+    const idx = pageList.findIndex((p) => p === "/" + pages[pages.length - 1].route)
+    setSelected(idx)
+  })
+
+  const switchTab = (index: number) => {
+    setSelected(index)
+    Taro.switchTab({ url: pageList[index] })
+  }
+
+  return (
+    <View className="tab-bar">
+      {["首页", "购物车", "我的"].map((name, idx) => (
+        <View
+          key={name}
+          className={selected === idx ? "active" : ""}
+          onClick={() => switchTab(idx)}
+        >
+          <Text>{name}</Text>
+        </View>
+      ))}
+    </View>
+  )
+}
+```
+
+### Q27: 完整的登录 + Token 管理流程？
+
+```ts
+// services/auth.ts
+let refreshing = false
+let pendingRequests: Array<(token: string) => void> = []
+
+function getToken() {
+  return Taro.getStorageSync("token")
+}
+function setToken(t: string) {
+  Taro.setStorageSync("token", t)
+}
+
+// 登录
+async function login() {
+  try {
+    const { code } = await Taro.login()
+    const res = await Taro.request({ url: "/api/login", method: "POST", data: { code } })
+    setToken(res.data.token)
+    return res.data.token
+  } catch (err) {
+    Taro.showToast({ title: "登录失败", icon: "error" })
+    throw err
+  }
+}
+
+// 请求拦截（Token 过期自动刷新）
+async function request(url: string, options: any = {}) {
+  const token = getToken()
+  if (token) {
+    options.header = { ...options.header, Authorization: `Bearer ${token}` }
+  }
+
+  try {
+    const res = await Taro.request({ url, ...options })
+    return res.data
+  } catch (err) {
+    if (err.statusCode === 401) {
+      if (!refreshing) {
+        refreshing = true
+        const newToken = await login()
+        refreshing = false
+        pendingRequests.forEach((fn) => fn(newToken))
+        pendingRequests = []
+        return request(url, options) // 用新 token 重试
+      }
+      return new Promise((resolve) => {
+        pendingRequests.push((newToken) => {
+          options.header.Authorization = `Bearer ${newToken}`
+          resolve(request(url, options))
+        })
+      })
+    }
+    throw err
+  }
+}
+
+// 页面中静默登录
+function useLogin() {
+  useDidShow(async () => {
+    try {
+      await Taro.checkSession()
+    } catch {
+      await login()
+    }
+  })
+}
+```
+
+---
+
+## 汇总速查表
+
+### 常用 CLI 命令
+
+| 命令                  | 说明           |
+| --------------------- | -------------- |
+| `taro init <name>`    | 创建项目       |
+| `npm run dev:weapp`   | 微信小程序开发 |
+| `npm run dev:h5`      | H5 开发        |
+| `npm run build:weapp` | 微信小程序构建 |
+| `npm run build:h5`    | H5 构建        |
+| `taro doctor`         | 环境诊断       |
+
+### 生命周期 Hooks 速查
+
+| Hook                 | 对应原生            | 触发时机     |
+| -------------------- | ------------------- | ------------ |
+| `useLoad`            | `onLoad`            | 页面加载一次 |
+| `useDidShow`         | `onShow`            | 页面显示     |
+| `useReady`           | `onReady`           | 首次渲染完成 |
+| `useDidHide`         | `onHide`            | 页面隐藏     |
+| `useUnload`          | `onUnload`          | 页面卸载     |
+| `usePullDownRefresh` | `onPullDownRefresh` | 下拉刷新     |
+| `useReachBottom`     | `onReachBottom`     | 触底         |
+| `usePageScroll`      | `onPageScroll`      | 页面滚动     |
+| `useShareAppMessage` | `onShareAppMessage` | 分享         |
+
+### 平台标识速查
+
+| `process.env.TARO_ENV` | 平台         |
+| ---------------------- | ------------ |
+| `weapp`                | 微信小程序   |
+| `alipay`               | 支付宝小程序 |
+| `swan`                 | 百度小程序   |
+| `tt`                   | 字节小程序   |
+| `qq`                   | QQ 小程序    |
+| `jd`                   | 京东小程序   |
+| `h5`                   | 移动端 H5    |
+| `rn`                   | React Native |
+
+---
+
+## 十四、Taro 编译与构建
+
+### Q28: Taro 的编译流程是怎样的？
+
+```
+源代码 (src/) → Babel/SWC 转译 → 中间代码 (AST)
+  → 各平台插件处理:
+    ├── 微信: JSX → WXML / WXSS / JS
+    ├── H5: JSX → React DOM Render
+    ├── 支付宝: JSX → AXML
+    └── 其他平台类似
+  → 输出到 dist-{platform}/
+```
+
+```bash
+# 编译相关的 package
+@tarojs/cli             # CLI 入口
+@tarojs/taro            # 运行时（模拟 React/Vue）
+@tarojs/runner-utils    # 编译工具
+@tarojs/webpack5-runner # Webpack 构建
+@tarojs/plugin-*        # 平台插件（框架 plugin/平台 plugin）
+```
+
+### Q29: Taro 如何集成 Webpack 插件和优化构建速度？
+
+```ts
+// config/index.ts
+const config = {
+  compiler: {
+    type: "webpack5",           // 或 "vite"
+    prebundle: {
+      enable: true,             // 预编译 node_modules
+      include: ["react", "react-dom", "zustand"],
+    },
+  },
+
+  // Webpack Chain 自定义
+  webpackChain(chain) {
+    chain.plugin("analyzer").use(require("webpack-bundle-analyzer").BundleAnalyzerPlugin, [])
+    chain.resolve.alias.set("@", path.resolve(__dirname, "..", "src"))
+  },
+
+  // 构建优化
+  mini: {
+    webpackChain(chain) { /* 小程序专属 webpack 配置 */ },
+    compile: { exclude: [/node_modules/] }, // 跳过部分编译
+  },
+
+  h5: {
+    webpackChain(chain) { /* H5 专属 webpack 配置 */ },
+    router: { mode: "browser", customRoutes: { "/detail/:id": "/pages/detail/index" } },
+  },
+}
+
+// 使用 SWC 替代 Babel 加速编译 (Taro 3.6+)
+// config/index.ts
+compiler: { type: "webpack5" },
+// .swcrc 配置自动生效
+```
+
+---
+
+## 十五、插件系统
+
+### Q30: Taro 插件机制是如何工作的？
+
+Taro 插件在编译的各个生命周期中注入逻辑：
+
+```ts
+// 插件结构
+export default (ctx, pluginOpts) => {
+  // ctx: 编译上下文
+  // pluginOpts: 插件配置
+
+  // 注册钩子
+  ctx.onBuildStart(() => {
+    console.log("构建开始")
+  })
+
+  ctx.onBuildFinish(() => {
+    console.log("构建完成")
+  })
+
+  // 修改 Webpack 配置
+  ctx.modifyWebpackChain(({ chain }) => {
+    chain.plugin("myPlugin").use(MyPlugin)
+  })
+
+  // 修改编译结果
+  ctx.modifyBuildAssets(({ assets }) => {
+    // assets 是各平台构建产物
+  })
+}
+
+// config/index.ts 中使用插件
+plugins: [
+  "@tarojs/plugin-html",
+  "@tarojs/plugin-http",
+  [
+    path.resolve(__dirname, "plugins/custom.ts"),
+    {
+      /* 插件配置 */
+    },
+  ],
+]
+```
+
+### Q31: 常用 Taro 插件有哪些？
+
+| 插件                         | 说明                                 |
+| ---------------------------- | ------------------------------------ |
+| `@tarojs/plugin-html`        | 支持 HTML 标签（`<div>` → `<View>`） |
+| `@tarojs/plugin-http`        | HTTP 请求跨端封装                    |
+| `@tarojs/plugin-mock`        | Mock 数据                            |
+| `@tarojs/plugin-inject`      | 注入代码到各平台                     |
+| `@tarojs/plugin-indie`       | 独立分包支持                         |
+| `@tarojs/plugin-platform-*`  | 第三方平台支持                       |
+| `taro-plugin-tailwind`       | Tailwind CSS 支持                    |
+| `taro-plugin-compiler-react` | React 编译器增强                     |
+
+---
+
+## 十六、Taro 4.x 新特性
+
+### Q32: Taro 4.x 相比 3.x 有哪些重要更新？
+
+| 特性               | 说明                                               |
+| ------------------ | -------------------------------------------------- |
+| **Vite 编译**      | 小程序也支持 Vite 构建（速度大幅提升）             |
+| **HarmonyOS 支持** | 编译到鸿蒙（HarmonyOS）                            |
+| **Webpack5 稳定**  | 默认编译器升级到 Webpack5                          |
+| **Blended Mode**   | 混合模式 — 原生小程序和 Taro 页面混合开发          |
+| **运行时增强**     | 更小的运行时体积                                   |
+| **React 18+**      | 支持 React 18 的并发特性（Suspense/useTransition） |
+| **SWC 支持**       | 用 SWC 替代 Babel 加速编译                         |
+
+```bash
+# 创建 Taro 4 项目
+npx @tarojs/cli@latest init myApp
+
+# 启用 Vite 编译（实验性）
+# config/index.ts
+compiler: { type: "vite" }
+```
+
+---
+
+## 十七、更多实战场景
+
+### Q33: 如何在小程序中集成第三方地图（腾讯地图/高德）？
+
+```tsx
+// 1. 使用小程序原生 Map 组件
+;<Map
+  longitude={116.397428}
+  latitude={39.90923}
+  scale={14}
+  markers={[{ id: 1, latitude: 39.90923, longitude: 116.397428, title: "北京" }]}
+  onMarkerTap={(e) => console.log(e.detail.markerId)}
+  style={{ width: "100%", height: "400rpx" }}
+/>
+
+// 2. 调用地图导航
+Taro.openLocation({
+  latitude: 39.90923,
+  longitude: 116.397428,
+  name: "天安门广场",
+  address: "北京市东城区",
+})
+
+// 3. 使用地图 SDK（如腾讯地图 JS SDK）
+// npm install qqmap-wx-jssdk
+import QQMapWX from "qqmap-wx-jssdk"
+const qqmapsdk = new QQMapWX({ key: "YOUR_KEY" })
+qqmapsdk.search({ keyword: "餐厅", success: (res) => {} })
+```
+
+### Q34: 如何在小程序中实现消息推送？
+
+```ts
+// 1. 订阅消息（用户手动触发授权）
+Taro.requestSubscribeMessage({
+  tmplIds: ["template-id-1", "template-id-2"],
+  success: (res) => {
+    // res[templateId] === "accept" → 用户同意
+  },
+})
+
+// 2. 服务端发送订阅消息
+// POST https://api.weixin.qq.com/cgi-bin/message/subscribe/send
+// { touser, template_id, data: { ... } }
+
+// 3. 客服消息
+// <Button openType="contact">联系客服</Button> // 进入客服会话
+```
+
+### Q35: 如何实现小程序的 Canvas 绘图？
+
+```tsx
+import { Canvas } from "@tarojs/components"
+
+function DrawCanvas() {
+  const canvasRef = useRef(null)
+
+  useEffect(() => {
+    // Taro 2.x 旧 API
+    const ctx = Taro.createCanvasContext("myCanvas")
+    ctx.setFillStyle("red")
+    ctx.fillRect(0, 0, 100, 100)
+    ctx.draw()
+
+    // Taro 3.x+ 推荐用法（类 Web Canvas API）
+    const query = Taro.createSelectorQuery()
+    query
+      .select("#myCanvas")
+      .fields({ node: true, size: true })
+      .exec((res) => {
+        const canvas = res[0].node
+        const ctx = canvas.getContext("2d")
+        ctx.fillStyle = "red"
+        ctx.fillRect(0, 0, 100, 100)
+      })
+  }, [])
+
+  return <Canvas canvasId="myCanvas" id="myCanvas" style={{ width: 300, height: 300 }} />
+}
+```
+
+### Q36: 如何在小程序中集成 WebView？
+
+```tsx
+// 1. 页面中使用 WebView
+<WebView src="https://example.com/h5-page?token=xxx" />
+
+// 2. H5 页面中向小程序通信
+// H5 端引入 JSSDK: <script src="https://res.wx.qq.com/open/js/jweixin-1.6.0.js"></script>
+wx.miniProgram.navigateBack()  // H5 中触发小程序返回
+wx.miniProgram.postMessage({ data: { event: "paySuccess" } })  // 向小程序传数据
+
+// 3. 小程序端监听 WebView 消息
+<WebView
+  src="https://example.com/h5-page"
+  onMessage={(e) => {
+    // e.detail.data — H5 postMessage 发送的数据（注意时机：后退/组件销毁/分享时触发）
+    console.log(e.detail.data[0]?.event)
+  }}
+/>
+```
+
+### Q37: Taro 中如何做拦截器封装（类似 Axios 拦截器）？
+
+```ts
+// services/request.ts
+type Options = Taro.request.Option
+
+class Request {
+  // 请求拦截器队列
+  private reqInterceptors: Array<(config: Options) => Options> = []
+  // 响应拦截器队列
+  private resInterceptors: Array<(res: any) => any> = []
+
+  // 注册请求拦截器
+  useReqInterceptor(fn: (config: Options) => Options) {
+    this.reqInterceptors.push(fn)
+  }
+
+  // 注册响应拦截器
+  useResInterceptor(fn: (res: any) => any) {
+    this.resInterceptors.push(fn)
+  }
+
+  async request(options: Options) {
+    // 执行请求拦截器
+    for (const interceptor of this.reqInterceptors) {
+      options = interceptor(options)
+    }
+
+    try {
+      const res = await Taro.request(options)
+
+      // 执行响应拦截器
+      let data = res.data
+      for (const interceptor of this.resInterceptors) {
+        data = interceptor(data)
+      }
+
+      return data
+    } catch (err) {
+      // 统一错误处理
+      const { statusCode } = err
+      switch (statusCode) {
+        case 401:
+          /* 未登录 */ break
+        case 403:
+          Taro.showToast({ title: "无权限", icon: "error" })
+          break
+        case 500:
+          Taro.showToast({ title: "服务器错误", icon: "error" })
+          break
+        default:
+          Taro.showToast({ title: "网络异常", icon: "error" })
+      }
+      throw err
+    }
+  }
+
+  get(url: string, data?: any) {
+    return this.request({ url, method: "GET", data })
+  }
+  post(url: string, data?: any) {
+    return this.request({ url, method: "POST", data })
+  }
+}
+
+export const request = new Request()
+
+// 使用
+request.useReqInterceptor((config) => {
+  const token = Taro.getStorageSync("token")
+  if (token) config.header = { ...config.header, Authorization: `Bearer ${token}` }
+  return config
+})
+
+request.get("/api/users", { page: 1 })
+```
+
+### Q38: Taro 中如何做骨架屏？
+
+```tsx
+// 方式 1: 简单的 loading 占位
+function CardSkeleton() {
+  return (
+    <View className="skeleton">
+      <View className="skeleton-avatar" />
+      <View className="skeleton-line" />
+      <View className="skeleton-line short" />
+    </View>
+  )
+}
+
+function Page() {
+  const [loading, setLoading] = useState(true)
+  const [data, setData] = useState(null)
+
+  useEffect(() => {
+    fetchData()
+      .then(setData)
+      .finally(() => setLoading(false))
+  }, [])
+
+  if (loading)
+    return (
+      <>
+        <CardSkeleton />
+        <CardSkeleton />
+        <CardSkeleton />
+      </>
+    )
+  return (
+    <>
+      {data.map((item) => (
+        <Card key={item.id} data={item} />
+      ))}
+    </>
+  )
+}
+
+// 方式 2: Taro 页面配置中的骨架屏
+// page.config.ts
+export default {
+  usingComponents: {
+    skeleton: "path/to/skeleton-component",
+  },
+}
+
+// 方式 3: CSS 骨架屏动画
+// .skeleton { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+```
+
+### Q39: Taro 中如何使用 ECharts？
+
+```bash
+# 小程序端使用 echarts-for-weixin
+npm install echarts taro-echarts
+```
+
+```tsx
+import { EChart } from "taro-echarts"
+import * as echarts from "echarts"
+
+function Chart() {
+  const option = {
+    xAxis: { type: "category", data: ["Mon", "Tue", "Wed"] },
+    yAxis: { type: "value" },
+    series: [{ data: [120, 200, 150], type: "bar" }],
+  }
+
+  // 小程序端需要单独引入 Canvas 渲染器
+  // import "echarts/dist/echarts-canvas-renderer"
+
+  return <EChart option={option} style={{ width: "100%", height: "400rpx" }} />
+}
+```
+
+---
+
+## 十八、面试速查
+
+### Q40: 一句话总结 Taro 的核心价值？
+
+**一套 React/Vue 代码 → 编译成 6+ 平台代码**，开发者只写一次，框架负责平台适配（组件 + API + 样式）。
+
+### Q41: Taro 和 Remax 有什么不同？
+
+| 维度         | Taro                   | Remax                          |
+| ------------ | ---------------------- | ------------------------------ |
+| 原理         | 编译时转换（模板编译） | 运行时方案（React Reconciler） |
+| 性能         | 接近原生               | 稍低（多一层运行时）           |
+| React 兼容性 | 部分限制               | 完全兼容（真正的 React）       |
+| 小程序支持   | 6 小程序 + H5 + RN     | 微信/支付宝/字节               |
+| 社区         | 大                     | 小                             |
+
+### Q42: 如何在 Taro 项目中做主题切换？
+
+```tsx
+// 1. CSS 变量
+// app.scss
+page { --bg: #fff; --text: #333; }
+page[data-theme="dark"] { --bg: #1a1a1a; --text: #eee; }
+
+// 2. 切换
+Taro.setStorageSync("theme", "dark")
+document.documentElement.setAttribute("data-theme", "dark") // H5 端
+
+// 3. 组件中使用
+<View style={{ backgroundColor: "var(--bg)", color: "var(--text)" }} />
+```
+
+---
+
+## 补充速查表
+
+### e.target vs e.currentTarget（小程序事件对象）
+
+| 属性              | 说明                                             |
+| ----------------- | ------------------------------------------------ |
+| `e.target`        | 触发事件的**源头元素**（点击了哪个组件）         |
+| `e.currentTarget` | 绑定事件的**当前元素**（事件在哪个组件上绑定的） |
+| `e.detail`        | 额外信息（如 input 的 value）                    |
+| `e.type`          | 事件类型 (tap / longpress)                       |
+| `e.timeStamp`     | 事件时间戳                                       |
+
+### 常见小程序限制
+
+| 限制          | 具体                    |
+| ------------- | ----------------------- |
+| 包大小        | 主包 ≤ 2MB，总包 ≤ 20MB |
+| 页面栈        | 最多 10 层              |
+| WXS/WXML      | 不直接支持 ES6+、import |
+| 并发请求      | 最多 10 个 wx.request   |
+| 本地存储      | 10MB                    |
+| setData 单次  | ≤ 256KB                 |
+| 自定义 TabBar | 每个 Tab 页需独立配置   |

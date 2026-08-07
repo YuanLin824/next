@@ -1,0 +1,1015 @@
+# Node.js 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: Node.js 是什么？它与浏览器的 JavaScript 有什么区别？
+
+Node.js 是一个基于 **V8 引擎** 的 JavaScript 运行时，通过 C++ 绑定的 **libuv** 提供异步 I/O 能力，让 JavaScript 脱离浏览器运行在服务端。
+
+```
+JavaScript 代码
+    │
+    ▼
+V8 引擎（执行 JS）
+    │
+    ▼
+libuv（事件循环 + 线程池）→ 操作系统
+```
+
+| 维度      | 浏览器 JS         | Node.js                                                    |
+| --------- | ----------------- | ---------------------------------------------------------- |
+| 全局对象  | `window`          | `global`（`globalThis` 统一）                              |
+| DOM / BOM | ✅                | ❌                                                         |
+| 文件系统  | ❌                | ✅ `require('fs')`                                         |
+| 网络      | Fetch / WebSocket | `http` / `net` / `dgram`                                   |
+| 模块系统  | ESM（import）     | CJS（require）+ ESM（.mjs）                                |
+| 进程/线程 | Web Worker        | `process` / `child_process` / `cluster` / `worker_threads` |
+
+**核心特征：** 单线程事件驱动、非阻塞异步 I/O、npm 生态系统。
+
+### Q2: Node.js 的单线程是什么？有哪些利与弊？
+
+Node.js 所谓"单线程"指的是：**JavaScript 代码在主线程上执行是单线程的**。但 I/O 操作通过 libuv 的线程池异步完成，不阻塞主线程。
+
+```
+主线程（Event Loop）
+    │
+    ├── 执行 JS 代码（单线程）
+    │
+    └── 遇到 I/O → 交给 libuv 线程池（多线程）→ 回调入队 → 主线程执行回调
+```
+
+| 优点                        | 缺点                                      |
+| --------------------------- | ----------------------------------------- |
+| 无锁/无竞态（不需要 mutex） | CPU 密集型任务阻塞整个进程                |
+| 上下文切换成本低            | 异常不捕获 → 进程崩溃                     |
+| 天生适合 I/O 密集场景       | 无法利用多核（需 cluster/worker_threads） |
+
+### Q3: require 和 import 的区别是什么？
+
+| 维度         | CJS（require）               | ESM（import）                                  |
+| ------------ | ---------------------------- | ---------------------------------------------- |
+| 加载时机     | 运行时动态加载               | 编译时静态分析                                 |
+| 语法         | `const fs = require('fs')`   | `import fs from 'fs'`                          |
+| 导出         | `module.exports` / `exports` | `export default` / `export const`              |
+| 值           | **值的拷贝**（浅拷贝）       | **值的引用**（live binding）                   |
+| this         | 指向当前模块                 | `undefined`                                    |
+| 异步         | 同步                         | 支持顶层 `await`                               |
+| Tree Shaking | ❌                           | ✅                                             |
+| Node 文件名  | `.js` / `.cjs`               | `.mjs` 或 `package.json` 中 `"type": "module"` |
+
+```js
+// CJS —— 值的拷贝
+// counter.js
+let count = 0
+module.exports = { count, inc: () => count++ }
+
+// main.js
+const { count, inc } = require("./counter")
+inc()
+console.log(count) // → 0（拷贝后的值不变！）
+
+// ESM —— live binding
+// counter.mjs
+export let count = 0
+export const inc = () => count++
+
+// main.mjs
+import { count, inc } from "./counter.mjs"
+inc()
+console.log(count) // → 1（引用，读到最新值！）
+```
+
+### Q4: Buffer 是什么？什么时候用 Buffer 而不是 String？
+
+Buffer 是 Node.js 处理**二进制数据**的类，在 `TypedArray` 出现前就已引入。它直接分配堆外内存（不受 V8 堆限制）。
+
+```js
+// 创建 Buffer
+const buf1 = Buffer.alloc(10) // 分配 10 字节，全部填充 0（安全）
+const buf2 = Buffer.allocUnsafe(10) // 分配 10 字节，不清零（快但有旧数据风险）
+const buf3 = Buffer.from("hello") // 从字符串创建
+const buf4 = Buffer.from([0x68, 0x65, 0x6c, 0x6c, 0x6f]) // 从数组创建
+
+// Buffer ↔ String
+buf3.toString() // → "hello"
+buf3.toString("hex") // → "68656c6c6f"
+buf3.toString("base64") // → "aGVsbG8="
+
+// 什么时候用 Buffer 而不是 String？
+// - 文件 I/O（fs.readFile 默认返回 Buffer）
+// - 网络协议解析（TCP 流是二进制）
+// - 加密/哈希（crypto 模块操作 Buffer）
+// - 图片/视频流处理
+// - 压缩（zlib 输入输出都是 Buffer）
+```
+
+### Q5: process 对象有哪些常用属性和方法？
+
+```js
+// 环境信息
+process.env.NODE_ENV // 环境变量
+process.env.PORT // 常见：端口号
+process.cwd() // 当前工作目录（≠ __dirname）
+process.argv // 命令行参数 [node, script.js, arg1, arg2]
+process.platform // 'linux' | 'darwin' | 'win32'
+process.arch // 'x64' | 'arm64'
+process.version // Node 版本
+process.versions // 各依赖版本（v8, libuv, openssl...）
+process.uptime() // 进程已运行秒数
+
+// 生命周期
+process.exit(0) // 退出（0=成功）
+process.on("exit", (code) => {}) // 退出事件（只能同步操作）
+process.on("beforeExit", () => {}) // 退出前（可异步）
+process.on("uncaughtException", (err) => {}) // ⚠️ 最后防线
+process.on("unhandledRejection", (reason) => {})
+
+// 性能
+process.memoryUsage() // { rss, heapTotal, heapUsed, external }
+process.cpuUsage() // { user, system }
+process.hrtime() // 高精度时间（纳秒）
+
+// 进程关系
+process.pid // 当前进程 ID
+process.ppid // 父进程 ID
+process.nextTick(() => {}) // 微任务队列（最高优先级）
+```
+
+---
+
+## 二、事件循环与异步
+
+### Q6: Node.js 的事件循环六个阶段分别是什么？
+
+```
+   ┌───────────────────────────┐
+┌─▶│           timers          │  setTimeout / setInterval 回调
+│  ├───────────────────────────┤
+│  │     pending callbacks     │  系统操作回调（如 TCP 错误）
+│  ├───────────────────────────┤
+│  │       idle, prepare       │  内部使用
+│  ├───────────────────────────┤
+│  │          poll             │  ★ 核心：检索新的 I/O 事件，执行回调
+│  ├───────────────────────────┤
+│  │          check            │  setImmediate 回调
+│  ├───────────────────────────┤
+│  │      close callbacks      │  socket.on('close', ...)
+└──┤                           │
+   └───────────────────────────┘
+                   │
+                   ▼
+          ┌──────────────────┐
+          │ process.nextTick │ ← 每个阶段之间执行（优先级最高）
+          │   微任务队列     │   Promise.then / catch / finally
+          └──────────────────┘
+```
+
+| 阶段                  | 执行内容                                             |
+| --------------------- | ---------------------------------------------------- |
+| **timers**            | `setTimeout` / `setInterval` 到期回调                |
+| **pending callbacks** | 延迟到下一轮的 I/O 回调（如 TCP 错误）               |
+| **idle, prepare**     | 内部使用                                             |
+| **poll**              | 获取新的 I/O 事件；执行 I/O 回调；适当情况下在此阻塞 |
+| **check**             | `setImmediate` 回调                                  |
+| **close callbacks**   | `socket.on('close')`                                 |
+
+### Q7: 微任务和宏任务在 Node.js 中如何区分？
+
+```js
+// 执行顺序：
+// 同步 → process.nextTick → Promise.then → 宏任务（timers → poll → check...）
+
+console.log("1: 同步")
+
+process.nextTick(() => console.log("3: nextTick"))
+
+Promise.resolve().then(() => console.log("4: Promise.then"))
+
+setTimeout(() => console.log("5: setTimeout"), 0)
+
+setImmediate(() => console.log("6: setImmediate"))
+
+console.log("2: 同步")
+// → 1 2 3 4 5 6 (或 1 2 3 4 6 5，取决于 poll 阶段是否被跳过)
+```
+
+| 类型              | 示例                              | 优先级                                   |
+| ----------------- | --------------------------------- | ---------------------------------------- |
+| **nextTick**      | `process.nextTick()`              | 最高（每个阶段之间清空）                 |
+| **微任务**        | `Promise.then` / `queueMicrotask` | 高（每个阶段之间清空，在 nextTick 之后） |
+| **宏任务-timers** | `setTimeout` / `setInterval`      | 第一轮（timers 阶段）                    |
+| **宏任务-check**  | `setImmediate`                    | 第四轮（check 阶段）                     |
+| **宏任务-I/O**    | `fs.readFile`回调                 | 第三轮（poll 阶段）                      |
+
+### Q8: process.nextTick 和 setImmediate 的区别？
+
+```js
+// nextTick：当前事件循环阶段结束立即执行（在任何宏任务之前）
+// setImmediate：下一个事件循环的 check 阶段执行
+
+process.nextTick(() => {
+  console.log("nextTick") // 2
+})
+
+setImmediate(() => {
+  console.log("setImmediate") // 5
+})
+
+fs.readFile(__filename, () => {
+  // poll 阶段回调
+  process.nextTick(() => console.log("nextTick in poll")) // 3
+  setImmediate(() => console.log("setImmediate in poll")) // 4
+})
+
+console.log("sync") // 1
+// → sync → nextTick → nextTick in poll → setImmediate in poll → setImmediate
+```
+
+**使用场景：**
+
+| nextTick                                    | setImmediate                      |
+| ------------------------------------------- | --------------------------------- |
+| 在当前操作完成后、任何 I/O 之前立即执行     | 在当前轮次 poll 阶段完成后执行    |
+| 适合：`EventEmitter` 在构造完成后才触发事件 | 适合：将 CPU 密集操作拆散到下一轮 |
+| 适合：确保回调在当前调用栈清空后同步执行    | 适合：避免递归调用栈溢出          |
+| ⚠️ 递归 nextTick 会饿死事件循环             | ✅ 递归 setImmediate 不会阻塞     |
+
+### Q9: 解释一下 Node.js 的异步非阻塞 I/O 是如何实现的？
+
+```
+JavaScript 层              libuv 层                 OS 层
+     │                        │                       │
+     │ fs.readFile()          │                       │
+     │──────────────────────▶ │                       │
+     │  (立即返回)            │ 线程池读取文件        │
+     │                        │──────────────────────▶│
+     │  继续执行后续代码      │                       │  I/O 操作
+     │  ...                   │◀──────────────────────│
+     │                        │  回调放入事件队列     │
+     │                        │                       │
+     │  事件循环取出回调      │                       │
+     │◀───────────────────────│                       │
+     │  (执行回调)            │                       │
+```
+
+核心组件：
+
+- **libuv**：跨平台异步 I/O 库，提供事件循环和线程池
+- **线程池**：默认 4 个线程（`UV_THREADPOOL_SIZE` 可调），处理文件 I/O、DNS 解析、加密等 CPU 操作
+- **epoll / kqueue / IOCP**：OS 级别的 I/O 多路复用（网络 I/O 不占线程池）
+
+### Q10: 为什么 Node.js 不适合 CPU 密集型任务？
+
+```js
+// 因为单线程——一个长耗时计算会阻塞整个事件循环
+function fibonacci(n) {
+  if (n <= 1) return n
+  return fibonacci(n - 1) + fibonacci(n - 2)
+}
+
+// 这个操作会阻塞整个进程几秒钟
+app.get("/compute", (req, res) => {
+  const result = fibonacci(45) // ← 事件循环卡死在这里
+  res.json({ result })
+})
+
+// 这期间：所有其他请求都无法处理、定时器不触发、心跳超时
+```
+
+**解决方案：**
+
+| 方案                     | 适用场景                                       |
+| ------------------------ | ---------------------------------------------- |
+| **worker_threads**       | 拆 CPU 任务到独立线程，不阻塞主线程            |
+| **child_process.fork()** | 隔离到独立进程                                 |
+| **cluster**              | 多进程，充分利用多核                           |
+| **任务队列**             | 把 CPU 任务交给外部 Worker 进程（Bull/BullMQ） |
+| **换语言**               | 极端场景：CPU 密集微服务用 Go/Rust 写          |
+
+---
+
+## 三、模块系统
+
+### Q11: require 的查找与加载过程是怎样的？
+
+```
+require('lodash')
+  │
+  ├── 1. 解析路径 → 得到绝对路径
+  │     ├── 核心模块（http, fs, path...）→ 直接返回
+  │     ├── 以 ./, ../, / 开头 → 按文件路径查找
+  │     └── 否则 → 从 node_modules 逐级向上查找
+  │
+  ├── 2. 检查缓存（Module._cache）→ 命中直接返回 exports
+  │
+  ├── 3. 创建 Module 实例 → 赋值 exports = {}
+  │
+  ├── 4. 读取文件 → 包裹成函数
+  │     (function(exports, require, module, __filename, __dirname) {
+  │       // 模块源码
+  │     })
+  │
+  ├── 5. 执行包裹函数 → module.exports 被赋值
+  │
+  └── 6. 写入缓存 → 返回 module.exports
+```
+
+```js
+// node_modules 查找顺序（从当前目录开始向上查找）：
+// /project/src/node_modules
+// /project/node_modules
+// /node_modules          ← 找不到 → Error
+
+// 文件扩展名尝试顺序：
+// 1. require('./foo') → foo.js → foo.json → foo.node → foo/index.js
+```
+
+### Q12: CJS 循环依赖如何处理？
+
+Node.js 通过**缓存未完成模块的 exports 引用**来解决循环依赖——但可能拿到不完整的导出：
+
+```js
+// a.js
+console.log("a 开始")
+exports.done = false
+const b = require("./b") // ← 此时 b 还未执行完
+console.log("a 中 b.done =", b.done)
+exports.done = true
+console.log("a 结束")
+
+// b.js
+console.log("b 开始")
+exports.done = false
+const a = require("./a") // ← 拿到 a 的"半成品" exports（{ done: false }）
+console.log("b 中 a.done =", a.done) // → false
+exports.done = true
+console.log("b 结束")
+
+// main.js
+const a = require("./a")
+console.log("done:", a.done) // → true
+
+// 输出:
+// a 开始
+// b 开始
+// b 中 a.done = false   ← a 还未执行完
+// b 结束
+// a 中 b.done = true    ← b 已执行完
+// a 结束
+// done: true
+```
+
+> ESM 通过 live binding 也能处理循环依赖，但同样建议尽量避免。
+
+### Q13: 如何实现一个简易的 require 函数？
+
+```js
+const fs = require("fs")
+const path = require("path")
+
+function myRequire(modulePath) {
+  // 1. 解析完整路径
+  const fullPath = path.resolve(__dirname, modulePath)
+
+  // 2. 缓存检查
+  if (myRequire.cache[fullPath]) {
+    return myRequire.cache[fullPath].exports
+  }
+
+  // 3. 读取代码
+  const code = fs.readFileSync(fullPath, "utf-8")
+
+  // 4. 创建模块对象
+  const module = { exports: {} }
+  myRequire.cache[fullPath] = module
+
+  // 5. 包裹函数 + 执行
+  const wrapper = Function("exports", "module", "require", "__filename", "__dirname", code)
+  wrapper(module.exports, module, myRequire, fullPath, path.dirname(fullPath))
+
+  // 6. 返回
+  return module.exports
+}
+myRequire.cache = {}
+```
+
+### Q14: ESM 和 CJS 如何互操作？
+
+```js
+// CJS 文件中导入 ESM —— 不能直接用 require
+// ❌ const esmModule = require('./esm-module.mjs')  // ERR_REQUIRE_ESM
+
+// ✅ 用动态 import()
+const esmModule = await import("./esm-module.mjs")
+
+// ===== ESM 文件中导入 CJS —— Node.js 做了兼容处理 =====
+// ✅ import 可以直接导入 CJS 的 module.exports
+import cjsModule from "./cjs-module.js"
+// CJS module.exports = { a: 1, b: 2 } → cjsModule = { a: 1, b: 2 }
+
+// ✅ 也可以命名导入（CJS 的 module.exports 被当作 default export）
+import { a, b } from "./cjs-module.js" // 部分情况可用，取决于静态分析
+
+// ===== package.json 中声明模块类型 =====
+// "type": "module"   → 所有 .js 默认为 ESM
+// "type": "commonjs" → 所有 .js 默认为 CJS（默认值）
+// .mjs → 始终 ESM，.cjs → 始终 CJS
+```
+
+---
+
+## 四、核心模块
+
+### Q15: fs.readFile vs fs.createReadStream 的区别？什么时候用 Stream？
+
+```js
+// readFile：一次把整个文件读入内存
+const data = fs.readFileSync("large.csv") // ← 2GB 文件 → 内存爆炸
+
+// createReadStream：分块读取，内存友好
+const stream = fs.createReadStream("large.csv", { highWaterMark: 64 * 1024 }) // 64KB/块
+stream.on("data", (chunk) => {
+  // 逐块处理，内存中始终只存 64KB
+})
+stream.on("end", () => console.log("done"))
+```
+
+| 维度     | readFile         | createReadStream            |
+| -------- | ---------------- | --------------------------- |
+| 内存占用 | 整个文件大小     | 块大小（如 64KB）           |
+| 启动速度 | 读完才触发回调   | 读到第一块即触发            |
+| 背压控制 | ❌               | ✅ `pipe()` / `pipeline()`  |
+| 适用场景 | 小文件、配置文件 | 大文件、HTTP 响应、管道转换 |
+
+### Q16: Stream 的四种类型和 pipe/pipeline 的区别？
+
+```
+Stream 四种类型：
+├── Readable ——  可读流 (fs.createReadStream, http IncomingMessage)
+├── Writable ——  可写流 (fs.createWriteStream, http ServerResponse)
+├── Duplex ——    双工流 (net.Socket，可读可写)
+└── Transform —— 转换流 (zlib.createGzip, crypto.createCipheriv)
+```
+
+```js
+const { pipeline } = require("stream/promises")
+const { createReadStream, createWriteStream } = require("fs")
+const zlib = require("zlib")
+
+// ❌ pipe —— 不处理错误，不返回 Promise
+readStream.pipe(gzip).pipe(writeStream)
+
+// ✅ pipeline —— 自动处理错误 + 清理资源 + 返回 Promise
+await pipeline(readStream, gzip, writeStream)
+console.log("压缩完成")
+```
+
+### Q17: 背压（Backpressure）是什么？如何实现？
+
+背压 = 可写流处理速度跟不上可读流时，自动**暂停读取**直到消费者就绪的流量控制机制。
+
+```js
+const readStream = fs.createReadStream("big.file")
+const writeStream = fs.createWriteStream("copy.file")
+
+readStream.on("data", (chunk) => {
+  const canContinue = writeStream.write(chunk) // 返回 false → 缓冲区已满
+  if (!canContinue) {
+    readStream.pause() // ⬅ 暂停读取
+    writeStream.once("drain", () => {
+      readStream.resume() // ⬅ 缓冲区排空后恢复
+    })
+  }
+})
+
+// pipe() 和 pipeline() 自动处理背压，不需要手动写
+```
+
+### Q18: http.createServer 的完整生命周期？
+
+```js
+const http = require("http")
+
+const server = http.createServer((req, res) => {
+  // req: IncomingMessage（Readable Stream）
+  // res: ServerResponse（Writable Stream）
+
+  let body = ""
+  req.on("data", (chunk) => (body += chunk))
+  req.on("end", () => {
+    const parsed = JSON.parse(body)
+    res.writeHead(200, { "Content-Type": "application/json" })
+    res.end(JSON.stringify({ received: parsed }))
+  })
+})
+
+server.listen(3000, () => console.log("Listening on 3000"))
+server.on("request", (req, res) => {}) // 等价于 createServer 回调
+server.on("error", (err) => {}) // 端口被占用等错误
+server.on("close", () => {}) // 服务器关闭
+server.close() // 停止接受新请求，等现有请求完成
+```
+
+### Q19: child_process 的四种创建方式对比？
+
+| 方法                      | 返回                             | 通信        | 适用场景                                     |
+| ------------------------- | -------------------------------- | ----------- | -------------------------------------------- |
+| `exec(command, callback)` | 回调中的 stdout/stderr（Buffer） | 单向        | 执行命令，取输出                             |
+| `execFile(file, args)`    | 同上                             | 单向        | 执行可执行文件（比 exec 安全——不解释 shell） |
+| `spawn(command, args)`    | ChildProcess（Stream）           | Stream 管道 | 长时间运行、大输出（不用内存缓冲全部）       |
+| `fork(modulePath)`        | ChildProcess（Stream）           | IPC 通道    | **Node 子进程**，专门为 Node 优化            |
+
+```js
+const { exec, execFile, spawn, fork } = require("child_process")
+
+// exec：把整个输出缓存在内存，适合短命令
+exec("ls -la", (err, stdout, stderr) => {
+  console.log(stdout)
+})
+
+// spawn：逐块流式输出，适合大输出
+const child = spawn("ffmpeg", ["-i", "input.mp4", "output.mp3"])
+child.stdout.on("data", (chunk) => console.log(chunk))
+child.stderr.on("data", (chunk) => console.error(chunk))
+child.on("close", (code) => console.log("exit:", code))
+
+// fork：Node 进程通信
+const worker = fork("./worker.js")
+worker.send({ task: "compute", data: [1, 2, 3] })
+worker.on("message", (result) => console.log("result:", result))
+```
+
+### Q20: worker_threads 和 child_process 的区别？
+
+| 维度 | worker_threads                      | child_process                    |
+| ---- | ----------------------------------- | -------------------------------- |
+| 内存 | **共享内存**（SharedArrayBuffer）   | 独立内存空间                     |
+| 通信 | MessageChannel（快——数据移动/共享） | IPC（慢——序列化拷贝）            |
+| 开销 | 低（共享 V8 实例）                  | 高（独立 V8 实例）               |
+| 隔离 | 较弱                                | **强**（子进程崩溃不影响主进程） |
+| 适用 | 需要通信的 CPU 密集计算             | 需要强隔离、运行外部程序         |
+
+```js
+// worker_threads
+const { Worker, isMainThread, parentPort, workerData } = require("worker_threads")
+
+if (isMainThread) {
+  const worker = new Worker(__filename, { workerData: { n: 45 } })
+  worker.on("message", (result) => console.log("fib:", result))
+} else {
+  // 子线程
+  function fib(n) {
+    if (n <= 1) return n
+    return fib(n - 1) + fib(n - 2)
+  }
+  parentPort.postMessage(fib(workerData.n))
+}
+```
+
+### Q21: cluster 模块如何实现多进程负载均衡？
+
+```js
+const cluster = require("cluster")
+const http = require("http")
+const numCPUs = require("os").cpus().length
+
+if (cluster.isPrimary) {
+  // Master 进程
+  console.log(`Master ${process.pid} running`)
+
+  for (let i = 0; i < numCPUs; i++) {
+    cluster.fork() // 创建 Worker
+  }
+
+  cluster.on("exit", (worker) => {
+    console.log(`Worker ${worker.process.pid} died → 重启`)
+    cluster.fork() // 自动重启
+  })
+} else {
+  // Worker 进程
+  http
+    .createServer((req, res) => {
+      res.end(`Handled by ${process.pid}`)
+    })
+    .listen(3000) // ⬅ 多个 Worker 共享同一端口（通过 IPC 传递 fd）
+
+  console.log(`Worker ${process.pid} started`)
+}
+```
+
+> 端口共享原理：Master 进程先监听端口 → socket 就绪后通过 IPC 将 fd 传给 Worker → Worker 各自 accept。
+
+### Q22: crypto 模块的常见使用场景？
+
+```js
+const crypto = require("crypto")
+
+// 哈希（SHA256）
+const hash = crypto.createHash("sha256").update("hello").digest("hex")
+// → "2cf24dba5fb0a30e26..."
+
+// HMAC（带密钥的哈希）
+const hmac = crypto.createHmac("sha256", "secret").update("data").digest("hex")
+
+// 对称加密（AES-256-GCM）
+const key = crypto.randomBytes(32)
+const iv = crypto.randomBytes(12)
+const cipher = crypto.createCipheriv("aes-256-gcm", key, iv)
+let encrypted = cipher.update("secret message", "utf8", "hex")
+encrypted += cipher.final("hex")
+const authTag = cipher.getAuthTag()
+
+// 解密
+const decipher = crypto.createDecipheriv("aes-256-gcm", key, iv)
+decipher.setAuthTag(authTag)
+let decrypted = decipher.update(encrypted, "hex", "utf8")
+decrypted += decipher.final("utf8") // → "secret message"
+
+// 随机数（密码学安全）
+const token = crypto.randomBytes(32).toString("hex")
+
+// PBKDF2 密钥派生（存储密码用，优于直接哈希）
+crypto.pbkdf2("password", "salt", 100000, 64, "sha512", (err, derivedKey) => {
+  console.log(derivedKey.toString("hex"))
+})
+```
+
+---
+
+## 五、Web 框架
+
+### Q23: Express 中间件的洋葱模型是什么？
+
+```
+请求 →
+ ┌────────────┐ ┌───────────┐ ┌──────────┐
+ │ Logger     │ │  Auth     │ │ Handler  │
+ │ middleware │ │middleware │ │          │
+ │ before     │ │ before    │ │          │
+ │   │        │ │   │       │ │   │      │
+ │   ▼        │ │   ▼       │ │   ▼      │
+ │  next()────┼─┼─▶next()───┼─┼─▶res.end │
+ │            │ │           │ │   │      │
+ │   ▲        │ │   ▲       │ │   ▼      │
+ │  after     │ │  after    │ │          │
+ └────────────┘ └───────────┘ └──────────┘
+                    ← 响应
+```
+
+```js
+const express = require("express")
+const app = express()
+
+app.use((req, res, next) => {
+  console.log("1: 进入 Logger")
+  next()
+  console.log("1: 离开 Logger")
+})
+
+app.use((req, res, next) => {
+  console.log("2: 进入 Auth")
+  // 如果认证失败 → res.status(401).end()（不调用 next，终止）
+  next()
+  console.log("2: 离开 Auth")
+})
+
+app.get("/", (req, res) => {
+  console.log("3: Handler")
+  res.send("OK")
+  console.log("3: Handler 之后") // 这行不会执行（res.send 后代码仍执行，但响应已发送）
+})
+// → 1 进入 → 2 进入 → 3 Handler → 2 离开 → 1 离开
+```
+
+### Q24: Express vs Koa 的核心区别？
+
+| 维度     | Express                                   | Koa                                 |
+| -------- | ----------------------------------------- | ----------------------------------- |
+| 异步处理 | 回调风格，需手动 `try-catch`              | `async/await` 原生支持              |
+| 中间件   | `(req, res, next)`                        | `(ctx, next)`，ctx 统一封装 req+res |
+| 错误处理 | 需专门错误处理中间件（4 参数）            | `try-catch` 或 `ctx.throw`          |
+| 内置功能 | 路由/静态文件/模板引擎                    | **极简内核**，一切靠中间件          |
+| 响应     | `res.send()` / `res.json()` / `res.end()` | `ctx.body = xxx`                    |
+| 生态     | 最大、最成熟                              | 较小，需要更多插件组合              |
+
+```js
+// Koa 示例
+const Koa = require("koa")
+const app = new Koa()
+
+// 错误处理（一次捕获所有下游中间件错误）
+app.use(async (ctx, next) => {
+  try {
+    await next()
+  } catch (err) {
+    ctx.status = err.status || 500
+    ctx.body = { error: err.message }
+  }
+})
+
+app.use(async (ctx) => {
+  ctx.body = "Hello Koa"
+})
+
+// 对比：Express 的错误处理需专门的 4 参数中间件
+// app.use((err, req, res, next) => { ... })
+```
+
+### Q25: NestJS 的 IoC/DI 是如何工作的？
+
+NestJS 的核心是 **IoC 容器**（控制反转）和 **依赖注入**：
+
+```ts
+// 1. 声明：@Injectable() 标记可被注入的类
+@Injectable()
+class UserService {
+  findById(id: number) {
+    return { id, name: "Alice" }
+  }
+}
+
+// 2. 注入：通过构造器声明依赖
+@Controller("users")
+class UserController {
+  constructor(private readonly userService: UserService) {} // ← DI 在此发生
+
+  @Get(":id")
+  findOne(@Param("id") id: number) {
+    return this.userService.findById(id) // ← 直接使用，无需 new
+  }
+}
+
+// 3. 注册：Module 中声明 Provider
+@Module({
+  controllers: [UserController],
+  providers: [UserService], // ← IoC 容器管理 UserService 的生命周期
+})
+class AppModule {}
+```
+
+**生命周期：**
+
+| 作用域                | 装饰器                                    | 说明                 |
+| --------------------- | ----------------------------------------- | -------------------- |
+| **Singleton**（默认） | —                                         | 整个应用共享一个实例 |
+| **Request**           | `@Injectable({ scope: Scope.REQUEST })`   | 每个请求一个实例     |
+| **Transient**         | `@Injectable({ scope: Scope.TRANSIENT })` | 每次注入创建新实例   |
+
+---
+
+## 六、性能调试与安全
+
+### Q26: 如何定位 Node.js 的内存泄漏？
+
+```js
+// 1. 获取堆快照
+// node --inspect app.js → Chrome DevTools → Memory → Take Snapshot
+
+// 2. 对比快照（操作前后各拍一张 → Comparison 视图）
+
+// 3. 代码层面定位
+// v8.writeHeapSnapshot() —— 在代码中触发快照
+const v8 = require("v8")
+const fs = require("fs")
+
+app.get("/snapshot", (req, res) => {
+  const snapshot = v8.writeHeapSnapshot()
+  res.download(snapshot)
+})
+
+// 4. 内存使用监控
+const used = process.memoryUsage()
+console.log({
+  rss: `${Math.round(used.rss / 1024 / 1024)} MB`,
+  heapTotal: `${Math.round(used.heapTotal / 1024 / 1024)} MB`,
+  heapUsed: `${Math.round(used.heapUsed / 1024 / 1024)} MB`,
+  external: `${Math.round(used.external / 1024 / 1024)} MB`,
+})
+```
+
+**常见泄漏源：**
+
+| 场景                 | 原因                           | 解决                               |
+| -------------------- | ------------------------------ | ---------------------------------- |
+| 全局变量             | 挂载到 `global` 的对象永不回收 | 避免全局存储大对象                 |
+| 闭包泄漏             | 闭包引用了不需要的大对象       | 手动 `null` 解除引用               |
+| 事件监听器未移除     | EventEmitter 累积监听器        | `emitter.off()` 或 `once()`        |
+| `setInterval` 不清除 | 定时器保持回调引用             | 及时 `clearInterval()`             |
+| Stream 未销毁        | 流保持打开状态                 | `stream.destroy()` 或 `pipeline()` |
+
+### Q27: Node.js 有哪些安全风险和防护措施？
+
+| 风险             | 说明                                         | 防护                                                 |
+| ---------------- | -------------------------------------------- | ---------------------------------------------------- |
+| **代码注入**     | `eval(req.body.code)`                        | 永远不用 `eval`，不用 `new Function` 处理用户输入    |
+| **命令注入**     | `exec("ls " + req.query.dir)`                | 用 `execFile` + 参数白名单，不用 `exec` 拼接用户输入 |
+| **NoSQL 注入**   | `User.find({ $where: req.body.query })`      | 使用 ORM（Prisma/TypeORM）的参数化查询               |
+| **路径遍历**     | `fs.readFileSync("/data/" + req.query.file)` | `path.resolve` + 前缀检查白名单                      |
+| **SSRF**         | 服务端请求用户提供的 URL                     | URL 白名单/黑名单、禁用内网 IP                       |
+| **敏感信息泄露** | 错误信息带堆栈 + 文件路径                    | 生产环境不返回详细错误，用 `helmet`                  |
+
+```js
+// helmet 中间件——一揽子安全头
+const helmet = require("helmet")
+app.use(helmet())
+
+// 速率限制
+const rateLimit = require("express-rate-limit")
+app.use(rateLimit({ windowMs: 15 * 60 * 1000, max: 100 }))
+
+// 输入校验
+const Joi = require("joi")
+app.post("/users", (req, res) => {
+  const schema = Joi.object({ name: Joi.string().alphanum().required() })
+  const { error } = schema.validate(req.body)
+  if (error) return res.status(400).json({ error: error.message })
+  // ...安全处理
+})
+```
+
+### Q28: 如何进行 Node.js 应用的性能剖析？
+
+```bash
+# CPU Profile
+node --cpu-prof app.js                    # 生成 CPU profile 文件
+node --cpu-prof --cpu-prof-interval=1 app.js  # 更高采样精度
+
+# 火焰图
+# 使用 0x 工具
+npm install -g 0x
+0x app.js                                 # 自动生成火焰图，浏览器打开
+
+# FlameGraph 工具链
+node --perf-basic-prof app.js             # 生成 perf 兼容的符号映射
+perf record -F 99 -g -- node app.js       # 采样
+perf script | FlameGraph > flame.svg      # 生成火焰图
+
+# 实时诊断
+# Clinic.js（综合诊断平台）
+clinic doctor -- node app.js              # CPU/内存/事件循环延迟三合一报告
+clinic flame -- node app.js               # 火焰图
+clinic bubbleprof -- node app.js          # 异步操作可视化
+
+# 慢端点排查
+# 通过 APM（如 Elastic APM / DataDog / New Relic）按端点统计耗时分布
+```
+
+### Q29: Node.js 的错误处理最佳实践？
+
+```js
+// ===== 1. 同步错误 —— try-catch =====
+try {
+  const data = JSON.parse(req.body)
+} catch (err) {
+  res.status(400).json({ error: "Invalid JSON" })
+}
+
+// ===== 2. 异步错误 —— async/await + try-catch =====
+app.get("/user/:id", async (req, res, next) => {
+  try {
+    const user = await User.findById(req.params.id)
+    res.json(user)
+  } catch (err) {
+    next(err) // ← 传给 Express 错误处理中间件
+  }
+})
+
+// ===== 3. 兜底 —— uncaughtException / unhandledRejection =====
+process.on("uncaughtException", (err) => {
+  console.error("Uncaught Exception:", err)
+  // 记录日志 → 优雅关机（此时状态可能已损坏，应重启）
+  process.exit(1)
+})
+
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("Unhandled Rejection:", reason)
+  // 不会崩溃进程，但应记录并监控
+})
+```
+
+**错误处理策略层次：**
+
+```
+1. 本地处理（try-catch / .catch()）          ← 优先
+2. 中间件统一错误处理（Express/Koa 最外层）    ← 第二层
+3. process.on('unhandledRejection')           ← 第三层
+4. process.on('uncaughtException')           ← 最后防线（之后应重启）
+```
+
+### Q30: 如何实现优雅关机（Graceful Shutdown）？
+
+```js
+const server = app.listen(3000)
+
+function shutdown(signal) {
+  console.log(`Received ${signal}，开始优雅关机...`)
+
+  // 1. 停止接收新请求
+  server.close(() => {
+    console.log("HTTP server closed")
+  })
+
+  // 2. 给现有请求 30 秒完成
+  setTimeout(() => {
+    console.error("强制关机")
+    process.exit(1)
+  }, 30000)
+
+  // 3. 关闭数据库连接池
+  // await mongoose.disconnect()
+  // await redis.quit()
+}
+
+process.on("SIGTERM", () => shutdown("SIGTERM"))
+process.on("SIGINT", () => shutdown("SIGINT"))
+```
+
+---
+
+## 七、速查总结
+
+### Q31: Node.js 中 `__dirname` 和 `process.cwd()` 的区别？
+
+|      | `__dirname`                            | `process.cwd()`                           |
+| ---- | -------------------------------------- | ----------------------------------------- |
+| 含义 | **当前文件**所在目录                   | **当前工作**目录（启动 shell 所在的目录） |
+| 变化 | 不变（取决于文件位置）                 | 会变（`process.chdir()` 或 `cd`）         |
+| ESM  | ❌ 不可用（用 `import.meta.url` 替代） | ✅                                        |
+
+### Q32: 什么是 TTY 检测？
+
+```js
+// process.stdout.isTTY → 判断标准输出是否连接到终端
+// true  → 终端（人看的）→ 彩色输出
+// false → 管道/重定向（文件/另一个程序）→ 纯文本
+if (process.stdout.isTTY) {
+  console.log("\x1b[32m绿色文本\x1b[0m") // 终端中显示绿色
+} else {
+  console.log("普通文本") // 管道中不加颜色码
+}
+```
+
+### Q33: 常用调试命令
+
+```bash
+# Chrome DevTools
+node --inspect app.js                     # 默认 9229 端口
+node --inspect-brk app.js                 # 首行断点（调试启动阶段代码）
+
+# 环境变量
+NODE_DEBUG=http,net node app.js           # 打印内置模块调试信息
+NODE_DEBUG_NATIVE=1 node app.js           # 打印 native 层调试信息
+
+# 内存相关
+node --max-old-space-size=4096 app.js     # 设置 V8 最大堆（MB）
+node --expose-gc app.js                   # 允许手动 global.gc()
+
+# V8 标志
+node --trace-gc app.js                    # 打印 GC 事件
+node --trace-warnings app.js              # 打印警告的堆栈追踪
+```
+
+### Q34: Node.js 版本管理速查
+
+```bash
+# nvm
+nvm install 22 && nvm use 22
+nvm alias default 22
+
+# .nvmrc（项目根目录）
+echo "22" > .nvmrc
+nvm use                # 自动读取
+
+# 查看当前引擎
+node -e "console.log(process.versions)"
+```
+
+### Q35: 核心 API 一文速查
+
+| 分类 | 模块              | 核心 class/method                               |
+| ---- | ----------------- | ----------------------------------------------- |
+| 文件 | `fs`              | `readFile`, `createReadStream`, `promises`      |
+| 路径 | `path`            | `resolve`, `join`, `dirname`, `extname`         |
+| HTTP | `http`            | `createServer`, `request`                       |
+| 流   | `stream`          | `pipeline`, `Readable.from`                     |
+| 加密 | `crypto`          | `createHash`, `createCipheriv`, `randomBytes`   |
+| 进程 | `child_process`   | `spawn`, `fork`, `execFile`                     |
+| 线程 | `worker_threads`  | `Worker`, `parentPort`                          |
+| 集群 | `cluster`         | `fork`, `isPrimary`                             |
+| 事件 | `events`          | `EventEmitter`, `on`, `once`                    |
+| 工具 | `util`            | `promisify`, `types`, `deprecate`               |
+| 定时 | `timers/promises` | `setTimeout`, `setImmediate`（含 Promise 版本） |
+| 诊断 | `v8`              | `writeHeapSnapshot`, `getHeapStatistics`        |
+
+---
+
+### 参考文献
+
+- [Node.js 官方文档](https://nodejs.org/en/docs/)
+- [Node.js Event Loop 官方指南](https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick)
+- [libuv 设计概览](http://docs.libuv.org/en/v1.x/design.html)
+- [Node.js Best Practices](https://github.com/goldbergyoni/nodebestpractices)
+- [NestJS 官方文档](https://docs.nestjs.com/)
