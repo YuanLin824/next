@@ -2,6 +2,7 @@
 # <!-- folders -->
 
 .next
+.playwright-cli
 .vercel
 build
 coverage

@@ -79,10 +79,11 @@ app/
 
 ### 字体系统
 
-- 默认字体 **Maple Mono NF CN**（OFL 1.1），字体文件在项目根目录 `fonts/`（Regular/Medium/SemiBold/Bold 四个字重，当前默认使用 Bold）
+- 默认字体 **Maple Mono NF CN**（OFL 1.1），字体文件在项目根目录 `fonts/`（当前使用 Bold 字重，woff2 格式 6.18MB）
 - `app/layout.tsx` 中通过 `next/font/local` 加载（`src: "../fonts/..."`，路径相对 `app/` 目录），输出 CSS 变量 `--font-maple`（挂载在 `<html>` 的 `maple.variable`）
 - `app/globals.css` 的 `@theme inline` 中 `--font-sans` / `--font-mono` / `--font-heading` 均指向 `--font-maple`（正文、代码块、标题统一使用）
-- 调整字重：字体文件放入 `fonts/`，在 `layout.tsx` 的 `localFont` src 数组中注册对应字重
+- **字体必须用 woff2**（TTF 17MB → woff2 6.2MB，传输体积 -64%）：从 Maple Font GitHub release 的 `MapleMono-NF-CN.zip` 取 ttf 后用 fontTools 转换（`python -m fontTools.ttLib.woff2 compress in.ttf -o out.woff2`），放入 `fonts/`，在 `layout.tsx` 的 `localFont` src 数组中注册
+- `fonts/` 已加入 `.dockerignore`（构建镜像不需要字体文件）
 
 ### 主题系统
 
