@@ -8,9 +8,7 @@ export default async function MDXLayout({
   return (
     <>
       <TableOfContents />
-      <article id="dmx-layout" className="px-1">
-        {children}
-      </article>
+      <article id="dmx-layout">{children}</article>
     </>
   )
 }
