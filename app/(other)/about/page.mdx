@@ -46,11 +46,10 @@ next/
 │   ├── (other)/           # 导航页 + 关于
 │   │   ├── study/         #   学习文档导航（根页面）
 │   │   ├── interview/     #   面试题文档导航
-│   │   ├── about/
-│   │   └── layout.tsx     #   简单 px-3 pb-3 容器
+│   │   └── about/
 │   ├── page.tsx           # 根页面 → 学习文档导航
 │   ├── globals.css        # 全局样式（Tailwind v4 + CSS 变量）
-│   └── layout.tsx         # 根布局（导航栏 + 主题）
+│   └── layout.tsx         # 根布局（导航栏 + 主题，main 含 px-3 pb-3 容器）
 ├── components/
 │   ├── ui/                # shadcn/ui 基础组件
 │   │   ├── button.tsx         # 按钮（多尺寸/变体）
@@ -116,7 +115,7 @@ npm run start
 - **MDX 文档** — 所有内容以 `.mdx` 编写，支持 GFM（表格、任务列表等），代码块右上角显示语言标签
 - **字体** — Maple Mono NF CN 等宽字体，正文、代码块、标题统一使用（`next/font/local` 加载）
 - **React Compiler** — 自动记忆化优化，减少不必要的重新渲染
-- **目录导航** — 右侧浮动按钮触发展开抽屉目录，IntersectionObserver 追踪当前滚动位置并高亮，含 h1/h2/h3 层级缩进
+- **目录导航** — 右侧浮动按钮触发展开抽屉目录，IntersectionObserver 追踪当前滚动位置并高亮，含 h1/h2 层级缩进
 - **主题切换** — 亮色 / 暗色 / 跟随系统三种模式
 - **代码块** — Shiki 语法高亮，深色主题自适应，自适应宽度溢出滚动
 - **响应式** — 导航页卡片网格适配多列布局

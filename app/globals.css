@@ -124,6 +124,8 @@
   }
   body {
     @apply bg-background text-foreground;
+    word-break: break-all; /* 英文单词可在任意字符处打断换行（无连接符） */
+    overflow-wrap: anywhere;
   }
   html {
     @apply font-sans;

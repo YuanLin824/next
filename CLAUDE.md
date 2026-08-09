@@ -13,6 +13,20 @@ npm run format       # Prettier 格式化
 npm run commit       # 交互式提交 (czg)
 ```
 
+## 页面测试
+
+**需要打开页面测试或打开网页时，必须使用 `playwright-cli` 工具**（全局已安装），不要使用临时 CDP 脚本或手动 Edge 调试。
+
+```bash
+playwright-cli open http://localhost:3000   # 打开浏览器并导航
+playwright-cli snapshot                      # 页面快照（元素 ref，后续用 ref 交互）
+playwright-cli eval "document.title"         # 执行 JS 检查/测量
+playwright-cli console                       # 查看控制台输出
+playwright-cli requests                      # 查看网络请求
+playwright-cli screenshot --filename=x.png   # 截图
+playwright-cli close                         # 关闭浏览器
+```
+
 ## 维护规则
 
 **新增或删除文件/目录后，必须同步更新 `README.md` 与本文件（CLAUDE.md）**，保持文档与代码一致：
@@ -35,8 +49,7 @@ app/
 │   ├── study/       #   学习文档: agent/db/devops/node/react/system/vue
 │   ├── interview/   #   面试题文档: db/devops/node/react/vue
 │   └── */page.mdx   #   各文档页面
-├── (other)/         # 导航页 + 关于
-│   ├── layout.tsx   #   简单 px-3 pb-3 容器
+├── (other)/         # 导航页 + 关于（px-3 pb-3 容器在根 layout 的 <main> 上）
 │   ├── study/       #   学习文档导航（根页面）
 │   ├── interview/   #   面试题文档导航
 │   └── about/
@@ -48,16 +61,16 @@ app/
 
 ### MDX 渲染流水线
 
-1. `next.config.ts` — `@next/mdx` 插件，`pageExtensions` 包含 `md`/`mdx`；开启 `reactCompiler: true`（React Compiler）
+1. `next.config.ts` — `@next/mdx` 插件，`pageExtensions` 包含 `md`/`mdx`；开启 `reactCompiler: true`（React Compiler）、`cacheComponents`/`partialPrefetching`
 2. **remark 插件**: `remark-gfm`（GFM 表格/任务列表）
-3. **rehype 插件**: `rehype-slug`（为 h1/h2/h3 生成 id）→ `rehype-pretty-code`（Shiki 语法高亮，`github-dark-dimmed` 主题）
+3. **rehype 插件**: `rehype-slug`（为 h1/h2 生成 id）→ `rehype-pretty-code`（Shiki 语法高亮，`github-dark-dimmed` 主题）
 4. `mdx-components.tsx` — `useMDXComponents()` 将原始 HTML 映射为带 Tailwind 样式的 React 组件。h1-h3 带 `scroll-mt-16`（与锚点跳转对齐），pre 包裹在相对定位 div 中、右上角展示语言标签
 
 ### TableOfContents（目录抽屉）
 
 `components/table-of-contents.tsx` — 客户端组件：
 
-- 从 `<article id="dmx-layout">` 内 querySelectorAll `h1, h2, h3`
+- 从 `<article id="dmx-layout">` 内 querySelectorAll `h1, h2`
 - IntersectionObserver (`rootMargin: "-80px 0px -70% 0px"`) 追踪当前可见标题并高亮
 - 层级缩进: `LEVEL_INDENT` 映射 `{ 1: "pl-3", 2: "pl-6", 3: "pl-9" }`
 - 渲染为右侧浮动 `List` 图标按钮 → 触发 `Drawer` (vaul, `direction="right"`) 展示目录
@@ -98,6 +111,7 @@ app/
 - `@import "tailwindcss"` / `@import "tw-animate-css"` / `@import "shadcn/tailwind.css"`
 - `@plugin "tailwindcss-mac-scrollbar/plugin"` — macOS 风格滚动条
 - `@theme inline` 块将 CSS 变量桥接到 Tailwind token
+- `@layer base` 的 `body` 设置 `word-break: break-all` + `overflow-wrap: anywhere`（英文单词任意字符处打断换行、无连接符；代码块 `white-space: pre` 不受影响，仍横向滚动）
 
 ### 提交规范
 

@@ -36,7 +36,7 @@ export default async function RootLayout({
         <ThemeProvider attribute="class">
           <SiteHeader />
 
-          <main className="flex flex-col w-full max-w-7xl flex-1">{children}</main>
+          <main className="flex flex-col w-full max-w-7xl flex-1 px-3 pb-3">{children}</main>
         </ThemeProvider>
       </body>
     </html>

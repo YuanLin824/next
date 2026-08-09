@@ -27,7 +27,7 @@ const LEVEL_INDENT: Record<number, string> = {
 }
 
 /**
- * 页面目录 — 从当前页面提取 h1/h2/h3 标题，
+ * 页面目录 — 从当前页面提取 h1/h2 标题，
  * 通过右侧浮动按钮触发 Drawer 抽屉展示，按层级缩进，
  * IntersectionObserver 追踪当前位置并高亮。
  * 跟随路由变化自动重建目录。
@@ -53,11 +53,10 @@ export function TableOfContents() {
     }
 
     const headings = article.querySelectorAll("h1, h2")
-    // const headings = article.querySelectorAll("h1, h2, h3")
     const tocItems: TocItem[] = []
     headings.forEach((h) => {
       if (h.id) {
-        const level = Number(h.tagName.charAt(1)) // "H1" → 1, "H2" → 2, "H3" → 3
+        const level = Number(h.tagName.charAt(1)) // "H1" → 1, "H2" → 2
         tocItems.push({ id: h.id, text: h.textContent || "", level })
       }
     })
