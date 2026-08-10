@@ -50,6 +50,13 @@ const HOME_FROUPS: CardGroup[] = [
   },
 
   {
+    title: "HTML",
+    icon: "file-code-2",
+    url: "/html",
+    children: [{ title: "HTML", icon: "file-code-2", url: "", desc: "页面结构学习" }],
+  },
+
+  {
     title: "JS",
     icon: "braces",
     url: "/js",
@@ -131,6 +138,13 @@ const HOME_FROUPS: CardGroup[] = [
       { title: "Linux", icon: "shell", url: "/linux", desc: "开源操作系统" },
       { title: "Windows", icon: "grid-2x2", url: "/windows", desc: "桌面操作系统" },
     ],
+  },
+
+  {
+    title: "TS",
+    icon: "code-2",
+    url: "/ts",
+    children: [{ title: "TypeScript", icon: "code-2", url: "", desc: "类型化 JavaScript 超集" }],
   },
 
   {
