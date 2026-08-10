@@ -1,0 +1,464 @@
+# AJAX
+
+> AJAX（Asynchronous JavaScript And XML）：在不重新加载整个页面的前提下，与服务器交换数据并局部更新页面内容。
+
+---
+
+## 核心原理
+
+```
+1. 创建 XMLHttpRequest 对象
+2. open() 建立连接（配置请求方法和 URL）
+3. 设置请求头（如 Content-Type）
+4. send() 发送请求
+5. 监听 readyState 变化
+6. 接收响应，更新 DOM
+```
+
+---
+
+## XMLHttpRequest (XHR)
+
+### readyState — 请求状态
+
+| readyState | 状态             | 说明                                            |
+| ---------- | ---------------- | ----------------------------------------------- |
+| `0`        | UNSENT           | 已创建 `XMLHttpRequest` 对象，尚未调用 `open()` |
+| `1`        | OPENED           | 已调用 `open()`，尚未调用 `send()`              |
+| `2`        | HEADERS_RECEIVED | 已调用 `send()`，已收到响应头和状态码           |
+| `3`        | LOADING          | 正在接收响应体（`responseText` 部分可用）       |
+| `4`        | DONE             | 请求完成（无论成功或失败）                      |
+
+### HTTP 状态码
+
+| 范围  | 含义                                                                                    |
+| ----- | --------------------------------------------------------------------------------------- |
+| `1xx` | 信息响应                                                                                |
+| `2xx` | 成功（`200 OK`, `201 Created`, `204 No Content`）                                       |
+| `3xx` | 重定向（`301`, `302`, `304 Not Modified`）                                              |
+| `4xx` | 客户端错误（`400 Bad Request`, `401 Unauthorized`, `403 Forbidden`, `404 Not Found`）   |
+| `5xx` | 服务端错误（`500 Internal Server Error`, `502 Bad Gateway`, `503 Service Unavailable`） |
+
+### 完整封装
+
+```js
+function ajax(options) {
+  return new Promise((resolve, reject) => {
+    // 默认值
+    options = Object.assign(
+      {
+        method: "GET",
+        url: "",
+        data: null,
+        headers: {},
+        timeout: 10000,
+        responseType: "",
+        withCredentials: false,
+      },
+      options
+    )
+
+    let xhr = new XMLHttpRequest()
+
+    // GET 请求拼接参数到 URL
+    if (options.method.toUpperCase() === "GET" && options.data) {
+      options.url += (options.url.includes("?") ? "&" : "?") + serializeData(options.data)
+      options.data = null
+    }
+
+    xhr.open(options.method, options.url, true)
+
+    // 超时
+    xhr.timeout = options.timeout
+    xhr.ontimeout = () => reject(new Error("请求超时"))
+
+    // 响应类型
+    if (options.responseType) {
+      xhr.responseType = options.responseType
+    }
+
+    // 跨域携带 cookie
+    if (options.withCredentials) {
+      xhr.withCredentials = true
+    }
+
+    // 设置请求头
+    if (!options.headers["Content-Type"] && options.method.toUpperCase() === "POST") {
+      xhr.setRequestHeader("Content-Type", "application/x-www-form-urlencoded")
+    }
+    for (let key in options.headers) {
+      xhr.setRequestHeader(key, options.headers[key])
+    }
+
+    // 监听状态变化
+    xhr.onreadystatechange = () => {
+      if (xhr.readyState !== 4) return
+
+      let status = xhr.status
+      if ((status >= 200 && status < 300) || status === 304) {
+        resolve({
+          data: xhr.response || xhr.responseText,
+          status,
+          statusText: xhr.statusText,
+          headers: parseHeaders(xhr.getAllResponseHeaders()),
+        })
+      } else {
+        reject({ status, statusText: xhr.statusText, data: xhr.responseText })
+      }
+    }
+
+    // 网络错误
+    xhr.onerror = () => reject(new Error("网络错误"))
+    // 取消
+    xhr.onabort = () => reject(new Error("请求被取消"))
+
+    // 发送
+    let body = options.data
+    if (typeof body === "object" && !(body instanceof FormData)) {
+      body = serializeData(body)
+    }
+    xhr.send(body || null)
+
+    // 返回 xhr 引用以便外部调用 abort()
+    resolve.xhr = xhr
+  })
+}
+
+// 参数序列化
+function serializeData(data) {
+  return Object.entries(data)
+    .map(([key, value]) => encodeURIComponent(key) + "=" + encodeURIComponent(value))
+    .join("&")
+}
+
+// 解析响应头
+function parseHeaders(rawHeaders) {
+  let headers = {}
+  rawHeaders
+    .trim()
+    .split(/[\r\n]+/)
+    .forEach((line) => {
+      let parts = line.split(": ")
+      let key = parts.shift()
+      if (key) headers[key] = parts.join(": ")
+    })
+  return headers
+}
+```
+
+### 使用示例
+
+```js
+// GET 请求
+let result = await ajax({
+  method: "GET",
+  url: "https://api.example.com/users",
+  data: { page: 1, size: 10 },
+})
+console.log(result.data)
+
+// POST 请求
+await ajax({
+  method: "POST",
+  url: "https://api.example.com/users",
+  data: { name: "Alice", age: 18 },
+  headers: { "Content-Type": "application/json" },
+})
+
+// 取消请求
+let request = ajax({ url: "https://api.example.com/data" })
+request.catch(() => console.log("已取消"))
+request.xhr.abort()
+```
+
+### 文件上传（带进度）
+
+```js
+function uploadFile(url, file, onProgress) {
+  return new Promise((resolve, reject) => {
+    let xhr = new XMLHttpRequest()
+    let formData = new FormData()
+    formData.append("file", file)
+
+    // 监听上传进度
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        let percent = Math.round((e.loaded / e.total) * 100)
+        onProgress?.(percent)
+      }
+    }
+
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(JSON.parse(xhr.responseText))
+      } else {
+        reject(new Error(`上传失败: ${xhr.status}`))
+      }
+    }
+
+    xhr.onerror = () => reject(new Error("网络错误"))
+    xhr.open("POST", url)
+    xhr.send(formData)
+  })
+}
+
+// 使用
+let fileInput = document.querySelector('input[type="file"]')
+fileInput.onchange = (e) => {
+  let file = e.target.files[0]
+  uploadFile("/upload", file, (percent) => console.log(`${percent}%`))
+    .then((res) => console.log("上传成功", res))
+    .catch((err) => console.error(err))
+}
+```
+
+---
+
+## Fetch API (ES2015+)
+
+### 基本用法
+
+```txt
+语法: fetch(input, init)
+参数:
+  input — 请求 URL 字符串或 Request 对象
+  init  — 可选，配置对象
+返回: Promise<Response>
+```
+
+```js
+fetch("https://api.example.com/users")
+  .then((res) => res.json())
+  .then((data) => console.log(data))
+  .catch((err) => console.error(err))
+```
+
+### 请求配置 (init 参数)
+
+| 选项          | 类型                                               | 说明                                                           |
+| ------------- | -------------------------------------------------- | -------------------------------------------------------------- |
+| `method`      | `string`                                           | 请求方法：`GET` / `POST` / `PUT` / `DELETE` 等                 |
+| `headers`     | `object` / `Headers`                               | 请求头                                                         |
+| `body`        | `string` / `FormData` / `Blob` / `URLSearchParams` | 请求体（`GET` / `HEAD` 不可用）                                |
+| `mode`        | `string`                                           | `cors` / `no-cors` / `same-origin`                             |
+| `credentials` | `string`                                           | `omit` / `same-origin` / `include`（携带 cookie）              |
+| `cache`       | `string`                                           | `default` / `no-store` / `reload` / `no-cache` / `force-cache` |
+| `redirect`    | `string`                                           | `follow` / `error` / `manual`                                  |
+| `signal`      | `AbortSignal`                                      | 用于取消请求（`AbortController`）                              |
+
+```js
+fetch("https://api.example.com/users", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name: "Alice", age: 18 }),
+  credentials: "include", // 携带 cookie
+})
+```
+
+### Response 对象
+
+| 属性/方法           | 说明                             |
+| ------------------- | -------------------------------- |
+| `res.ok`            | 状态码 200-299 为 `true`         |
+| `res.status`        | HTTP 状态码                      |
+| `res.statusText`    | 状态文本                         |
+| `res.headers`       | 响应头（`Headers` 对象）         |
+| `res.url`           | 最终请求 URL（重定向后）         |
+| `res.json()`        | 解析为 JSON，返回 Promise        |
+| `res.text()`        | 解析为文本，返回 Promise         |
+| `res.blob()`        | 解析为 Blob，返回 Promise        |
+| `res.formData()`    | 解析为 FormData，返回 Promise    |
+| `res.arrayBuffer()` | 解析为 ArrayBuffer，返回 Promise |
+| `res.body`          | ReadableStream 流式读取体        |
+
+### 错误处理
+
+`fetch` 有特殊的行为：只有**网络错误**（断网、DNS 解析失败等）才会 reject。**HTTP 错误状态码**（如 404、500）仍然会 resolve，需要通过 `res.ok` 或 `res.status` 自行判断。
+
+```js
+async function fetchJSON(url, options = {}) {
+  let res = await fetch(url, options)
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}: ${res.statusText}`)
+  }
+  return res.json()
+}
+
+// 使用
+try {
+  let data = await fetchJSON("https://api.example.com/users")
+  console.log(data)
+} catch (err) {
+  console.error("请求失败:", err.message)
+}
+```
+
+### 请求中断 (AbortController)
+
+```js
+let controller = new AbortController()
+
+fetch("https://api.example.com/slow", { signal: controller.signal })
+  .then((res) => res.json())
+  .catch((err) => {
+    if (err.name === "AbortError") {
+      console.log("请求被取消")
+    }
+  })
+
+// 取消请求
+setTimeout(() => controller.abort(), 3000) // 3 秒后取消
+
+// 超时封装
+function fetchWithTimeout(url, options = {}, timeout = 10000) {
+  let controller = new AbortController()
+  let timer = setTimeout(() => controller.abort(), timeout)
+  return fetch(url, { ...options, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+```
+
+### 流式读取
+
+```js
+async function streamFetch(url) {
+  let response = await fetch(url)
+  let reader = response.body.getReader()
+  let decoder = new TextDecoder()
+
+  while (true) {
+    let { done, value } = await reader.read()
+    if (done) break
+    console.log(decoder.decode(value, { stream: true }))
+  }
+}
+```
+
+---
+
+## 并发请求
+
+### Promise.all — 全部完成
+
+所有请求都成功才返回，一个失败即整体失败。
+
+```js
+let [users, posts] = await Promise.all([fetchJSON("/api/users"), fetchJSON("/api/posts")])
+```
+
+### Promise.allSettled — 全部结束
+
+等所有请求结束（无论成败），返回每个请求的结果状态。
+
+```js
+let results = await Promise.allSettled([
+  fetchJSON("/api/users"),
+  fetchJSON("/api/posts"),
+  fetchJSON("/api/broken"),
+])
+// [
+//   { status: "fulfilled", value: [...] },
+//   { status: "fulfilled", value: [...] },
+//   { status: "rejected", reason: Error(...) },
+// ]
+```
+
+### Promise.race — 竞速
+
+返回第一个完成的（无论成败），可用于超时控制。
+
+```js
+let result = await Promise.race([
+  fetchJSON("/api/data"),
+  new Promise((_, reject) => setTimeout(() => reject(new Error("超时")), 5000)),
+])
+```
+
+### 批量请求（控制并发数）
+
+```js
+async function batchRequest(urls, limit = 3) {
+  let results = []
+  let executing = []
+
+  for (let url of urls) {
+    let p = fetchJSON(url).then((data) => results.push(data))
+    executing.push(p)
+
+    if (executing.length >= limit) {
+      await Promise.race(executing.map((p, i) => p.then(() => i)))
+      executing = executing.filter((p) => p !== finished)
+    }
+  }
+
+  await Promise.all(executing)
+  return results
+}
+```
+
+---
+
+## XHR vs Fetch 对比
+
+| 维度                | XHR                        | Fetch                           |
+| ------------------- | -------------------------- | ------------------------------- |
+| **出现时间**        | ES3（IE5）                 | ES2015                          |
+| **语法风格**        | 事件回调                   | Promise                         |
+| **请求取消**        | `xhr.abort()`              | `AbortController`               |
+| **上传进度**        | ✅ `xhr.upload.onprogress` | ❌ 原生不支持                   |
+| **下载进度**        | ✅ `onprogress`            | ✅ ReadableStream               |
+| **超时设置**        | ✅ `xhr.timeout`           | ❌ 需自行封装                   |
+| **错误处理**        | `onerror` 事件             | 只有网络错误才 reject           |
+| **Cookie 携带**     | 默认携带                   | 需显式 `credentials: "include"` |
+| **超时自动 reject** | ✅                         | ❌                              |
+| **流式处理**        | ❌                         | ✅ ReadableStream               |
+| **请求/响应拦截**   | 通过封装                   | 通过封装                        |
+| **浏览器支持**      | 全部                       | IE 不支持（可用 polyfill）      |
+
+---
+
+## 汇总速查表
+
+### XHR 核心属性和方法
+
+| 属性/方法                          | 说明                                                            |
+| ---------------------------------- | --------------------------------------------------------------- |
+| `xhr.open(method, url, async)`     | 初始化请求                                                      |
+| `xhr.send(body)`                   | 发送请求                                                        |
+| `xhr.abort()`                      | 取消请求                                                        |
+| `xhr.setRequestHeader(key, value)` | 设置请求头                                                      |
+| `xhr.getResponseHeader(key)`       | 获取单个响应头                                                  |
+| `xhr.getAllResponseHeaders()`      | 获取所有响应头                                                  |
+| `xhr.timeout`                      | 超时时间（ms）                                                  |
+| `xhr.withCredentials`              | 跨域是否携带 cookie                                             |
+| `xhr.responseType`                 | 响应类型（`""`/`"json"`/`"blob"`/`"arraybuffer"`/`"document"`） |
+| `xhr.readyState`                   | 请求状态（0-4）                                                 |
+| `xhr.status`                       | HTTP 状态码                                                     |
+| `xhr.response`                     | 响应体（类型取决于 `responseType`）                             |
+| `xhr.responseText`                 | 响应文本                                                        |
+| `xhr.upload`                       | 上传相关事件对象                                                |
+
+### XHR 事件
+
+| 事件                 | 说明                               |
+| -------------------- | ---------------------------------- |
+| `onreadystatechange` | `readyState` 变化                  |
+| `onload`             | 请求成功完成                       |
+| `onerror`            | 网络错误                           |
+| `onabort`            | 请求被取消                         |
+| `ontimeout`          | 请求超时                           |
+| `onloadstart`        | 开始传输                           |
+| `onprogress`         | 下载进度（`readyState === 3`）     |
+| `onloadend`          | 传输结束（成功/失败/取消都会触发） |
+
+### Fetch 核心 API
+
+| API                     | 说明                               |
+| ----------------------- | ---------------------------------- |
+| `fetch(url, init)`      | 发起请求，返回 `Promise<Response>` |
+| `res.json()`            | 解析 JSON                          |
+| `res.text()`            | 解析文本                           |
+| `res.blob()`            | 解析 Blob                          |
+| `res.ok`                | 状态码是否 200-299                 |
+| `res.status`            | HTTP 状态码                        |
+| `new AbortController()` | 创建取消控制器                     |
+| `controller.abort()`    | 取消请求                           |

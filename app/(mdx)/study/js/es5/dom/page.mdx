@@ -1,0 +1,472 @@
+# DOM (Document Object Model)
+
+---
+
+## 概述
+
+DOM 将 HTML 文档表示为**树形结构**，每个 HTML 元素、属性、文本都是一个节点。通过 DOM API 可以对页面进行增删改查操作。
+
+```
+Document
+ └── html
+      ├── head
+      │    ├── meta
+      │    └── title ── "页面标题"
+      └── body
+           ├── div#app
+           │    ├── p ── "Hello"
+           │    └── span ── "World"
+           └── script
+```
+
+---
+
+## 节点类型
+
+| nodeType | 常量                          | 说明                       |
+| -------- | ----------------------------- | -------------------------- |
+| `1`      | `Node.ELEMENT_NODE`           | 元素节点（`<div>`, `<p>`） |
+| `3`      | `Node.TEXT_NODE`              | 文本节点                   |
+| `8`      | `Node.COMMENT_NODE`           | 注释节点                   |
+| `9`      | `Node.DOCUMENT_NODE`          | Document 节点              |
+| `11`     | `Node.DOCUMENT_FRAGMENT_NODE` | DocumentFragment 节点      |
+
+```js
+document.nodeType // 9
+document.body.nodeType // 1
+document.body.firstChild.nodeType // 1 或 3（取决于是否有空白文本）
+```
+
+---
+
+## 节点获取
+
+### 传统方法
+
+```js
+// 单个元素
+document.getElementById("app") // 通过 id 获取
+
+// HTMLCollection（动态，会随 DOM 变化自动更新）
+document.getElementsByClassName("item")
+document.getElementsByTagName("div")
+document.getElementsByName("email")
+
+// 从某个元素开始查找
+element.getElementsByClassName("child")
+```
+
+### querySelector / querySelectorAll (推荐)
+
+```js
+// 单个元素（第一个匹配）
+document.querySelector("#app")
+document.querySelector(".item:first-child")
+
+// 全部匹配 → NodeList（静态，不会自动更新）
+document.querySelectorAll("div.item")
+document.querySelectorAll("[data-name]")
+
+// 支持所有 CSS 选择器
+document.querySelectorAll("ul > li:not(.disabled)")
+document.querySelectorAll('input[type="checkbox"]:checked')
+```
+
+### getElement 系列 vs querySelector 系列
+
+| 维度     | `getElement(s)By*`        | `querySelector(All)`        |
+| -------- | ------------------------- | --------------------------- |
+| 参数     | 标签名 / 类名 / id / name | 任意 CSS 选择器             |
+| 返回类型 | `HTMLCollection`（动态）  | `NodeList`（静态）          |
+| 性能     | 快（只做单一匹配）        | 慢一些（需解析 CSS 选择器） |
+| 灵活性   | 低                        | 高                          |
+
+---
+
+## 节点操作 (增删改)
+
+### 创建节点
+
+```js
+// 创建元素
+let div = document.createElement("div")
+div.className = "box"
+
+// 创建文本节点
+let text = document.createTextNode("Hello World")
+
+// 创建 DocumentFragment（批量操作优化）
+let fragment = document.createDocumentFragment()
+
+// 克隆节点
+let clone = element.cloneNode(true) // true = 深克隆（含子节点）
+let shallow = element.cloneNode(false) // false = 浅克隆（只克隆自身）
+```
+
+### 插入节点
+
+```js
+// 父元素末尾追加
+parent.appendChild(child)
+
+// 指定位置之前插入
+parent.insertBefore(newNode, referenceNode)
+
+// 替换子节点
+parent.replaceChild(newNode, oldNode)
+
+// --- 以下为较新的 API ---
+
+// 在元素之前插入（IE 不支持）
+element.before(newNode)
+
+// 在元素之后插入
+element.after(newNode)
+
+// 在元素内部开头插入
+element.prepend(newNode)
+
+// 在元素内部末尾插入（类似 appendChild，但支持多参数和文本）
+element.append(newNode, "text", anotherNode)
+
+// 使用 insertAdjacentHTML 插入 HTML 字符串（性能好）
+element.insertAdjacentHTML("beforebegin", "<div>前面</div>")
+element.insertAdjacentHTML("afterbegin", "<div>第一个子元素前</div>")
+element.insertAdjacentHTML("beforeend", "<div>最后一个子元素后</div>")
+element.insertAdjacentHTML("afterend", "<div>后面</div>")
+```
+
+### insertAdjacentHTML 位置示意
+
+```
+<!-- beforebegin -->
+<div id="target">
+  <!-- afterbegin -->
+  现有内容
+  <!-- beforeend -->
+</div>
+<!-- afterend -->
+```
+
+### 删除节点
+
+```js
+// 父元素删除子节点
+parent.removeChild(child)
+
+// 新版：节点自行删除
+element.remove() // IE 不支持
+
+// 清空所有子节点
+parent.innerHTML = ""
+// 或
+while (parent.firstChild) {
+  parent.removeChild(parent.firstChild)
+}
+// 或
+parent.replaceChildren() // 清空所有子节点
+
+// 移除指定节点（自删除）
+element.parentNode?.removeChild(element)
+```
+
+### 修改节点
+
+```js
+// 替换内容
+element.textContent = "纯文本内容" // 安全，不会解析 HTML
+element.innerText = "纯文本内容" // 会考虑 CSS 样式（display:none 的文本不会获取）
+element.innerHTML = "<strong>HTML 内容</strong>" // 注意 XSS 风险
+
+// 安全插入 HTML
+element.setHTML(`<strong>带清理的 HTML</strong>`) // Chrome 105+，去掉不安全的标签
+```
+
+---
+
+## 属性操作
+
+### 标准属性
+
+```js
+// 直接访问
+element.id = "newId"
+element.className = "box active"
+element.href = "https://example.com"
+element.src = "image.png"
+element.alt = "描述"
+element.checked = true
+element.disabled = true
+element.value = "输入内容"
+element.type = "text"
+```
+
+### 通用属性方法
+
+```js
+// 获取属性（返回字符串）
+element.getAttribute("data-id")
+element.getAttribute("href")
+
+// 设置属性
+element.setAttribute("data-id", "123")
+element.setAttribute("disabled", "")
+
+// 判断是否有属性
+element.hasAttribute("disabled") // true / false
+
+// 移除属性
+element.removeAttribute("disabled")
+
+// 取得所有属性
+element.attributes // NamedNodeMap
+```
+
+### data-\* 自定义属性
+
+```js
+// element.dataset 映射 data-* 属性（属性名自动驼峰化）
+element.setAttribute("data-user-id", "123")
+element.setAttribute("data-user-name", "Alice")
+
+element.dataset.userId // "123"
+element.dataset.userName // "Alice"
+
+// 设置
+element.dataset.role = "admin"
+// → <div data-role="admin">
+```
+
+### classList — 类名操作（推荐）
+
+```js
+element.classList.add("active", "highlight") // 添加
+element.classList.remove("active") // 移除
+element.classList.toggle("dark") // 切换（存在即移除，不存在即添加）
+element.classList.toggle("dark", isDarkMode) // 第二个参数强制添加/移除
+element.classList.contains("active") // 判断是否存在
+element.classList.replace("old", "new") // 替换
+```
+
+### style 样式
+
+```js
+// 设置单个样式
+element.style.color = "red"
+element.style.fontSize = "16px" // 驼峰命名
+element.style.backgroundColor = "#333"
+
+// 批量设置
+element.style.cssText = "color: red; font-size: 16px;"
+
+// 读取样式（只读行内样式，拿不到 CSS 样式表的样式）
+element.style.color
+
+// 获取计算后样式（最终应用的所有样式）
+let style = getComputedStyle(element)
+style.color
+style.fontSize
+```
+
+---
+
+## 尺寸与位置
+
+### 元素尺寸
+
+```txt
+offsetWidth/offsetHeight   — 内容 + padding + border + 滚动条（不含 margin）
+clientWidth/clientHeight   — 内容 + padding（不含 border、滚动条、margin）
+scrollWidth/scrollHeight   — 内容实际宽高（含溢出不可见部分）
+```
+
+```
+ ┌────────────────────────────┐ ← offsetWidth/offsetHeight
+ │  margin                    │
+ │  ┌──────────────────────┐  │
+ │  │ border               │  │
+ │  │ ┌──────────────────┐ │  │
+ │  │ │ padding          │ │  │
+ │  │ │ ┌──────────────┐ │ │  │
+ │  │ │ │   content    │ │ │  │ ← clientWidth/clientHeight (包含 padding)
+ │  │ │ └──────────────┘ │ │  │
+ │  │ └──────────────────┘ │  │
+ │  └──────────────────────┘  │
+ └────────────────────────────┘
+```
+
+### 视口/文档尺寸
+
+```js
+// 视口尺寸（浏览器可见区域）
+window.innerWidth
+window.innerHeight
+
+// 文档总尺寸
+document.documentElement.scrollWidth
+document.documentElement.scrollHeight
+
+// 滚动位置
+window.scrollX // pageXOffset 别名
+window.scrollY // pageYOffset 别名
+
+// 滚动到指定位置
+window.scrollTo(0, 500)
+window.scrollTo({ top: 500, behavior: "smooth" })
+
+// 滚动指定距离
+window.scrollBy(0, 200)
+```
+
+### 元素位置
+
+```txt
+offsetLeft/offsetTop       — 相对 offsetParent 的偏移
+offsetParent               — 最近的定位祖先元素
+```
+
+```js
+// getBoundingClientRect — 推荐，返回相对视口的位置和尺寸
+let rect = element.getBoundingClientRect()
+rect.top // 上边距视口顶部的距离
+rect.left
+rect.right
+rect.bottom
+rect.width // 同 offsetWidth
+rect.height // 同 offsetHeight
+rect.x // 同 left
+rect.y // 同 top
+```
+
+---
+
+## DOM 遍历
+
+```js
+// 父节点
+element.parentNode // 父节点（任何类型）
+element.parentElement // 父元素（HTML Element，无则 null）
+
+// 子节点
+element.childNodes // NodeList（含文本/注释节点）
+element.children // HTMLCollection（仅元素节点）
+element.firstChild // 第一个子节点（可能是文本）
+element.lastChild
+element.firstElementChild // 第一个子元素
+element.lastElementChild
+
+// 兄弟节点
+element.nextSibling // 下一个兄弟节点
+element.previousSibling // 上一个兄弟节点
+element.nextElementSibling // 下一个兄弟元素
+element.previousElementSibling // 上一个兄弟元素
+
+// 子节点数量
+element.childElementCount // 子元素数
+element.children.length // 同上
+```
+
+| 带 Element           | 不带 Element  | 说明                     |
+| -------------------- | ------------- | ------------------------ |
+| `children`           | `childNodes`  | 只含元素 vs 含文本/注释  |
+| `firstElementChild`  | `firstChild`  | 只元素 vs 任何节点       |
+| `nextElementSibling` | `nextSibling` | 只元素 vs 任何节点       |
+| `parentElement`      | `parentNode`  | 只元素父级 vs 任何父节点 |
+
+---
+
+## DocumentFragment — 批量操作优化
+
+直接在 DOM 中频繁插入节点会触发多次**回流（Reflow）**。使用 `DocumentFragment` 可以先在内存中构建 DOM 片段，最后一次性插入。
+
+```js
+// ❌ 低效：每次 append 都会触发回流
+for (let i = 0; i < 1000; i++) {
+  let li = document.createElement("li")
+  li.textContent = `Item ${i}`
+  ul.appendChild(li) // 每次都操作 DOM → 1000 次回流
+}
+
+// ✅ 高效：使用 DocumentFragment 一次性插入
+let fragment = document.createDocumentFragment()
+for (let i = 0; i < 1000; i++) {
+  let li = document.createElement("li")
+  li.textContent = `Item ${i}`
+  fragment.appendChild(li) // 在内存中操作
+}
+ul.appendChild(fragment) // 一次性插入 → 1 次回流
+```
+
+---
+
+## innerHTML vs textContent vs innerText
+
+| 属性          | 解析 HTML | XSS 风险            | 读取 CSS 隐藏文本 | 性能            |
+| ------------- | --------- | ------------------- | ----------------- | --------------- |
+| `innerHTML`   | ✅        | ⚠️ 有（需注意 XSS） | ✅                | 慢（解析 HTML） |
+| `textContent` | ❌        | ✅ 安全             | ✅                | 快              |
+| `innerText`   | ❌        | ✅ 安全             | ❌ 不获取隐藏文本 | 慢（触发回流）  |
+
+```js
+// 安全赋值原则
+element.textContent = userInput // ✅ 用户输入用 textContent
+element.innerHTML = "<strong>静态 HTML</strong>" // ⚠️ 仅在内容可控时使用
+
+// 永远不要
+element.innerHTML = userInput // ❌ XSS 风险
+```
+
+---
+
+## 汇总速查表
+
+### 节点获取
+
+| 方法                     | 返回                | 类型             |
+| ------------------------ | ------------------- | ---------------- |
+| `getElementById`         | 单个元素 / `null`   | `Element`        |
+| `getElementsByClassName` | 动态集合            | `HTMLCollection` |
+| `getElementsByTagName`   | 动态集合            | `HTMLCollection` |
+| `querySelector`          | 第一个匹配 / `null` | `Element`        |
+| `querySelectorAll`       | 静态集合            | `NodeList`       |
+
+### 节点操作
+
+| 方法                            | 说明                     |
+| ------------------------------- | ------------------------ |
+| `createElement(tag)`            | 创建元素                 |
+| `createTextNode(text)`          | 创建文本节点             |
+| `createDocumentFragment()`      | 创建文档片段             |
+| `cloneNode(deep)`               | 克隆节点                 |
+| `parent.appendChild(child)`     | 末尾追加                 |
+| `parent.insertBefore(new, ref)` | 指定位置插入             |
+| `parent.replaceChild(new, old)` | 替换                     |
+| `parent.removeChild(child)`     | 删除                     |
+| `element.remove()`              | 自删除（新 API）         |
+| `element.append(...nodes)`      | 末尾追加（新，支持多参） |
+| `element.prepend(...nodes)`     | 开头插入（新）           |
+| `element.before(...nodes)`      | 元素前插入（新）         |
+| `element.after(...nodes)`       | 元素后插入（新）         |
+| `insertAdjacentHTML(pos, html)` | 插入 HTML 字符串         |
+
+### 属性/样式
+
+| 方法/属性                                          | 说明                 |
+| -------------------------------------------------- | -------------------- |
+| `getAttribute` / `setAttribute`                    | 通用属性操作         |
+| `element.dataset`                                  | `data-*` 属性映射    |
+| `classList.add` / `remove` / `toggle` / `contains` | 类名操作             |
+| `element.style.xxx`                                | 行内样式             |
+| `getComputedStyle(element)`                        | 计算后样式           |
+| `getBoundingClientRect()`                          | 相对视口的位置和尺寸 |
+
+### 遍历
+
+| 属性                                            | 说明                    |
+| ----------------------------------------------- | ----------------------- |
+| `parentNode` / `parentElement`                  | 父节点 / 父元素         |
+| `children` / `childNodes`                       | 子元素集合 / 子节点集合 |
+| `firstChild` / `lastChild`                      | 首尾子节点              |
+| `firstElementChild` / `lastElementChild`        | 首尾子元素              |
+| `nextSibling` / `previousSibling`               | 兄弟节点                |
+| `nextElementSibling` / `previousElementSibling` | 兄弟元素                |

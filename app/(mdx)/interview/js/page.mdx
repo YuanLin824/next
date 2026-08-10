@@ -1,0 +1,1696 @@
+# JavaScript 面试题
+
+---
+
+## 一、基础概念（难度：★☆☆）
+
+### Q1: JS 有哪些数据类型？如何判断？
+
+**8 种数据类型**：
+
+```
+基本类型（7 种，存栈上，值不可变）：
+string  number  boolean  null  undefined  symbol  bigint
+
+引用类型（1 种，存堆上，按引用访问）：
+object（含 array、function、date、regexp、map、set 等）
+
+注意：typeof null === "object"（历史遗留 bug，null 的前 3 位二进制位是 000）
+```
+
+**类型判断方法对比**：
+
+| 方法                               | 适用场景                          | 局限                                       |
+| ---------------------------------- | --------------------------------- | ------------------------------------------ |
+| `typeof`                           | 基本类型快速判断                  | `null` 返回 "object"；对象无法区分具体类型 |
+| `instanceof`                       | 判断对象是否属于某类              | 跨 iframe/跨 realm 失效；基本类型需包装    |
+| `Object.prototype.toString.call()` | **终极方案**，返回 `[object Xxx]` | 需 `Symbol.toStringTag` 干扰防护           |
+| `Array.isArray()`                  | 专门判断数组                      | 仅数组                                     |
+
+```js
+// 万能类型判断
+function getType(value) {
+  return Object.prototype.toString.call(value).slice(8, -1)
+}
+getType([]) // "Array"
+getType(null) // "Null"
+getType(new Date()) // "Date"
+getType(/x/) // "RegExp"
+```
+
+### Q2: `null` 和 `undefined` 的区别？
+
+| 对比项   | `null`                                                        | `undefined`                                               |
+| -------- | ------------------------------------------------------------- | --------------------------------------------------------- |
+| 语义     | **有值但为空**（显式设置）                                    | **未定义**（变量声明未赋值）                              |
+| 产生场景 | 手动设置、`JSON.parse` 中不存在返回 null、DOM 找不到返回 null | 变量未赋值、函数无 return、访问对象不存在的属性、形参未传 |
+| typeof   | `"object"`（bug）                                             | `"undefined"`                                             |
+| 转换     | `Number(null) === 0`                                          | `Number(undefined) === NaN`                               |
+| 相等     | `null == undefined → true`                                    | 同上                                                      |
+
+```js
+// 规范场景
+let a // undefined（声明未赋值）
+const b = null // 显式空值
+function fn(x) {} // 不传参时 x === undefined
+
+// 判空技巧：只判断 null/undefined
+value == null // 等价于 value === null || value === undefined
+// 使用 ?? 提供默认值
+const name = user?.name ?? "游客"
+```
+
+### Q3: `==` 和 `===` 的区别？`==` 的隐式转换规则？
+
+```js
+=== 严格相等：类型不同直接 false，不做转换
+== 宽松相等：类型不同时先隐式转换再比较
+```
+
+**`==` 的转换规则**（高频考点）：
+
+```
+1. null == undefined → true（特殊规则）
+2. 数字 vs 字符串 → 字符串转数字："5" == 5 → true
+3. 布尔 vs 其他 → 布尔先转数字：true == 1 → true
+4. 对象 vs 基本类型 → 对象调 ToPrimitive（valueOf → toString）
+5. 两个对象 → 比较引用地址（必须同一引用才 true）
+```
+
+```js
+// 经典题目
+[] == ![] // ? → true（[] 转 ""，![] 转 false → 0，"" == 0 → true）
+[] == 0 // true（"" → 0）
+![] == 0 // true（![] → false → 0）
+[1] == 1 // true（[1].toString() → "1" → 1）
+[1, 2] == "1,2" // true
+null == 0 // false（null 只与 undefined 相等）
+NaN == NaN // false（NaN 与任何值都不相等）
+```
+
+### Q4: 隐式类型转换（ToPrimitive）的完整规则？
+
+```js
+// 对象转基本类型：valueOf → toString 顺序
+// 1. 先调 valueOf：返回基本类型则用
+// 2. 否则调 toString：返回基本类型则用
+// 3. 都没有则报错
+
+const obj = {
+  valueOf() {
+    return 42
+  },
+  toString() {
+    return "obj"
+  },
+}
+obj + 1 // 43（valueOf 优先）
+
+const obj2 = {
+  [Symbol.toPrimitive](hint) {
+    // 最高优先级
+    return hint === "number" ? 1 : "one"
+  },
+}
+```
+
+```js
+// + 号的两义性
+"5" + 3 // "53"（有字符串 → 字符串拼接）
+"5" - 3 // 2（- 只做数字运算）
+1 + 2 + "3" // "33"（左结合：1+2=3，3+"3"="33"）
+
+// 经典面试题
+console.log(1 + "2" + 3) // "123"
+console.log(1 + +"2" + 3) // 6（一元 + 转数字）
+```
+
+### Q5: `var` / `let` / `const` 的区别？
+
+| 对比项   | `var`                | `let`             | `const`              |
+| -------- | -------------------- | ----------------- | -------------------- |
+| 作用域   | 函数作用域           | **块级作用域**    | 块级作用域           |
+| 变量提升 | ✅ 提升（undefined） | ✅ 提升但 **TDZ** | ✅ 提升但 **TDZ**    |
+| 重复声明 | ✅ 允许              | ❌ 报错           | ❌ 报错              |
+| 重新赋值 | ✅                   | ✅                | ❌（对象属性可变！） |
+| 全局声明 | 挂到 window          | 不挂 window       | 不挂 window          |
+| 循环陷阱 | for 循环 i 共享      | 每次迭代新绑定    | -                    |
+
+```js
+// TDZ（暂时性死区）：声明前访问报错
+console.log(a) // ❌ ReferenceError: Cannot access 'a' before initialization
+let a = 1
+
+// const 的本质：绑定不可变，不是值不可变
+const obj = { name: "a" }
+obj.name = "b" // ✅ 允许（对象内容可变）
+obj = {} // ❌ 报错（重新绑定不允许）
+```
+
+**var 经典循环陷阱**：
+
+```js
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0) // 3 3 3（共享 i）
+}
+for (let i = 0; i < 3; i++) {
+  setTimeout(() => console.log(i), 0) // 0 1 2（每次迭代新绑定）
+}
+```
+
+### Q6: 变量提升（Hoisting）的规则？
+
+```js
+// 1. var 声明提升到作用域顶部，初始化为 undefined
+console.log(a) // undefined（不报错）
+var a = 1
+
+// 2. 函数声明整体提升（可先调用）
+foo() // ✅ 正常执行
+function foo() {
+  console.log("hi")
+}
+
+// 3. 函数表达式不提升（只提升 var）
+bar() // ❌ TypeError: bar is not a function
+var bar = function () {}
+// 实际解析为：var bar = undefined（此时调用 undefined 报类型错误）
+
+// 4. 提升顺序：函数声明 > var 声明（同名时函数覆盖 var）
+```
+
+---
+
+## 二、作用域与闭包（难度：★★☆）
+
+### Q7: 什么是作用域链？作用域查找规则？
+
+```
+作用域类型：全局作用域 / 函数作用域 / 块级作用域（let/const）
+
+作用域链：由内到外的词法作用域链（静态作用域，定义时决定，非调用时）
+```
+
+```js
+var a = 1
+function outer() {
+  var b = 2
+  function inner() {
+    var c = 3
+    console.log(a + b + c) // 6：inner → outer → global 逐层查找
+  }
+  inner()
+}
+outer()
+
+// 关键点：作用域在「定义时」确定（词法作用域）
+var name = "global"
+function show() {
+  console.log(name)
+}
+function wrapper() {
+  var name = "local"
+  show() // 输出 "global"！show 定义在全局，链指向全局
+}
+```
+
+### Q8: 什么是闭包？应用场景？内存问题？
+
+**闭包**：函数 + 其定义时所在词法作用域的引用。内部函数持有外部函数变量的引用，即使外部函数已返回。
+
+```js
+function counter() {
+  let count = 0
+  return function () {
+    return ++count // 闭包：持有 count 的引用
+  }
+}
+const add = counter()
+add() // 1
+add() // 2（count 没有随 counter 销毁）
+
+// 本质：内部函数被外部引用，其作用域链上的变量无法被 GC 回收
+```
+
+**应用场景**：
+
+```js
+// 1. 私有变量（模块模式）
+const module = (() => {
+  let privateData = 0
+  return { get: () => privateData, set: (v) => (privateData = v) }
+})()
+
+// 2. 缓存/记忆化
+function memoize(fn) {
+  const cache = {}
+  return function (...args) {
+    const key = JSON.stringify(args)
+    return cache[key] ?? (cache[key] = fn(...args))
+  }
+}
+
+// 3. 循环事件绑定（var 场景）
+for (var i = 0; i < 3; i++) {
+  btns[i].onclick = (function (n) {
+    return () => console.log(n)
+  })(i)
+}
+
+// 4. 防抖节流、柯里化、单例
+```
+
+**内存问题**：闭包引用的变量不释放 → 内存泄漏风险。**解决**：用完后置 `null` 断开引用，或用 WeakMap 存储。
+
+### Q9: `this` 的指向规则（4 种绑定）？
+
+```
+this 指向规则（按优先级从高到低）：
+
+1. new 绑定：new Foo() → this = 新对象
+2. 显式绑定：call/apply/bind → this = 传入的第一个参数
+3. 隐式绑定：obj.fn() → this = obj
+4. 默认绑定：独立调用 fn() → 非严格模式 this = window/global，严格模式 undefined
+
+补充：箭头函数没有自己的 this，捕获定义时外层 this（不可被 call/bind 改变）
+```
+
+```js
+// 经典题目
+function foo() {
+  console.log(this)
+}
+foo() // window（默认绑定）
+
+const obj = { name: "obj", foo }
+obj.foo() // obj（隐式绑定）
+
+const fn = obj.foo
+fn() // window（隐式绑定丢失！独立调用）
+
+foo.call(obj) // obj（显式绑定）
+
+const obj2 = {
+  name: "obj2",
+  arrow: () => console.log(this.name), // 箭头函数：捕获定义时 this
+  normal() {
+    console.log(this.name)
+  },
+}
+obj2.arrow() // undefined（箭头函数 this 是全局）
+obj2.normal() // obj2
+```
+
+**隐式绑定丢失的经典场景**：
+
+```js
+const user = {
+  name: "Alice",
+  greet() {
+    console.log(this.name)
+  },
+}
+setTimeout(user.greet, 100) // undefined！回调中 this 丢失
+// 解决：user.greet.bind(user) 或 () => user.greet()
+```
+
+### Q10: `call` / `apply` / `bind` 的区别？
+
+| 方法    | 参数形式                            | 立即执行 | 返回       | 场景               |
+| ------- | ----------------------------------- | -------- | ---------- | ------------------ |
+| `call`  | 逐个传参 `fn.call(ctx, a, b)`       | ✅       | 函数结果   | 参数少             |
+| `apply` | 数组传参 `fn.apply(ctx, [a, b])`    | ✅       | 函数结果   | 参数是数组/类数组  |
+| `bind`  | 逐参（可两次传参）`fn.bind(ctx, a)` | ❌       | **新函数** | 预设 this + 偏函数 |
+
+```js
+// 典型应用
+Math.max.apply(null, [1, 5, 3]) // 5（数组取最大）
+Math.max(...[1, 5, 3]) // 5（现代写法）
+
+Array.prototype.slice.call(arguments) // 类数组转真数组
+Array.from(arguments) // 现代写法
+
+// bind 偏函数
+function add(a, b) {
+  return a + b
+}
+const add5 = add.bind(null, 5) // 预设第一个参数
+add5(3) // 8
+```
+
+### Q11: 箭头函数与普通函数的区别？
+
+| 对比项                | 普通函数                 | 箭头函数                    |
+| --------------------- | ------------------------ | --------------------------- |
+| `this`                | 调用时动态决定           | **定义时捕获**（词法 this） |
+| `arguments`           | ✅ 有                    | ❌ 没有（用 rest 替代）     |
+| `new` 调用            | ✅ 可以                  | ❌ 不可（无 prototype）     |
+| `prototype`           | ✅ 有                    | ❌ 没有                     |
+| `call/bind` 改变 this | ✅                       | ❌ 无效                     |
+| 适用                  | 需要动态 this / 构造函数 | 回调、闭包、函数式          |
+
+```js
+// 箭头函数不能作为构造函数的陷阱
+const Foo = () => {}
+new Foo() // ❌ TypeError: Foo is not a constructor
+
+// 箭头函数适合作回调
+const obj = {
+  count: 0,
+  start() {
+    setInterval(() => this.count++, 1000) // ✅ this 是 obj
+    // setInterval(function () { this.count++ }, 1000) // ❌ this 是 window
+  },
+}
+```
+
+---
+
+## 三、原型与继承（难度：★★☆）
+
+### Q12: 原型与原型链？`__proto__` 和 `prototype` 的区别？
+
+```
+prototype：函数特有的属性（构造函数的原型对象）
+__proto__：所有对象都有的内部属性（[[Prototype]]），指向构造函数的 prototype
+
+实例.__proto__ === 构造函数.prototype
+构造函数.prototype.constructor === 构造函数
+```
+
+```js
+function Person(name) {
+  this.name = name
+}
+Person.prototype.sayHi = function () { console.log("hi " + this.name) }
+
+const p = new Person("Tom")
+p.sayHi() // hi Tom（实例方法找不到 → 沿原型链找到 Person.prototype）
+
+// 原型链查找：
+p.sayHi → p.__proto__（Person.prototype）→ p.__proto__.__proto__（Object.prototype）→ null
+```
+
+```
+原型链图：
+
+p (实例)
+ ├─ __proto__ → Person.prototype（函数原型）
+ │                ├─ __proto__ → Object.prototype（所有对象的祖先）
+ │                │                └─ __proto__ → null（尽头）
+ │                └─ constructor → Person
+ └─ 属性 name
+```
+
+**判断关系的方法**：
+
+```js
+p instanceof Person // true：沿 p 的原型链找 Person.prototype
+Person.prototype.isPrototypeOf(p) // true（更规范）
+p instanceof Object // true（原型链上最终都有 Object.prototype）
+```
+
+### Q13: `new` 的过程发生了什么？
+
+```js
+// new Foo() 的 4 个步骤
+function myNew(Constructor, ...args) {
+  // 1. 创建空对象，原型指向构造函数的 prototype
+  const obj = Object.create(Constructor.prototype)
+  // 2. 执行构造函数，this 绑定到新对象
+  const result = Constructor.apply(obj, args)
+  // 3. 判断返回值：返回对象则用它，否则返回新对象
+  return result instanceof Object ? result : obj
+  // 4. （隐含）构造函数中没有显式 return 对象时，自动返回新对象
+}
+
+// 使用
+const p = myNew(Person, "Tom")
+p instanceof Person // true
+```
+
+### Q14: 继承有哪些方式？各有什么优缺点？
+
+```js
+// 方式 1：原型链继承（子原型 = 父实例）
+function Child() {}
+Child.prototype = new Parent()
+// 缺点：引用类型属性被共享；无法向父构造函数传参
+
+// 方式 2：构造函数继承（call 父）
+function Child(name) {
+  Parent.call(this, name) // 复制父实例属性到子实例
+}
+// 缺点：方法都在构造函数里，无法复用
+
+// 方式 3：组合继承（推荐旧方案）
+function Child(name) {
+  Parent.call(this, name)
+}
+Child.prototype = new Parent() // 父方法可复用
+// 缺点：父构造函数被调用两次
+
+// 方式 4：寄生组合式继承（最优经典方案）
+Child.prototype = Object.create(Parent.prototype)
+Child.prototype.constructor = Child
+// 优点：只继承原型，不重复执行父构造函数
+
+// 方式 5：ES6 class（现代推荐）
+class Child extends Parent {
+  constructor(name) {
+    super(name) // 必须先调用 super 才能用 this
+  }
+}
+```
+
+**继承方式对比表**：
+
+| 方式          | 父构造执行次数 | 引用属性共享问题 | 可传参 | 推荐度   |
+| ------------- | -------------- | ---------------- | ------ | -------- |
+| 原型链        | 1              | ✅ 有            | ❌     | 低       |
+| 构造函数      | 1（每实例）    | ❌ 无            | ✅     | 低       |
+| 组合          | 2              | ❌ 无            | ✅     | 中       |
+| 寄生组合式    | 1              | ❌ 无            | ✅     | **高**   |
+| class extends | 1              | ❌ 无            | ✅     | **最高** |
+
+### Q15: `instanceof` 的原理？如何手写？
+
+```js
+// 原理：沿左侧对象的原型链查找，是否能找到右侧构造函数的 prototype
+function myInstanceof(left, right) {
+  let proto = Object.getPrototypeOf(left) // left.__proto__
+  const prototype = right.prototype
+  while (proto) {
+    if (proto === prototype) return true
+    proto = Object.getPrototypeOf(proto) // 沿链上溯
+  }
+  return false
+}
+
+myInstanceof([], Array) // true
+myInstanceof([], Object) // true
+myInstanceof("str", String) // false（基本类型没有原型链）
+// 注意：Symbol.hasInstance 可定制 instanceof 行为
+```
+
+---
+
+## 四、数组与对象（难度：★★☆）
+
+### Q16: 数组方法分类（会/不会修改原数组）？
+
+| 类别           | 方法                                                           | 返回值           |
+| -------------- | -------------------------------------------------------------- | ---------------- |
+| **修改原数组** | `push pop shift unshift splice sort reverse fill`              | 长度/元素/数组   |
+| **不修改**     | `concat slice join indexOf lastIndexOf includes`               | 新数组/索引/布尔 |
+| **遍历**       | `forEach map filter reduce find findIndex some every`          | 各不相同         |
+| **ES6+**       | `flat flatMap at findLast with toSorted toReversed`（copy 版） | 新数组           |
+
+```js
+// 易混淆点
+const arr = [1, 2, 3]
+arr.map((x) => x * 2) // [2,4,6]（不修改）
+arr.forEach((x) => x * 2) // undefined（只是遍历）
+
+// 删除元素对比
+arr.splice(1, 1) // 修改原数组，删除 index 1
+delete arr[1] // 留下空位（length 不变，变稀疏数组）
+arr.filter((x) => x !== 2) // 不修改，返回新数组
+
+// reduce 万能
+arr.reduce((acc, cur) => acc + cur, 0) // 求和
+arr.reduce((acc, cur) => ({ ...acc, [cur]: cur }), {}) // 数组 → 对象
+```
+
+### Q17: 数组去重有哪些方法？（手写高频）
+
+```js
+const arr = [1, 2, 2, 3, 3, 4]
+
+// 方案 1：Set（最简洁）
+[...new Set(arr)]
+
+// 方案 2：filter + indexOf
+arr.filter((v, i) => arr.indexOf(v) === i)
+
+// 方案 3：Map 计数
+[...arr.reduce((m, v) => m.set(v, true), new Map()).keys()]
+
+// 方案 4：对象键值（注意：对象键会转字符串，"1" 和 1 会冲突）
+const seen = {}
+arr.filter(v => (seen[v] ? false : (seen[v] = true)))
+
+// 对象数组去重（按属性）
+const users = [{ id: 1 }, { id: 1 }, { id: 2 }]
+const unique = [...new Map(users.map(u => [u.id, u])).values()]
+
+// 复杂值去重（JSON 序列化）
+arr.filter((v, i) => arr.findIndex(x => JSON.stringify(x) === JSON.stringify(v)) === i)
+```
+
+### Q18: 数组扁平化有哪些方法？
+
+```js
+const arr = [1, [2, [3, [4]]]]
+
+// 方案 1：flat（ES2019）
+arr.flat(Infinity) // [1,2,3,4]
+
+// 方案 2：递归
+function flatten(arr, depth = Infinity) {
+  return arr.flatMap((v) => (Array.isArray(v) && depth > 0 ? flatten(v, depth - 1) : [v]))
+}
+
+// 方案 3：reduce 递归
+function flattenReduce(arr) {
+  return arr.reduce((acc, v) => acc.concat(Array.isArray(v) ? flattenReduce(v) : v), [])
+}
+
+// 方案 4：toString 技巧（仅数字数组）
+arr.toString().split(",").map(Number)
+
+// 方案 5：迭代 + 栈（不递归，防爆栈）
+function flattenIter(arr) {
+  const stack = [...arr]
+  const result = []
+  while (stack.length) {
+    const top = stack.pop()
+    if (Array.isArray(top)) stack.push(...top)
+    else result.unshift(top)
+  }
+  return result
+}
+```
+
+### Q19: 深拷贝与浅拷贝？如何实现深拷贝？
+
+```js
+// 浅拷贝：只复制第一层
+const copy1 = { ...obj }
+const copy2 = Object.assign({}, obj)
+// 内层对象仍是同一引用：copy1.arr === obj.arr → true
+
+// 深拷贝：完整复制嵌套结构
+// 方案 1：JSON（简单但有局限）
+const deep = JSON.parse(JSON.stringify(obj))
+// 局限：undefined/function/Symbol 会被丢弃；Date 变字符串；循环引用报错；RegExp 变 {}
+
+// 方案 2：递归手写（覆盖核心场景）
+function deepClone(target, map = new WeakMap()) {
+  // 基本类型 / 函数直接返回
+  if (target === null || typeof target !== "object") return target
+  // 循环引用：返回已克隆的
+  if (map.has(target)) return map.get(target)
+
+  // 特殊对象
+  if (target instanceof Date) return new Date(target)
+  if (target instanceof RegExp) return new RegExp(target)
+  if (target instanceof Map) {
+    const m = new Map()
+    map.set(target, m)
+    target.forEach((v, k) => m.set(k, deepClone(v, map)))
+    return m
+  }
+  if (target instanceof Set) {
+    const s = new Set()
+    map.set(target, s)
+    target.forEach((v) => s.add(deepClone(v, map)))
+    return s
+  }
+
+  // 普通对象 / 数组：保留原型
+  const result = Array.isArray(target) ? [] : Object.create(Object.getPrototypeOf(target))
+  map.set(target, result) // 先注册再递归（处理循环引用）
+
+  // 拷贝所有可枚举属性（含 Symbol 键）
+  Reflect.ownKeys(target).forEach((key) => {
+    result[key] = deepClone(target[key], map)
+  })
+  return result
+}
+```
+
+### Q20: `Object` 常用方法整理？
+
+| 方法                                           | 作用                                                     |
+| ---------------------------------------------- | -------------------------------------------------------- |
+| `Object.create(proto)`                         | 创建指定原型对象                                         |
+| `Object.assign(target, ...sources)`            | 浅拷贝合并（后者覆盖前者）                               |
+| `Object.keys` / `values` / `entries`           | 可枚举字符串键（不含 Symbol）                            |
+| `Object.getOwnPropertyNames`                   | 所有字符串键（含不可枚举）                               |
+| `Reflect.ownKeys`                              | 所有键（含 Symbol）                                      |
+| `Object.defineProperty(obj, key, desc)`        | 定义/修改属性（可配置 writable/enumerable/configurable） |
+| `Object.freeze` / `seal` / `preventExtensions` | 冻结 / 密封 / 禁止扩展                                   |
+| `Object.getPrototypeOf` / `setPrototypeOf`     | 读写原型                                                 |
+| `Object.is`                                    | 严格相等（`NaN === NaN`、`+0 !== -0` 的修正版）          |
+
+```js
+// 属性描述符
+const obj = {}
+Object.defineProperty(obj, "x", {
+  value: 1,
+  writable: false, // 不可写
+  enumerable: false, // 不可枚举
+  configurable: false, // 不可删除/改描述符
+})
+Object.freeze(obj) // 相当于 writable:false + configurable:false（浅冻结！）
+
+// 遍历对比
+Object.keys(obj) // 可枚举字符串键
+for (const key in obj) // 可枚举 + 原型链上的（需 hasOwnProperty 过滤）
+  Object.entries(obj) // [[k, v]] 形式
+```
+
+---
+
+## 五、ES6+ 特性（难度：★★☆）
+
+### Q21: `Symbol` 的用途？
+
+```js
+// 1. 唯一值（避免命名冲突）
+const COLOR = Symbol("color") // 描述符仅用于调试
+
+// 2. 对象私有属性（Symbol 键不可被 Object.keys 枚举）
+const hidden = Symbol("hidden")
+const obj = { [hidden]: "secret", normal: 1 }
+Object.keys(obj) // ["normal"]（Symbol 键不出现）
+
+// 3. 内置 Symbol（Symbol.iterator 等）：自定义迭代行为
+const iterable = {
+  *[Symbol.iterator]() {
+    yield 1
+    yield 2
+  }
+}
+[...iterable] // [1, 2]
+
+// 4. 全局注册（跨文件共享）
+Symbol.for("shared") === Symbol.for("shared") // true
+Symbol.keyFor(Symbol.for("x")) // "x"
+
+// 5. 消除魔术字符串
+const TYPE = { SUCCESS: Symbol("success"), FAIL: Symbol("fail") }
+```
+
+### Q22: `Set` / `Map` / `WeakSet` / `WeakMap` 对比？
+
+| 对比项    | Set            | Map            | WeakSet                  | WeakMap                  |
+| --------- | -------------- | -------------- | ------------------------ | ------------------------ |
+| 结构      | 值集合         | 键值对         | 值集合                   | 键值对                   |
+| 键/值类型 | 任意值         | 任意键         | **只能是对象**           | **键只能是对象**         |
+| 可迭代    | ✅             | ✅             | ❌                       | ❌                       |
+| size      | ✅             | ✅             | ❌（不可知大小）         | ❌                       |
+| 垃圾回收  | 不参与         | 不参与         | **弱引用，可被 GC 回收** | **弱引用，可被 GC 回收** |
+| 场景      | 去重、交集差集 | 对象映射、计数 | 防止内存泄漏的标记       | 缓存 DOM/对象私有数据    |
+
+```js
+// Set 应用
+const set = new Set([1, 2, 2, 3])
+new Set(arr) // 去重
+[...new Set(a)].filter(v => bSet.has(v)) // 交集
+// 遍历：set.forEach / for of
+
+// Map 应用（比对象更适合频繁增删）
+const map = new Map([["a", 1]])
+map.set("b", 2)
+map.get("a")
+map.has("a")
+map.delete("a")
+map.size
+for (const [k, v] of map) {}
+
+// WeakMap 经典应用：私有数据 + 不阻碍 GC
+const _private = new WeakMap()
+class Person {
+  constructor(name) {
+    _private.set(this, { name }) // 实例销毁后自动释放
+  }
+  getName() { return _private.get(this).name }
+}
+```
+
+### Q23: `Proxy` 与 `Object.defineProperty` 的区别（Vue3 响应式原理）？
+
+| 对比项   | `defineProperty`（Vue2）         | `Proxy`（Vue3）                          |
+| -------- | -------------------------------- | ---------------------------------------- |
+| 监听范围 | 只能监听已存在的属性             | 新增/删除属性也能拦截                    |
+| 数组     | 需重写数组方法 hack              | 原生拦截 `set/deleteProperty`            |
+| 性能     | 递归遍历所有属性（一次性开销大） | 惰性代理（用到才 get 拦截）              |
+| 兼容     | ES5（IE9+）                      | ES6（IE 不支持）                         |
+| 能力     | 仅 get/set                       | 13 种陷阱（has/delete/ownKeys/apply 等） |
+
+```js
+// Vue3 响应式核心（简化）
+function reactive(target) {
+  return new Proxy(target, {
+    get(obj, key, receiver) {
+      // 依赖收集（副作用注册）
+      track(obj, key)
+      return Reflect.get(obj, key, receiver)
+    },
+    set(obj, key, value, receiver) {
+      const old = Reflect.get(obj, key, receiver)
+      if (old !== value) {
+        Reflect.set(obj, key, value, receiver)
+        trigger(obj, key) // 触发更新
+      }
+      return true
+    },
+    deleteProperty(obj, key) {
+      Reflect.deleteProperty(obj, key)
+      trigger(obj, key) // 删除也能触发！Vue2 做不到
+      return true
+    },
+  })
+}
+```
+
+```js
+// 13 种 Proxy 陷阱（面试提及即可）
+get set has deleteProperty ownKeys getOwnPropertyDescriptor
+getPrototypeOf setPrototypeOf isExtensible preventExtensions
+apply construct defineProperty
+// 关键点：Reflect 与 Proxy 陷阱一一对应，用 Reflect 保默认行为
+```
+
+### Q24: 解构赋值 / 可选链 / 空值合并？
+
+```js
+// 解构赋值
+const [a, b = 2, ...rest] = [1, undefined, 3, 4] // a=1, b=2(默认值), rest=[3,4]
+const { name, age = 18, ...others } = user
+const { a: renameA } = obj // 重命名
+function fn({ x, y } = {}) {} // 参数解构（带默认防错）
+
+// 交换变量（解构）
+;[a, b] = [b, a]
+
+// 可选链：短路求值，避免层级访问报错
+user?.address?.city // undefined 而不报错
+user?.fn?.() // 可选函数调用
+arr?.[0] // 可选索引
+
+// 空值合并：只在 null/undefined 时取默认（0/""/false 正常保留）
+const n = count ?? 10 // count=0 时 n=0（?? 与 || 的区别）
+// 注意：?? 不能与 ||/&& 混用不括号（需括号）
+```
+
+### Q25: `Promise` 的核心机制（状态机）？
+
+```js
+// 3 种状态：pending → fulfilled / rejected（不可逆，只能变化一次）
+const p = new Promise((resolve, reject) => {
+  // executor 同步执行
+  setTimeout(() => resolve("done"), 1000)
+})
+p.then(
+  value => console.log(value), // fulfilled 回调
+  reason => console.log(reason) // rejected 回调
+)
+p.catch(err => console.log(err)) // 只处理 rejected
+p.finally(() => console.log("always")) // 无论结果都执行（不接收参数）
+
+// then 链与值透传
+p.then(v => v + "!")
+  .then(v => console.log(v)) // "done!"（回调返回值作为下个 then 入参）
+  .catch(err => ...)
+  .finally(() => ...)
+
+// 注意：then 返回新 Promise，链式不会串改原 Promise
+// 回调里抛异常 → 返回的 Promise 变 rejected（被 catch 捕获）
+```
+
+**Promise 三大特点**：状态不可逆、then 链式透传、异常冒泡（reject 沿链向下传播直到被 catch）。
+
+### Q26: `Promise` 静态方法对比？
+
+| 方法                       | 行为                                      | 场景                   |
+| -------------------------- | ----------------------------------------- | ---------------------- |
+| `Promise.all([...])`       | 全部成功 → 数组结果；**一个失败即失败**   | 并行请求全等           |
+| `Promise.allSettled`       | 全部完成后返回 `[{status, value/reason}]` | 不关心失败、要全部结果 |
+| `Promise.race`             | 最先 settle 的胜出（成功/失败都算）       | 超时控制               |
+| `Promise.any`              | 最先 **成功** 的胜出；全失败才失败        | 多备用接口             |
+| `Promise.resolve / reject` | 快速包装值/错误                           | 同步转异步             |
+
+```js
+// 超时控制（race 应用）
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error("timeout")), ms)),
+  ])
+}
+
+// 并发限制（手写高频，见 Q36）
+```
+
+### Q27: `async/await` 的原理？错误处理？
+
+```js
+// async 函数 = 返回 Promise 的函数
+async function foo() {
+  return 1
+} // 等价 Promise.resolve(1)
+async function bar() {
+  throw new Error("x")
+} // 等价 Promise.reject
+
+// await = 暂停执行，等价于 then 的语法糖
+async function load() {
+  const user = await fetchUser() // 暂停 → 等待 resolve → 继续
+  const posts = await fetchPosts(user.id)
+  return { user, posts }
+}
+
+// 本质：async/await 是 Generator + Promise 的语法糖（Babel 编译为 generator 运行时）
+```
+
+```js
+// 错误处理 3 种方式
+async function handle() {
+  // 1. try/catch（推荐）
+  try {
+    const data = await fetchData()
+  } catch (err) {
+    console.error(err)
+  }
+
+  // 2. 外层 .catch
+  handle().catch(err => ...)
+
+  // 3. await 与 Promise 混用（reject 必须被接住，否则 unhandledrejection）
+  const [user, posts] = await Promise.all([fetchUser(), fetchPosts()])
+}
+```
+
+**经典陷阱**：
+
+```js
+// 串行 vs 并行
+const a = await task1() // 串行：先 1 后 2（慢）
+const b = await task2()
+// 并行：同时发起（快）
+const [a, b] = await Promise.all([task1(), task2()])
+
+// for await of（异步迭代）
+for await (const chunk of stream) {
+}
+```
+
+### Q28: 事件循环（Event Loop）机制？
+
+```
+JS 单线程 + 事件循环：
+
+调用栈（Call Stack）→ 同步代码
+任务队列：
+├── 宏任务（macrotask）：setTimeout / setInterval / setImmediate / I/O / UI 渲染 / script 整体
+└── 微任务（microtask）：Promise.then / queueMicrotask / MutationObserver / process.nextTick(Node)
+
+执行顺序：
+1. 执行一个宏任务（首次是整段 script）
+2. 清空所有微任务（微任务执行中产生的新微任务也一并执行）
+3. 渲染（浏览器视需要）
+4. 取出下一个宏任务，重复
+
+关键：微任务永远先于下一个宏任务；每次宏任务后都要清空微任务队列
+```
+
+```js
+// 经典输出题（必考）
+console.log("1") // 同步
+setTimeout(() => console.log("2"), 0) // 宏任务
+Promise.resolve().then(() => console.log("3")) // 微任务
+console.log("4") // 同步
+// 输出：1 4 3 2
+```
+
+### Q29: Node.js 事件循环与浏览器的区别？
+
+```
+Node.js 事件循环 6 个阶段（libuv）：
+┌─────────────────────────────────────┐
+│ timers        setTimeout/interval   │
+├─────────────────────────────────────┤
+│ pending callbacks   I/O 回调        │
+├─────────────────────────────────────┤
+│ idle/prepare   内部使用             │
+├─────────────────────────────────────┤
+│ poll           主要 I/O 事件        │
+├─────────────────────────────────────┤
+│ check          setImmediate         │
+├─────────────────────────────────────┤
+│ close callbacks 关闭事件            │
+└─────────────────────────────────────┘
+每个阶段之间都会清空微任务（process.nextTick 优先于 Promise）
+
+区别：
+├── 浏览器：渲染步骤在宏任务之间；setTimeout 优先级与 setImmediate 无关
+└── Node：nextTick 优先级高于 Promise；timers 与 check 的先后依赖时机
+```
+
+```js
+// Node 经典输出题
+process.nextTick(() => console.log("nextTick")) // 微任务最高优先级
+Promise.resolve().then(() => console.log("promise")) // 次之
+setImmediate(() => console.log("immediate")) // check 阶段
+setTimeout(() => console.log("timeout"), 0) // timers 阶段
+// 输出：nextTick → promise → timeout/immediate（后两者顺序依时机）
+```
+
+### Q30: 手写 Promise 并发控制（限制最大并发数）？
+
+```js
+// 场景：100 个请求，每次最多并发 5 个
+async function limitConcurrency(tasks, limit) {
+  const results = []
+  const queue = [...tasks] // 任务队列（每个是返回 Promise 的函数）
+  const workers = Array.from({ length: Math.min(limit, tasks.length) }, async () => {
+    while (queue.length) {
+      const task = queue.shift()
+      const index = tasks.length - queue.length - 1 // 记录原始索引
+      results[index] = await task()
+    }
+  })
+  await Promise.all(workers)
+  return results
+}
+
+// 使用
+const tasks = Array.from({ length: 10 }, (_, i) => () => fetch(`/api/${i}`))
+const data = await limitConcurrency(tasks, 3)
+```
+
+---
+
+## 六、函数式与高阶（难度：★★★）
+
+### Q31: 防抖（debounce）和节流（throttle）？
+
+| 对比项   | 防抖 debounce                   | 节流 throttle                       |
+| -------- | ------------------------------- | ----------------------------------- |
+| 原理     | 停止触发 N 秒后才执行           | N 秒内最多执行一次                  |
+| 触发时机 | 最后一次（或第一次）触发后等待  | 固定频率执行（首/尾帧）             |
+| 场景     | 搜索联想、输入校验、resize 结束 | 滚动加载、拖拽、高频点击、mousemove |
+| 比喻     | 电梯：人不停进来就等关门        | 水龙头：匀速滴水                    |
+
+```js
+// 防抖（立即执行版 + 延迟版）
+function debounce(fn, wait = 300, immediate = false) {
+  let timer = null
+  return function (...args) {
+    const callNow = immediate && !timer
+    clearTimeout(timer)
+    timer = setTimeout(() => {
+      timer = null
+      if (!immediate) fn.apply(this, args)
+    }, wait)
+    if (callNow) fn.apply(this, args)
+  }
+}
+
+// 节流（时间戳版：首次立即执行）
+function throttle(fn, interval = 300) {
+  let last = 0
+  return function (...args) {
+    const now = Date.now()
+    if (now - last >= interval) {
+      last = now
+      fn.apply(this, args)
+    }
+  }
+}
+
+// 节流（定时器版：尾触发）
+function throttleTimer(fn, interval = 300) {
+  let timer = null
+  return function (...args) {
+    if (timer) return
+    timer = setTimeout(() => {
+      fn.apply(this, args)
+      timer = null
+    }, interval)
+  }
+}
+```
+
+### Q32: 柯里化（Currying）与偏函数？
+
+```js
+// 柯里化：把多参函数拆成单参函数链
+// add(1)(2)(3) === 6
+function curry(fn) {
+  return function curried(...args) {
+    if (args.length >= fn.length) {
+      return fn.apply(this, args) // 参数够了，执行
+    }
+    return (...more) => curried(...args, ...more) // 不够则继续收集
+  }
+}
+
+const add = curry((a, b, c) => a + b + c)
+add(1)(2)(3) // 6
+add(1, 2)(3) // 6
+
+// 应用场景：参数复用、延迟执行、函数组合
+const format = curry((prefix, n) => prefix + n)
+const withYuan = format("¥")
+withYuan(100) // "¥100"
+```
+
+```js
+// 反柯里化：把方法从对象上"借"出来
+Function.prototype.uncurry = function () {
+  const fn = this
+  return (...args) => fn.call(...args)
+}
+const push = Array.prototype.push.uncurry()
+push([1], 2) // [1, 2]
+```
+
+### Q33: 函数式编程核心概念？
+
+```
+纯函数：相同输入必得相同输出，无副作用
+不可变数据：不修改原数据，返回新数据
+高阶函数：接收/返回函数的函数
+组合（compose）：把多个函数串成管道
+```
+
+```js
+// 纯函数 vs 不纯
+const pure = (a, b) => a + b // ✅ 无副作用
+let count = 0
+const impure = (a) => {
+  count++
+  return a + count
+} // ❌ 有副作用
+
+// compose 组合
+const compose =
+  (...fns) =>
+  (x) =>
+    fns.reduceRight((acc, fn) => fn(acc), x)
+const add1 = (x) => x + 1
+const double = (x) => x * 2
+const fn = compose(double, add1) // 先 add1 再 double
+fn(3) // 8
+
+// 不可变操作（React 理念基础）
+const nextState = { ...state, count: state.count + 1 } // 返回新对象
+```
+
+---
+
+## 七、内存与性能（难度：★★★）
+
+### Q34: V8 引擎的垃圾回收机制？
+
+```
+V8 分代回收（分代假说：新对象容易死）：
+
+┌── 新生代（Scavenger，空间换时间）───────────────────────┐
+│ 对象分配在 from-space → 存活复制到 to-space（半区复制） │
+│ 经过 2 次 GC 仍存活 → 晋升老生代                        │
+└─────────────────────────────────────────────────────────┘
+┌── 老生代（Mark-Sweep / Mark-Compact）───┐
+│ 标记清除：标记可达对象，清除不可达      │
+│ 标记整理：整理碎片（大对象/空间不足时） │
+│ 增量标记 + 并发标记：减少 STW 停顿      │
+└─────────────────────────────────────────┘
+
+可达性判定：从根（window/global/当前调用栈）出发，能引用到的即存活
+```
+
+```js
+// 影响 GC 的实践
+// 1. 大对象/闭包长期持有 → 老生代堆积
+// 2. 避免长任务阻塞（GC 暂停与 JS 共享主线程）
+// 3. 及时清理定时器/事件监听（防泄漏，见 Q35）
+```
+
+### Q35: 常见内存泄漏场景？
+
+```js
+// 1. 全局变量（意外挂 window）
+function foo() {
+  bar = 1 // 未声明 → 隐式全局（严格模式会报错）
+}
+
+// 2. 定时器/回调未清理
+setInterval(() => {
+  /* 引用了大对象 */
+}, 1000)
+// 解决：clearInterval；不再需要时置 null
+
+// 3. 事件监听未移除
+el.addEventListener("scroll", handler) // 组件销毁时未 remove
+// 解决：离开页面/卸载时 removeEventListener
+
+// 4. 闭包持有大对象
+function big() {
+  const data = new Array(1e6).fill(0)
+  return function () {
+    /* 持有 data 引用 */
+  }
+}
+// 解决：用后 data = null
+
+// 5. DOM 引用残留
+const removed = document.getElementById("x")
+document.body.removeChild(removed) // 变量仍引用 → 泄露
+
+// 6. 缓存无界增长
+// 解决：WeakMap/WeakSet 或 LRU 缓存
+```
+
+**排查工具**：Chrome DevTools → Memory 面板（Heap Snapshot 对比、Allocation Timeline）、`Performance.monitor`。
+
+### Q36: V8 编译流程（TurboFan）？
+
+```
+V8 执行流程：
+源代码 → Parser（词法+语法分析）→ AST
+  → Ignition（解释器）→ 字节码（首次执行快，逐行解释）
+  → 热点函数（执行多次）→ TurboFan（JIT 编译器）→ 优化机器码
+  → 假设失效（如对象形状改变）→ 反优化（deoptimize）回字节码
+
+优化基础：
+├── 隐藏类（Hidden Class）：对象形状相同则共享结构（动态添加属性会破坏）
+├── 内联缓存（IC）：缓存属性访问位置，加速重复访问
+└── 内联化（Inlining）：热点函数体内联到调用处
+```
+
+```js
+// 为优化友好的写法
+function Point(x, y) {
+  this.x = x
+  this.y = y
+}
+// ✅ 构造函数内一次性定义属性（形状稳定）
+// ❌ p.z = 1 动态添加 → 破坏隐藏类，触发反优化
+// ✅ 数组保持同构：const arr = [1, 2, 3]（数字数组）→ 拆箱存储
+// ❌ 混类型数组 [1, "a", {}] → 元素访问变慢
+```
+
+---
+
+## 八、手写实现（难度：★★★★）
+
+### Q37: 手写 `call` / `apply` / `bind`？
+
+```js
+// call：立即执行，逐个传参
+Function.prototype.myCall = function (ctx, ...args) {
+  ctx = ctx === null || ctx === undefined ? globalThis : Object(ctx) // 兜底
+  const key = Symbol("fn") // 避免覆盖原有属性
+  ctx[key] = this // 方法借调到目标对象
+  const result = ctx[key](...args)
+  delete ctx[key]
+  return result
+}
+
+// apply：立即执行，数组传参
+Function.prototype.myApply = function (ctx, args) {
+  ctx = ctx === null || ctx === undefined ? globalThis : Object(ctx)
+  const key = Symbol("fn")
+  ctx[key] = this
+  const result = ctx[key](...(args || []))
+  delete ctx[key]
+  return result
+}
+
+// bind：返回新函数，预设 this + 偏函数
+Function.prototype.myBind = function (ctx, ...bindArgs) {
+  const fn = this
+  return function (...args) {
+    return fn.apply(ctx, [...bindArgs, ...args])
+  }
+}
+// 注意：经典实现不支持 new 调用（bound function 的 new 语义）；
+// 完整版需判断 new.target 并继承原型
+```
+
+### Q38: 手写 `new` 和 `instanceof`？
+
+```js
+// new（见 Q13 的 myNew）
+function myNew(Constructor, ...args) {
+  const obj = Object.create(Constructor.prototype)
+  const result = Constructor.apply(obj, args)
+  return (typeof result === "object" && result !== null) || typeof result === "function"
+    ? result
+    : obj
+}
+
+// instanceof（见 Q15 的 myInstanceof）
+function myInstanceof(left, right) {
+  if (typeof left !== "object" || left === null) return false
+  let proto = Object.getPrototypeOf(left)
+  while (proto) {
+    if (proto === right.prototype) return true
+    proto = Object.getPrototypeOf(proto)
+  }
+  return false
+}
+```
+
+### Q39: 手写 `Promise.all` / `race`？
+
+```js
+// Promise.all：全部成功返回数组；任一失败立即失败
+Promise.myAll = function (promises) {
+  return new Promise((resolve, reject) => {
+    const results = []
+    let count = 0
+    if (promises.length === 0) return resolve([])
+    promises.forEach((p, i) => {
+      Promise.resolve(p).then(
+        (value) => {
+          results[i] = value
+          if (++count === promises.length) resolve(results)
+        },
+        reject // 任一失败 → reject
+      )
+    })
+  })
+}
+
+// Promise.race：最快 settle 的胜出
+Promise.myRace = function (promises) {
+  return new Promise((resolve, reject) => {
+    promises.forEach((p) => Promise.resolve(p).then(resolve, reject))
+  })
+}
+
+// Promise.allSettled
+Promise.myAllSettled = function (promises) {
+  return Promise.all(
+    promises.map((p) =>
+      Promise.resolve(p).then(
+        (value) => ({ status: "fulfilled", value }),
+        (reason) => ({ status: "rejected", reason })
+      )
+    )
+  )
+}
+```
+
+### Q40: 手写 Promise（完整版核心）？
+
+```js
+class MyPromise {
+  constructor(executor) {
+    this.state = "pending" // pending / fulfilled / rejected
+    this.value = undefined
+    this.reason = undefined
+    this.onFulfilled = []
+    this.onRejected = []
+
+    const resolve = (value) => {
+      if (this.state !== "pending") return
+      this.state = "fulfilled"
+      this.value = value
+      this.onFulfilled.forEach((fn) => fn())
+    }
+    const reject = (reason) => {
+      if (this.state !== "pending") return
+      this.state = "rejected"
+      this.reason = reason
+      this.onRejected.forEach((fn) => fn())
+    }
+    try {
+      executor(resolve, reject)
+    } catch (err) {
+      reject(err)
+    }
+  }
+
+  then(onFulfilled, onRejected) {
+    // 值透传
+    onFulfilled = typeof onFulfilled === "function" ? onFulfilled : (v) => v
+    onRejected =
+      typeof onRejected === "function"
+        ? onRejected
+        : (e) => {
+            throw e
+          }
+
+    const promise2 = new MyPromise((resolve, reject) => {
+      const handle = () => {
+        try {
+          const result =
+            this.state === "fulfilled" ? onFulfilled(this.value) : onRejected(this.reason)
+          // resolvePromise：处理返回 Promise / 循环引用 / 普通值
+          if (result instanceof MyPromise) {
+            result.then(resolve, reject)
+          } else if (result === promise2) {
+            reject(new TypeError("Chaining cycle"))
+          } else {
+            resolve(result)
+          }
+        } catch (err) {
+          reject(err)
+        }
+      }
+      if (this.state === "pending") {
+        this.onFulfilled.push(handle)
+        this.onRejected.push(handle)
+      } else {
+        queueMicrotask(handle) // 异步执行
+      }
+    })
+    return promise2
+  }
+
+  catch(onRejected) {
+    return this.then(null, onRejected)
+  }
+
+  finally(callback) {
+    return this.then(
+      (value) => MyPromise.resolve(callback()).then(() => value),
+      (reason) =>
+        MyPromise.resolve(callback()).then(() => {
+          throw reason
+        })
+    )
+  }
+
+  static resolve(value) {
+    return value instanceof MyPromise ? value : new MyPromise((r) => r(value))
+  }
+  static reject(reason) {
+    return new MyPromise((_, reject) => reject(reason))
+  }
+}
+```
+
+### Q41: 手写事件总线（发布订阅）？
+
+```js
+class EventBus {
+  constructor() {
+    this.events = new Map() // 事件名 → 回调集合
+  }
+  on(event, fn) {
+    if (!this.events.has(event)) this.events.set(event, new Set())
+    this.events.get(event).add(fn)
+    return () => this.off(event, fn) // 返回取消订阅函数
+  }
+  once(event, fn) {
+    const wrapper = (...args) => {
+      this.off(event, wrapper)
+      fn(...args)
+    }
+    this.on(event, wrapper)
+  }
+  emit(event, ...args) {
+    this.events.get(event)?.forEach((fn) => fn(...args))
+  }
+  off(event, fn) {
+    this.events.get(event)?.delete(fn)
+    if (this.events.get(event)?.size === 0) this.events.delete(event)
+  }
+}
+
+// 使用
+const bus = new EventBus()
+const off = bus.on("login", (user) => console.log(user))
+bus.emit("login", { name: "Tom" })
+off() // 取消订阅
+```
+
+### Q42: 手写常见数组方法（map/filter/reduce）？
+
+```js
+// map：返回新数组，不修改原数组
+Array.prototype.myMap = function (fn, thisArg) {
+  const result = []
+  for (let i = 0; i < this.length; i++) {
+    if (i in this) result[i] = fn.call(thisArg, this[i], i, this)
+  }
+  return result
+}
+
+// filter
+Array.prototype.myFilter = function (fn, thisArg) {
+  const result = []
+  for (let i = 0; i < this.length; i++) {
+    if (i in this && fn.call(thisArg, this[i], i, this)) result.push(this[i])
+  }
+  return result
+}
+
+// reduce：无初始值时取第一个元素为 acc
+Array.prototype.myReduce = function (fn, initial) {
+  let acc = initial === undefined ? this[0] : initial
+  let start = initial === undefined ? 1 : 0
+  for (let i = start; i < this.length; i++) {
+    if (i in this) acc = fn(acc, this[i], i, this)
+  }
+  return acc
+}
+
+// 用 reduce 实现 map
+const mapViaReduce = (arr, fn) => arr.reduce((acc, v, i) => (acc.push(fn(v, i, arr)), acc), [])
+```
+
+### Q43: 手写防抖节流（见 Q31）、深拷贝（见 Q19）、柯里化（见 Q32）、并发控制（见 Q30）——综合手写清单
+
+```
+高频手写题清单：
+✅ Promise 系列：myPromise / all / race / allSettled / 并发限制
+✅ 函数系列：call / apply / bind / new / instanceof
+✅ 数组系列：map / filter / reduce / flat / unique
+✅ 对象系列：深拷贝（循环引用） / Object.create 简易版
+✅ 异步系列：防抖 / 节流 / 事件总线 / 串行异步队列
+✅ 进阶系列：柯里化 / compose / 单例 / 观察者
+```
+
+---
+
+## 九、综合与易错题（难度：★★★★）
+
+### Q44: 经典输出顺序题汇总？
+
+```js
+// 题 1：宏微任务
+console.log("start")
+setTimeout(() => console.log("t1"), 0)
+Promise.resolve().then(() => console.log("p1"))
+console.log("end")
+// start → end → p1 → t1
+
+// 题 2：嵌套微任务
+Promise.resolve()
+  .then(() => console.log("p1"))
+  .then(() => console.log("p2"))
+setTimeout(() => console.log("t1"), 0)
+Promise.resolve().then(() => console.log("p3"))
+// p1 → p3 → p2 → t1
+// 解释：每次微任务循环把当前队列清空，p2 在下一轮微任务中，但仍先于 t1
+
+// 题 3：async 中的 await
+async function f() {
+  console.log("a")
+  await Promise.resolve() // await 后面的代码相当于 then 回调（微任务）
+  console.log("b")
+}
+f()
+console.log("c")
+// a → c → b
+
+// 题 4：async 报错
+async function f() {
+  throw new Error("boom")
+}
+// f() 返回 rejected Promise，不 catch 会触发 unhandledrejection
+```
+
+### Q45: 浮点精度问题？如何解决？
+
+```js
+0.1 + 0.2 // 0.30000000000000004（IEEE 754 二进制无法精确表示 0.1）
+0.3 -
+  0.1(
+    // 0.19999999999999998
+
+    // 解决 1：toFixed（注意四舍五入问题）
+    0.1 + 0.2
+  ).toFixed(2)(
+    // "0.30"
+
+    // 解决 2：转整数运算
+    0.1 * 10 + 0.2 * 10
+  ) /
+    10 // 0.3
+
+// 解决 3：误差容差比较
+Math.abs(0.1 + 0.2 - 0.3) < Number.EPSILON // true
+
+// 解决 4：库（money 场景）
+// decimal.js / big.js / bignumber.js；或 BigInt（整数安全）
+Number.MAX_SAFE_INTEGER // 2^53 - 1（超出需用 BigInt）
+```
+
+### Q46: `for...in` 和 `for...of` 的区别？
+
+| 对比项   | `for...in`                           | `for...of`                     |
+| -------- | ------------------------------------ | ------------------------------ |
+| 遍历对象 | **可枚举字符串键**（含原型链上的！） | 需要可迭代协议（对象不可直接） |
+| 遍历数组 | 下标（字符串 "0"），含原型扩展       | 值                             |
+| 适用     | 对象键遍历（需 hasOwnProperty）      | 数组、字符串、Set、Map、类数组 |
+| 底层     | 枚举（enumerable）                   | 迭代器（Symbol.iterator）      |
+
+```js
+const arr = [10, 20]
+arr.foo = "bar"
+for (const k in arr) console.log(k) // "0" "1" "foo"（包含扩展属性！）
+for (const v of arr) console.log(v) // 10 20（只有值）
+
+// 对象遍历推荐顺序：Object.keys > for...in + hasOwnProperty
+Object.keys(obj).forEach(k => ...)
+```
+
+### Q47: `JSON.stringify` 的坑？
+
+```js
+// 1. undefined / function / Symbol：对象属性中被忽略，数组中变 null，单独返回 undefined
+JSON.stringify({ a: undefined, b: 1 }) // '{"b":1}'
+JSON.stringify([undefined, 1]) // '[null,1]'
+JSON.stringify(undefined) // undefined（非字符串）
+
+// 2. NaN / Infinity / null → "null"
+JSON.stringify({ a: NaN, b: Infinity, c: null }) // '{"a":null,"b":null,"c":null}'
+
+// 3. Date → ISO 字符串
+JSON.stringify(new Date()) // '"2026-08-05T..."'
+
+// 4. 循环引用 → 抛错
+const obj = {}
+obj.self = obj
+JSON.stringify(obj) // ❌ TypeError
+
+// 5. 自定义 toJSON
+const custom = { toJSON: () => "custom" }
+JSON.stringify(custom) // '"custom"'
+
+// 6. 第二个参数（replacer）过滤
+JSON.stringify(obj, ["a"]) // 只序列化 a
+JSON.stringify(obj, (k, v) => (typeof v === "function" ? undefined : v))
+```
+
+### Q48: `map` / `set` / `Object` / `Array` 作为 Map 键的行为？
+
+```js
+// 对象键会转字符串
+const obj = {}
+obj[{}] = "x" // 键变为 "[object Object]"
+obj[{ a: 1 }] = "y" // 键仍是 "[object Object]"！被覆盖
+
+// Map 键用引用相等
+const m = new Map()
+const key1 = {}
+const key2 = {}
+m.set(key1, "a")
+m.set(key2, "b")
+m.size // 2（不同引用是两个键）
+m.get({}) // undefined（新对象不是同一个引用）
+```
+
+### Q49: 深度问题：什么是 `Object.freeze` 的浅冻结陷阱？
+
+```js
+const frozen = Object.freeze({ user: { name: "Tom" } })
+frozen.user.name = "Jerry" // ✅ 可以修改！freeze 是浅冻结
+// 深冻结需递归
+function deepFreeze(obj) {
+  Object.freeze(obj)
+  Object.keys(obj).forEach((k) => {
+    if (typeof obj[k] === "object" && obj[k] !== null) deepFreeze(obj[k])
+  })
+  return obj
+}
+```
+
+### Q50: 常见大厂面试综合题（设计/原理）
+
+**题目 1：实现 `LazyMan`（链式延迟调用）**
+
+```js
+// LazyMan("Tom").eat("apple").sleep(2).eat("rice")
+// 输出：Hi! I am Tom → eat apple → （等待 2 秒）→ eat rice
+class LazyMan {
+  constructor(name) {
+    this.tasks = [() => console.log(`Hi! I am ${name}`)]
+    setTimeout(() => this.run(), 0) // 等任务链构建完成再开始
+  }
+  eat(food) {
+    this.tasks.push(() => console.log(`eat ${food}`))
+    return this
+  }
+  sleep(sec) {
+    this.tasks.push(
+      () =>
+        new Promise((r) =>
+          setTimeout(() => {
+            console.log(`sleep ${sec}s`)
+            r()
+          }, sec * 1000)
+        )
+    )
+    return this
+  }
+  run() {
+    this.tasks.reduce((p, task) => p.then(task), Promise.resolve())
+  }
+}
+```
+
+**题目 2：实现深比较（isEqual）**
+
+```js
+function isEqual(a, b) {
+  if (a === b) return true
+  if (typeof a !== typeof b) return false
+  if (a === null || b === null || typeof a !== "object") return false
+  // Date / RegExp
+  if (a instanceof Date && b instanceof Date) return +a === +b
+  if (a instanceof RegExp && b instanceof RegExp) return String(a) === String(b)
+  // Map / Set
+  if (a instanceof Map && b instanceof Map) {
+    if (a.size !== b.size) return false
+    for (const [k, v] of a) if (!isEqual(v, b.get(k))) return false
+    return true
+  }
+  if (a instanceof Set && b instanceof Set) {
+    if (a.size !== b.size) return false
+    for (const v of a) if (!b.has(v)) return false
+    return true
+  }
+  // 普通对象 / 数组：键集合 + 递归
+  const keysA = Reflect.ownKeys(a)
+  const keysB = Reflect.ownKeys(b)
+  if (keysA.length !== keysB.length) return false
+  return keysA.every((k) => isEqual(a[k], b[k]))
+}
+```
+
+---
+
+## 十、考点全景图（自检清单）
+
+```
+✅ 基础：8 种类型 / typeof / == 转换规则 / var-let-const / 提升与 TDZ
+✅ 作用域：作用域链 / 闭包（应用与泄漏）/ this 四规则 / call-apply-bind / 箭头函数
+✅ 原型：原型链 / new / instanceof / 6 种继承 / 寄生组合式
+✅ 数组对象：方法分类 / 去重 / 扁平化 / 深拷贝 / Object 方法
+✅ ES6+：Symbol / Set-Map-Weak / Proxy vs defineProperty / 解构 / 可选链
+✅ 异步：事件循环 / 宏微任务 / Promise 全部静态方法 / async-await / 并发控制
+✅ 函数式：防抖节流 / 柯里化 / compose / 纯函数
+✅ 内存：GC 分代 / 泄漏场景 / V8 编译 / 隐藏类
+✅ 手写：Promise / call-apply-bind / new / instanceof / 深拷贝 / 并发 / 事件总线
+✅ 易错：输出顺序题 / 浮点精度 / for-in-of / JSON 坑 / 深比较
+```

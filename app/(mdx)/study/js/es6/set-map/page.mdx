@@ -1,0 +1,409 @@
+# Set & Map & WeakSet & WeakMap
+
+---
+
+## 一、Set
+
+ES2015 引入。`Set` 是值的集合，**每个值只能出现一次**（唯一性由 `SameValueZero` 算法判断，类似 `===` 但 `NaN` 等于 `NaN`）。
+
+### 基本用法
+
+```txt
+语法: new Set(iterable)
+参数: iterable — 可选，可迭代对象（数组、字符串等）
+返回: Set 实例
+```
+
+```js
+let set = new Set([1, 2, 3, 3, 4, 4, 5])
+console.log(set) // Set(5) {1, 2, 3, 4, 5}
+set.size // 5
+```
+
+### 实例属性与方法
+
+| 属性/方法           | 说明                              |
+| ------------------- | --------------------------------- |
+| `set.size`          | 元素数量                          |
+| `set.add(value)`    | 添加值，返回 Set 本身（链式调用） |
+| `set.delete(value)` | 删除值，返回 `true`/`false`       |
+| `set.has(value)`    | 判断是否存在，返回 `true`/`false` |
+| `set.clear()`       | 清空所有值                        |
+
+```js
+let set = new Set()
+set.add(1).add(2).add(3) // 链式调用
+set.has(1) // true
+set.delete(2) // true
+set.size // 2
+set.clear()
+set.size // 0
+```
+
+### 遍历方法
+
+| 方法                                   | 返回                                           |
+| -------------------------------------- | ---------------------------------------------- |
+| `set.keys()`                           | 值的迭代器（等同于 `values()`）                |
+| `set.values()`                         | 值的迭代器                                     |
+| `set.entries()`                        | `[value, value]` 的迭代器（为与 Map 保持一致） |
+| `set.forEach((value, key, set) => {})` | 遍历回调                                       |
+
+```js
+let set = new Set(["a", "b", "c"])
+
+// for...of
+for (let value of set) {
+  console.log(value)
+}
+
+// forEach（key 和 value 相同）
+set.forEach((value, key) => console.log(value, key))
+// "a" "a"; "b" "b"; "c" "c"
+
+// 转为数组
+;[...set] // ["a", "b", "c"]
+Array.from(set) // ["a", "b", "c"]
+```
+
+### 应用场景
+
+```js
+// 1. 数组去重（最常用）
+let arr = [1, 2, 2, 3, 3, 3]
+let unique = [...new Set(arr)] // [1, 2, 3]
+
+// 2. 字符串去重
+"abcaabc"
+  .split("")
+  .filter((v, i, a) => a.indexOf(v) === i)
+  .join("") // 旧方式
+;[...new Set("abcaabc")].join("") // "abc"
+
+// 3. 交集 (Intersection)
+let a = new Set([1, 2, 3])
+let b = new Set([2, 3, 4])
+let intersec = new Set([...a].filter((x) => b.has(x))) // Set {2, 3}
+
+// 4. 并集 (Union)
+let union = new Set([...a, ...b]) // Set {1, 2, 3, 4}
+
+// 5. 差集 (Difference)
+let diff = new Set([...a].filter((x) => !b.has(x))) // Set {1}
+
+// 6. 对称差集 (Symmetric Difference)
+let symDiff = new Set([...a].filter((x) => !b.has(x)).concat([...b].filter((x) => !a.has(x))))
+// Set {1, 4}
+
+// 7. 判断子集
+let isSubset = [...a].every((x) => b.has(x))
+```
+
+---
+
+## 二、WeakSet
+
+`WeakSet` 与 `Set` 类似，但：
+
+- **只能存放对象**（不能放原始值）
+- 对对象是**弱引用**（不阻止垃圾回收）
+- 不可遍历（无 `size`、`keys`、`values`、`entries`、`forEach`）
+
+### 实例方法
+
+| 方法                    | 说明         |
+| ----------------------- | ------------ |
+| `weakSet.add(value)`    | 添加对象     |
+| `weakSet.delete(value)` | 删除对象     |
+| `weakSet.has(value)`    | 判断是否存在 |
+
+```js
+let ws = new WeakSet()
+let obj1 = { name: "A" }
+let obj2 = { name: "B" }
+
+ws.add(obj1).add(obj2)
+ws.has(obj1) // true
+
+obj1 = null
+// obj1 没有其他引用后，会被 GC 回收，WeakSet 中的引用自动消失
+```
+
+### 应用场景
+
+```js
+// 标记（如标记已处理的 DOM 节点、标记已访问的对象）
+let visited = new WeakSet()
+
+function process(node) {
+  if (visited.has(node)) return
+  visited.add(node)
+  // 处理节点...
+}
+
+// 防止递归引用导致的无限循环
+function deepClone(obj, seen = new WeakSet()) {
+  if (typeof obj !== "object" || obj === null) return obj
+  if (seen.has(obj)) return // 已处理，跳过
+  seen.add(obj)
+  // ...克隆逻辑
+}
+```
+
+---
+
+## 三、Map
+
+ES2015 引入。`Map` 是键值对集合，**键可以是任意类型**（Object 只能用字符串/Symbol 做键）。
+
+### Object vs Map
+
+| 维度     | Object                       | Map                                |
+| -------- | ---------------------------- | ---------------------------------- |
+| 键的类型 | 字符串、Symbol               | **任意类型**（对象、函数、数字等） |
+| 键的顺序 | 不保证（ES2015+ 保证插入序） | ✅ 严格按插入顺序                  |
+| 大小     | 手动 `Object.keys().length`  | ✅ `map.size`                      |
+| 可迭代   | ❌ 需 `Object.entries()`     | ✅ 直接 `for...of`                 |
+| 性能     | 频繁增删差                   | ✅ 大量增删更优                    |
+| 原型链   | 有（可能与键冲突）           | 无                                 |
+
+```js
+// Map 的键可以是任意类型
+let map = new Map()
+let objKey = { id: 1 }
+let fnKey = function () {}
+
+map.set(objKey, "对象作为键")
+map.set(fnKey, "函数作为键")
+map.set("string", "字符串作为键")
+map.set(1, "数字作为键")
+
+map.get(objKey) // "对象作为键"
+```
+
+### 基本用法
+
+```txt
+语法: new Map(iterable)
+参数: iterable — 可选，[[key, value], ...] 形式的可迭代对象
+```
+
+```js
+let map = new Map([
+  ["name", "Alice"],
+  ["age", 18],
+])
+map.size // 2
+```
+
+### 实例属性与方法
+
+| 属性/方法             | 说明                                       |
+| --------------------- | ------------------------------------------ |
+| `map.size`            | 键值对数量                                 |
+| `map.set(key, value)` | 添加/更新键值对，返回 Map 本身（链式调用） |
+| `map.get(key)`        | 获取值，不存在返回 `undefined`             |
+| `map.delete(key)`     | 删除键值对，返回 `true`/`false`            |
+| `map.has(key)`        | 判断键是否存在，返回 `true`/`false`        |
+| `map.clear()`         | 清空                                       |
+
+```js
+let map = new Map()
+map.set("a", 1).set("b", 2).set("c", 3) // 链式
+map.get("a") // 1
+map.has("b") // true
+map.delete("c") // true
+map.size // 2
+```
+
+### 遍历方法
+
+| 方法                                   | 返回                                    |
+| -------------------------------------- | --------------------------------------- |
+| `map.keys()`                           | 键的迭代器                              |
+| `map.values()`                         | 值的迭代器                              |
+| `map.entries()`                        | `[key, value]` 对的迭代器（默认迭代器） |
+| `map.forEach((value, key, map) => {})` | 遍历回调                                |
+
+```js
+let map = new Map([
+  ["a", 1],
+  ["b", 2],
+])
+
+// for...of 遍历
+for (let [key, value] of map) {
+  console.log(key, value)
+}
+
+// for...of entries（等价）
+for (let [key, value] of map.entries()) {
+  console.log(key, value)
+}
+
+// forEach（注意：先 value 后 key，Array 保持一致）
+map.forEach((value, key) => console.log(key, value))
+
+// 转为数组
+;[...map.keys()] // ["a", "b"]
+;[...map.values()] // [1, 2]
+;[...map] // [["a", 1], ["b", 2]]
+
+// Map ↔ Object 互转
+let obj = Object.fromEntries(map) // { a: 1, b: 2 } (ES2019)
+let map2 = new Map(Object.entries(obj)) // Map { "a" => 1, "b" => 2 }
+```
+
+### 应用场景
+
+```js
+// 1. 计数器（统计词频）
+let words = "banana"
+let counter = new Map()
+for (let ch of words) {
+  counter.set(ch, (counter.get(ch) || 0) + 1)
+}
+// Map { "b"=>1, "a"=>3, "n"=>2 }
+
+// 2. LRU 缓存（最近最少使用）
+class LRUCache {
+  constructor(limit) {
+    this.limit = limit
+    this.cache = new Map()
+  }
+  get(key) {
+    if (!this.cache.has(key)) return -1
+    let value = this.cache.get(key)
+    this.cache.delete(key)
+    this.cache.set(key, value) // 移到末尾（最新）
+    return value
+  }
+  put(key, value) {
+    if (this.cache.has(key)) this.cache.delete(key)
+    this.cache.set(key, value)
+    if (this.cache.size > this.limit) {
+      // 删除最旧的一项（Map 的第一个键）
+      this.cache.delete(this.cache.keys().next().value)
+    }
+  }
+}
+
+// 3. 对象关联数据（不污染原对象）
+let user = { name: "Alice" }
+let metadata = new Map()
+metadata.set(user, { lastLogin: Date.now(), visits: 5 })
+// user 不包含任何额外属性
+```
+
+---
+
+## 四、WeakMap
+
+`WeakMap` 与 `Map` 类似，但：
+
+- **键只能是对象**
+- 对键是**弱引用**（不影响 GC）— 键对象被回收后，对应的值也会被回收
+- 不可遍历（无 `size`、`keys`、`values`、`entries`、`forEach`）
+
+### 实例方法
+
+| 方法                      | 说明         |
+| ------------------------- | ------------ |
+| `weakMap.set(key, value)` | 添加键值对   |
+| `weakMap.get(key)`        | 获取值       |
+| `weakMap.delete(key)`     | 删除         |
+| `weakMap.has(key)`        | 判断是否存在 |
+
+```js
+let wm = new WeakMap()
+let obj = { id: 1 }
+
+wm.set(obj, "secret data")
+wm.get(obj) // "secret data"
+wm.has(obj) // true
+
+obj = null
+// obj 被 GC 回收后，WeakMap 中的该条目自动清除
+```
+
+### 应用场景
+
+```js
+// 1. DOM 节点关联数据（Vue 3 源码中用 WeakMap 存储组件实例）
+let elData = new WeakMap()
+let el = document.querySelector("#app")
+elData.set(el, { clicks: 0, renderTime: Date.now() })
+// el 被移除 DOM 且没有其他引用后，关联数据自动回收
+
+// 2. 真正的私有属性（比 Symbol 更私密）
+let privateData = new WeakMap()
+
+class Person {
+  constructor(name, secret) {
+    privateData.set(this, { secret }) // 实例数据存在 WeakMap 中
+    this.name = name // 公开数据
+  }
+  getSecret() {
+    return privateData.get(this).secret
+  }
+}
+
+let p = new Person("Alice", "我的秘密")
+p.name // "Alice"
+p.secret // undefined
+p.getSecret() // "我的秘密"
+// 无法通过 p 对象本身访问到 secret
+
+// 3. 缓存计算结果
+let cache = new WeakMap()
+
+function heavyComputation(obj) {
+  if (cache.has(obj)) return cache.get(obj)
+  let result = /* 复杂计算 */ obj.value * 2
+  cache.set(obj, result)
+  return result
+}
+// obj 被回收后缓存自动清除，不会内存泄漏
+```
+
+---
+
+## 汇总对比
+
+### 四种集合类型对比
+
+| 维度          | Set            | WeakSet            | Map              | WeakMap            |
+| ------------- | -------------- | ------------------ | ---------------- | ------------------ |
+| **存储内容**  | 任意值         | 仅对象             | 键值对（键任意） | 键值对（键仅对象） |
+| **唯一性**    | 值唯一         | 对象引用唯一       | 键唯一           | 键唯一             |
+| **可迭代**    | ✅ `for...of`  | ❌                 | ✅ `for...of`    | ❌                 |
+| **size 属性** | ✅             | ❌                 | ✅               | ❌                 |
+| **forEach**   | ✅             | ❌                 | ✅               | ❌                 |
+| **引用类型**  | 强引用         | **弱引用**         | 强引用           | **弱引用**（键）   |
+| **GC 影响**   | 阻止键 GC      | 不阻止             | 阻止键 GC        | 不阻止键 GC        |
+| **主要用途**  | 去重、集合运算 | 标记、防止重复处理 | 键值存储、缓存   | 私有数据、DOM 关联 |
+
+### 实例方法速查
+
+| 方法              | Set | WeakSet | Map | WeakMap |
+| ----------------- | --- | ------- | --- | ------- |
+| `add(val)`        | ✅  | ✅      | —   | —       |
+| `set(key, val)`   | —   | —       | ✅  | ✅      |
+| `get(key)`        | —   | —       | ✅  | ✅      |
+| `has(val/key)`    | ✅  | ✅      | ✅  | ✅      |
+| `delete(val/key)` | ✅  | ✅      | ✅  | ✅      |
+| `clear()`         | ✅  | ❌      | ✅  | ❌      |
+| `size`            | ✅  | ❌      | ✅  | ❌      |
+| `keys()`          | ✅  | ❌      | ✅  | ❌      |
+| `values()`        | ✅  | ❌      | ✅  | ❌      |
+| `entries()`       | ✅  | ❌      | ✅  | ❌      |
+| `forEach()`       | ✅  | ❌      | ✅  | ❌      |
+
+### 使用场景速查
+
+| 数据结构  | 推荐使用场景                                                   |
+| --------- | -------------------------------------------------------------- |
+| `Set`     | 数组去重、交集/并集/差集运算、存在性检查                       |
+| `WeakSet` | 标记已处理的对象/DOM节点、防止重复处理                         |
+| `Map`     | 任意类型键值对、键值计数统计、LRU 缓存、需要保持插入顺序的场景 |
+| `WeakMap` | DOM 节点关联元数据、真正的私有属性、对象计算结果缓存           |

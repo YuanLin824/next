@@ -1,0 +1,473 @@
+# Number 常用方法与 Math
+
+> JS 中所有数字都是 IEEE 754 双精度 64 位浮点数，整数安全范围为 `-(2^53 - 1)` ~ `2^53 - 1`。
+
+---
+
+## 数值转换与解析
+
+### Number() — 转为数值
+
+```txt
+语法: Number(value)
+参数: value — 任意类型的值
+返回: 转换后的数值
+```
+
+转换规则：
+
+| 输入类型                | 结果           |
+| ----------------------- | -------------- |
+| `undefined`             | `NaN`          |
+| `null`                  | `0`            |
+| `true` / `false`        | `1` / `0`      |
+| 数字字符串 `"123"`      | `123`          |
+| 空字符串 `""`           | `0`            |
+| 含非数字字符串 `"123a"` | `NaN`          |
+| `Symbol`                | 抛出 TypeError |
+
+```js
+Number("123") // 123
+Number("") // 0
+Number("123a") // NaN
+Number(null) // 0
+Number(undefined) // NaN
+Number(true) // 1
+```
+
+### parseInt() — 解析整数
+
+```txt
+语法: parseInt(string, radix)
+参数:
+  string — 要解析的字符串（非字符串会先调用 toString）
+  radix  — 可选，进制（2 ~ 36），默认非 10；强烈建议始终传入
+返回: 解析出的整数；第一个非空字符无法转换则返回 NaN
+```
+
+逐字符解析，遇到第一个非数字字符停止。**不进行四舍五入**，直接截断。
+
+```js
+parseInt("123") // 123
+parseInt("123abc") // 123 (遇到非数字停止)
+parseInt("abc") // NaN
+parseInt("0xFF") // 255 (默认识别 0x 为十六进制)
+parseInt("0xFF", 16) // 255
+parseInt("10", 2) // 2 (二进制)
+parseInt("071") // 71 (ES5+ 不再识别八进制)
+parseInt(1.9) // 1 (直接截断，不四舍五入)
+```
+
+### parseFloat() — 解析浮点数
+
+```txt
+语法: parseFloat(string)
+参数: string — 要解析的字符串
+返回: 解析出的浮点数；同上规则
+```
+
+只解析十进制，没有 radix 参数。识别科学计数法。
+
+```js
+parseFloat("3.14") // 3.14
+parseFloat("3.14abc") // 3.14
+parseFloat("abc") // NaN
+parseFloat("3.14.15") // 3.14 (第二个点停止)
+parseFloat("1e3") // 1000
+```
+
+---
+
+## 判断方法
+
+### isNaN() — 是否为 NaN（全局函数）
+
+```txt
+语法: isNaN(value)
+参数: value — 要检测的值
+返回: true / false
+```
+
+⚠️ 全局 `isNaN` 会**先将参数转为数值**再判断，导致非数字值也被判断为 `true`：
+
+```js
+isNaN(NaN) // true
+isNaN("abc") // true (先 Number("abc") -> NaN)
+isNaN(123) // false
+isNaN("123") // false (先 Number("123") -> 123)
+```
+
+### Number.isNaN() — 严格判断 NaN (ES2015)
+
+```txt
+语法: Number.isNaN(value)
+参数: value — 要检测的值
+返回: true / false
+```
+
+不做类型转换，只有 `value === NaN` 才返回 `true`（严格来说是通过内部 SameValueZero 判断，能正确处理 `NaN`）。
+
+```js
+Number.isNaN(NaN) // true
+Number.isNaN("abc") // false (不做类型转换)
+Number.isNaN(123) // false
+```
+
+### isFinite() — 是否为有限数（全局函数）
+
+```txt
+语法: isFinite(value)
+参数: value — 要检测的值
+返回: true / false
+```
+
+判断是否为有限数值（既不是 `NaN`，也不是 `Infinity` 或 `-Infinity`）。会**先将参数转为数值**。
+
+```js
+isFinite(123) // true
+isFinite("123") // true (先 Number("123") -> 123)
+isFinite(Infinity) // false
+isFinite(NaN) // false
+isFinite("abc") // false
+```
+
+### Number.isFinite() — 严格判断有限数 (ES2015)
+
+```txt
+语法: Number.isFinite(value)
+参数: value — 要检测的值
+返回: true / false
+```
+
+不做类型转换，非数字类型直接返回 `false`。
+
+```js
+Number.isFinite(123) // true
+Number.isFinite("123") // false (不做类型转换)
+Number.isFinite(Infinity) // false
+```
+
+### Number.isInteger() — 是否为整数 (ES2015)
+
+```txt
+语法: Number.isInteger(value)
+参数: value — 要检测的值
+返回: true / false
+```
+
+```js
+Number.isInteger(1) // true
+Number.isInteger(1.0) // true
+Number.isInteger(1.5) // false
+Number.isInteger("1") // false
+Number.isInteger(Infinity) // false
+```
+
+### Number.isSafeInteger() — 是否为安全整数 (ES2015)
+
+```txt
+语法: Number.isSafeInteger(value)
+参数: value — 要检测的值
+返回: true / false
+```
+
+安全整数范围：`-(2^53 - 1)` ~ `2^53 - 1`，超出范围会丢失精度。
+
+```js
+Number.isSafeInteger(9007199254740991) // true (MAX_SAFE_INTEGER)
+Number.isSafeInteger(9007199254740992) // false
+```
+
+---
+
+## 静态常量
+
+```js
+Number.MAX_VALUE // 1.7976931348623157e+308 — 最大正数
+Number.MIN_VALUE // 5e-324 — 最小正数（接近 0，不是最小负数）
+Number.MAX_SAFE_INTEGER // 9007199254740991 (2^53 - 1)
+Number.MIN_SAFE_INTEGER // -9007199254740991 -(2^53 - 1)
+Number.POSITIVE_INFINITY // Infinity
+Number.NEGATIVE_INFINITY // -Infinity
+Number.NaN // NaN
+Number.EPSILON // 2.220446049250313e-16 — 两个可表示数的最小差值 (ES2015)
+```
+
+---
+
+## 实例方法
+
+### toFixed() — 保留小数位
+
+```txt
+语法: num.toFixed(digits)
+参数: digits — 小数点后保留的位数，范围 0 ~ 100，默认 0
+返回: 四舍五入后的字符串表示
+```
+
+```js
+let num = 3.14159
+num.toFixed(2) // "3.14"
+num.toFixed(0) // "3"
+;(3.5).toFixed() // "4" (四舍五入，注意数字字面量直接调用需加括号或空格)
+;(3.5).toFixed() // "4"
+;(1.005).toFixed(2) // "1.00" (⚠️ 浮点精度问题，预期 1.01)
+```
+
+### toPrecision() — 保留有效数字
+
+```txt
+语法: num.toPrecision(precision)
+参数: precision — 有效数字位数，范围 1 ~ 100
+返回: 字符串，可能返回科学计数法形式
+```
+
+```js
+let num = 123.456
+num.toPrecision(4) // "123.5"
+num.toPrecision(2) // "1.2e+2" (科学计数法)
+num.toPrecision(1) // "1e+2"
+```
+
+### toString() — 转字符串（支持进制）
+
+```txt
+语法: num.toString(radix)
+参数: radix — 可选，进制（2 ~ 36），默认 10
+返回: 指定进制的字符串表示
+```
+
+```js
+let num = 255
+num.toString() // "255"
+num.toString(16) // "ff"
+num.toString(2) // "11111111"
+;(10).toString(2) // "1010"
+
+// 注意：数字字面量直接调用 .toString() 需要两个点或括号
+;(10).toString(2) // "1010"
+;(10).toString(2) // "1010"
+```
+
+### toExponential() — 科学计数法
+
+```txt
+语法: num.toExponential(fractionDigits)
+参数: fractionDigits — 可选，小数点后保留位数
+返回: 科学计数法字符串
+```
+
+```js
+let num = 12345
+num.toExponential() // "1.2345e+4"
+num.toExponential(2) // "1.23e+4"
+```
+
+### valueOf() — 返回原始数值
+
+```txt
+语法: num.valueOf()
+参数: 无
+返回: 原始数值
+```
+
+```js
+let num = new Number(10) // 装箱对象
+typeof num // "object"
+typeof num.valueOf() // "number"
+```
+
+---
+
+## Math 对象
+
+### 舍入方法
+
+```txt
+语法: Math.round(x)  — 四舍五入取整
+      Math.ceil(x)   — 向上取整（天花板）
+      Math.floor(x)  — 向下取整（地板）
+      Math.trunc(x)  — 去除小数部分 (ES2015)
+参数: x — 数值
+返回: 整数
+```
+
+```js
+Math.round(3.4) // 3
+Math.round(3.5) // 4
+Math.round(-3.5) // -3 (四舍五入，正数 .5 向上，负数 .5 向上即向 0)
+
+Math.ceil(3.1) // 4
+Math.ceil(-3.1) // -3
+
+Math.floor(3.9) // 3
+Math.floor(-3.1) // -4
+
+Math.trunc(3.9) // 3
+Math.trunc(-3.9) // -3 (Math.trunc 只去小数，ES5 可借助位运算: 3.9 | 0)
+```
+
+### 常用运算
+
+```txt
+语法: Math.abs(x)    — 绝对值
+      Math.pow(x, y) — x 的 y 次方（ES2016 新增指数运算符 x ** y）
+      Math.sqrt(x)   — 平方根
+      Math.cbrt(x)   — 立方根 (ES2015)
+      Math.sign(x)   — 符号函数，返回 -1 / 0 / 1 / NaN (ES2015)
+      Math.hypot(...values) — 所有参数平方和的平方根 (ES2015)
+```
+
+```js
+Math.abs(-5) // 5
+Math.pow(2, 10) // 1024
+2 ** 10 // 1024 (ES2016 指数运算符)
+Math.sqrt(9) // 3
+Math.sign(-10) // -1
+Math.sign(0) // 0
+Math.hypot(3, 4) // 5 (√(3² + 4²))
+```
+
+### 最值与随机
+
+```txt
+语法: Math.max(value1, ..., valueN) — 最大值
+      Math.min(value1, ..., valueN) — 最小值
+      Math.random()                 — 伪随机数
+返回: max/min 返回数值；random 返回 [0, 1) 之间的浮点数
+```
+
+```js
+Math.max(1, 3, 2) // 3
+Math.min(1, 3, 2) // 1
+Math.max(...[1, 3, 2]) // 3 (配合展开运算符)
+
+// 数组取最值
+Math.max.apply(null, [1, 3, 2]) // 3
+
+// random 常见用法
+Math.random() // 0.xxx ~ 0.xxx
+
+// [0, n) 之间的整数
+function randomInt(n) {
+  return Math.floor(Math.random() * n)
+}
+
+// [min, max] 之间的整数
+function randomRange(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+```
+
+### 三角函数
+
+```js
+Math.sin(x)
+Math.cos(x)
+Math.tan(x)
+Math.asin(x) // 反正弦
+Math.acos(x) // 反余弦
+Math.atan(x) // 反正切
+Math.atan2(y, x) // 从坐标计算角度
+```
+
+### Math 常量
+
+```js
+Math.PI // 3.141592653589793
+Math.E // 2.718281828459045
+Math.LN2 // 0.6931471805599453 (ln 2)
+Math.LN10 // 2.302585092994046 (ln 10)
+Math.LOG2E // 1.4426950408889634 (log2 e)
+Math.LOG10E // 0.4342944819032518 (log10 e)
+Math.SQRT1_2 // 0.7071067811865476 (√½)
+Math.SQRT2 // 1.4142135623730951 (√2)
+```
+
+---
+
+## 浮点精度问题
+
+### 0.1 + 0.2 !== 0.3
+
+JS 使用 IEEE 754 双精度浮点数，某些十进制小数无法精确表示为二进制，导致精度丢失。
+
+```js
+0.1 + 0.2 // 0.30000000000000004
+0.1 + 0.2 === 0.3 // false
+```
+
+### 解决方案
+
+```js
+// 方案一: 使用 Number.EPSILON 判断误差范围
+function isEqual(a, b) {
+  return Math.abs(a - b) < Number.EPSILON
+}
+isEqual(0.1 + 0.2, 0.3) // true
+
+// 方案二: 转为整数运算，再除回去
+;(0.1 * 10 + 0.2 * 10) / 10 // 0.3
+
+// 方案三: toFixed 后转回数字（仅用于展示/精度要求不高的场景）
+;(0.1 + 0.2).toFixed(1) + // "0.3"
+  (0.1 + 0.2).toFixed(1) // 0.3
+
+// 方案四: 使用第三方库处理高精度计算 (decimal.js / big.js)
+```
+
+### 整数安全范围
+
+超出 `Number.MAX_SAFE_INTEGER`（`2^53 - 1`）的整数会丢失精度。超大规模整数使用 `BigInt`（ES2020）：
+
+```js
+9007199254740992 === 9007199254740993 // true (超出安全范围)
+
+// BigInt
+9007199254740992n === 9007199254740993n // false
+```
+
+---
+
+## 汇总速查表
+
+### Number 相关
+
+| 方法 / 常量               | 分类     | 参数             | 返回值              | 说明                       |
+| ------------------------- | -------- | ---------------- | ------------------- | -------------------------- |
+| `Number`                  | 转换     | `value`          | 数值                | 转为数值                   |
+| `parseInt`                | 转换     | `string, radix`  | 整数                | 解析整数，**始终传 radix** |
+| `parseFloat`              | 转换     | `string`         | 浮点数              | 解析浮点数                 |
+| `isNaN` (全局)            | 判断     | `value`          | `true` / `false`    | 会先转换再判断             |
+| `Number.isNaN`            | 判断     | `value`          | `true` / `false`    | ES2015，不做类型转换       |
+| `isFinite` (全局)         | 判断     | `value`          | `true` / `false`    | 会先转换再判断             |
+| `Number.isFinite`         | 判断     | `value`          | `true` / `false`    | ES2015，不做类型转换       |
+| `Number.isInteger`        | 判断     | `value`          | `true` / `false`    | ES2015                     |
+| `Number.isSafeInteger`    | 判断     | `value`          | `true` / `false`    | ES2015                     |
+| `MAX_VALUE` / `MIN_VALUE` | 常量     | —                | 数值                | 最大/最小正数              |
+| `MAX_SAFE_INTEGER`        | 常量     | —                | `9007199254740991`  | 最大安全整数               |
+| `MIN_SAFE_INTEGER`        | 常量     | —                | `-9007199254740991` | 最小安全整数               |
+| `Number.EPSILON`          | 常量     | —                | `2.22e-16`          | ES2015，最小差值           |
+| `toFixed`                 | 实例方法 | `digits`         | 字符串              | 保留小数位（四舍五入）     |
+| `toPrecision`             | 实例方法 | `precision`      | 字符串              | 保留有效数字               |
+| `toString`                | 实例方法 | `radix`          | 字符串              | 转字符串（支持进制）       |
+| `toExponential`           | 实例方法 | `fractionDigits` | 字符串              | 科学计数法                 |
+| `valueOf`                 | 实例方法 | 无               | 原始数值            | 返回原始值                 |
+
+### Math 相关
+
+| 方法          | 分类 | 参数                  | 返回值       | 说明           |
+| ------------- | ---- | --------------------- | ------------ | -------------- |
+| `Math.round`  | 舍入 | `x`                   | 整数         | 四舍五入       |
+| `Math.ceil`   | 舍入 | `x`                   | 整数         | 向上取整       |
+| `Math.floor`  | 舍入 | `x`                   | 整数         | 向下取整       |
+| `Math.trunc`  | 舍入 | `x`                   | 整数         | ES2015，去小数 |
+| `Math.abs`    | 运算 | `x`                   | 非负数       | 绝对值         |
+| `Math.pow`    | 运算 | `x, y`                | 数值         | x 的 y 次方    |
+| `Math.sqrt`   | 运算 | `x`                   | 数值         | 平方根         |
+| `Math.sign`   | 运算 | `x`                   | -1 / 0 / 1   | ES2015，符号   |
+| `Math.max`    | 运算 | `value1, ..., valueN` | 数值         | 最大值         |
+| `Math.min`    | 运算 | `value1, ..., valueN` | 数值         | 最小值         |
+| `Math.random` | 随机 | 无                    | `[0, 1)`     | 伪随机数       |
+| `Math.PI`     | 常量 | —                     | `3.14159...` | 圆周率         |
+| `Math.E`      | 常量 | —                     | `2.71828...` | 自然对数的底数 |

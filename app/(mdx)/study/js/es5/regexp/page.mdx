@@ -1,0 +1,468 @@
+# RegExp 正则表达式
+
+---
+
+## 创建正则
+
+### 字面量方式（推荐）
+
+```js
+let regex = /pattern/flags
+let regex = /hello/i
+```
+
+优势：编译一次，性能更好。缺点：无法动态拼接模式。
+
+### 构造函数方式
+
+```txt
+语法: new RegExp(pattern, flags)
+参数:
+  pattern — 正则表达式字符串（注意双重转义：\\d 表示 \d）
+  flags   — 可选，标志字符串
+返回: RegExp 实例
+```
+
+```js
+let regex = new RegExp("hello", "i")
+
+// 动态拼接
+let keyword = "hello"
+let regex2 = new RegExp(keyword, "gi")
+
+// 注意转义：字面量 /\d+/ 等价于 new RegExp("\\d+")
+new RegExp("\\d+") // /\d+/
+new RegExp("\d+") // /d+/ (错误！)
+```
+
+### 两种创建方式对比
+
+| 方式                     | 编译时机           | 动态拼接 | 转义写法 |
+| ------------------------ | ------------------ | -------- | -------- |
+| `/pattern/flags`         | 脚本加载时编译一次 | ❌       | `\d`     |
+| `new RegExp(str, flags)` | 运行时编译         | ✅       | `\\d`    |
+
+---
+
+## 标志 (Flags)
+
+| 标志 | 名称       | 说明                                                                     | ES 版本 |
+| ---- | ---------- | ------------------------------------------------------------------------ | ------- |
+| `g`  | global     | 全局匹配，找到所有匹配项（不影响 `test`，影响 `exec`/`match`/`replace`） | ES3     |
+| `i`  | ignoreCase | 忽略大小写                                                               | ES3     |
+| `m`  | multiline  | 多行模式，`^` `$` 匹配每行的开头结尾                                     | ES3     |
+| `s`  | dotAll     | `.` 匹配包括换行符 `\n` 在内的所有字符                                   | ES2018  |
+| `u`  | unicode    | 启用 Unicode 特性（正确处理代理对、`\p{}` 等）                           | ES2015  |
+| `y`  | sticky     | 粘性匹配，从 `lastIndex` 位置开始精确匹配                                | ES2015  |
+
+```js
+// g — 全局匹配
+"abab".match(/a/) // ["a"]
+"abab".match(/a/g) // ["a", "a"]
+
+// i — 忽略大小写
+"Hello".match(/hello/i) // ["Hello"]
+
+// m — 多行模式
+let str = "line1\nline2"
+str.match(/^\w+/gm) // ["line1", "line2"]
+
+// s — dotAll
+"a\nb".match(/a.b/s) // ["a\nb"] (ES2018)
+
+// u — unicode
+"𠮷".match(/./u) // ["𠮷"]
+"𠮷".length // 2, 不加 u 会匹配为两个字符
+
+// y — sticky
+let re = /a/gy
+re.lastIndex // 0
+re.exec("baa") // null (位置 0 不是 a)
+re.lastIndex = 1
+re.exec("baa") // ["a", index: 1]
+```
+
+---
+
+## 元字符
+
+### 字符类 (Character Classes)
+
+| 元字符 | 等价写法            | 含义                           |
+| ------ | ------------------- | ------------------------------ |
+| `.`    | `[^\n]` (无 s 标志) | 任意单个字符（除换行符）       |
+| `\d`   | `[0-9]`             | 数字字符                       |
+| `\D`   | `[^0-9]`            | 非数字字符                     |
+| `\w`   | `[a-zA-Z0-9_]`      | 单词字符（字母、数字、下划线） |
+| `\W`   | `[^a-zA-Z0-9_]`     | 非单词字符                     |
+| `\s`   | `[ \t\n\r\f\v]`     | 空白字符                       |
+| `\S`   | `[^ \t\n\r\f\v]`    | 非空白字符                     |
+| `\t`   | —                   | 制表符 (Tab)                   |
+| `\n`   | —                   | 换行符                         |
+| `\r`   | —                   | 回车符                         |
+| `\f`   | —                   | 换页符                         |
+| `\v`   | —                   | 垂直制表符                     |
+
+### 自定义字符类
+
+```js
+/[abc]/ // 匹配 a、b 或 c
+/[^abc]/ // 匹配除 a、b、c 之外的字符
+/[a-z]/ // 匹配 a 到 z
+/[a-zA-Z]/ // 匹配大小写字母
+/[0-9a-f]/ // 匹配十六进制字符
+```
+
+### Unicode 属性转义 (ES2018, 需 u 标志)
+
+```txt
+\p{Property}    — 匹配具有某属性的字符
+\P{Property}    — 匹配不具有某属性的字符
+```
+
+```js
+"你好hello".match(/\p{sc=Han}/gu) // ["你", "好"] — 中文
+"hello123".match(/\p{L}/gu) // ["h","e","l","l","o"] — 字母
+"123".match(/\p{N}/gu) // ["1","2","3"] — 数字
+```
+
+---
+
+## 锚点 (边界)
+
+| 元字符 | 含义                                                   |
+| ------ | ------------------------------------------------------ |
+| `^`    | 字符串/行的开头                                        |
+| `$`    | 字符串/行的结尾                                        |
+| `\b`   | 单词边界（`\w` 与 `\W` 之间或 `\w` 与字符串开头/结尾） |
+| `\B`   | 非单词边界                                             |
+
+```js
+/^hello/.test("hello world") // true
+/world$/.test("hello world") // true
+
+// \b 单词边界
+"hello world".match(/\b\w+\b/g) // ["hello", "world"]
+"hello world".replace(/\b/g, "|") // "|hello| |world|"
+
+// \B 非单词边界
+"hello".replace(/\B/g, "-") // "h-e-l-l-o"
+```
+
+---
+
+## 量词 (Quantifiers)
+
+| 量词    | 含义                |
+| ------- | ------------------- |
+| `*`     | 0 次或多次 `{0,}`   |
+| `+`     | 1 次或多次 `{1,}`   |
+| `?`     | 0 次或 1 次 `{0,1}` |
+| `{n}`   | 恰好 n 次           |
+| `{n,}`  | 至少 n 次           |
+| `{n,m}` | n 到 m 次           |
+
+### 贪婪匹配 vs 非贪婪匹配
+
+默认**贪婪**（尽可能多匹配）。量词后加 `?` 变为**非贪婪**（尽可能少匹配）。
+
+```js
+let str = "aabbb"
+
+// 贪婪（默认）
+str.match(/a+/) // ["aa"]
+str.match(/a+b+/) // ["aabbb"]
+
+// 非贪婪（量词后加 ?）
+str.match(/a+?/) // ["a"]
+str.match(/a+?b+?/) // ["aab"] (a 取最少 1 个, b 取最少 1 个)
+str.match(/a+?b+/) // ["aabbb"] (a 非贪婪但 b 贪婪)
+
+// 常见用法：提取标签内容
+"<div>content</div>".match(/<.+>/) // ["<div>content</div>"] (贪婪)
+"<div>content</div>".match(/<.+?>/) // ["<div>"] (非贪婪)
+```
+
+---
+
+## 分组与捕获
+
+| 语法         | 含义                                                      |
+| ------------ | --------------------------------------------------------- |
+| `(x)`        | **捕获组**：匹配 x 并捕获，可在结果/替换中引用            |
+| `(?:x)`      | **非捕获组**：匹配 x 但不捕获，不占分组编号               |
+| `(?<name>x)` | **命名捕获组** (ES2018)：捕获并赋予名称                   |
+| `x\|y`       | **或**：匹配 x 或 y                                       |
+| `\1` `\2`    | **反向引用**：引用前面的捕获组（在正则内部使用）          |
+| `$1` `$2`    | **替换引用**：引用捕获组（在 `replace` 替换字符串中使用） |
+
+### 捕获组
+
+```js
+// 捕获组编号：按左括号出现顺序
+"2024-07-16".match(/(\d{4})-(\d{2})-(\d{2})/)
+// ["2024-07-16", "2024", "07", "16"]
+//  RegExp.$1      RegExp.$2  RegExp.$3
+
+// replace 中引用 $1, $2...
+"2024-07-16".replace(/(\d{4})-(\d{2})-(\d{2})/, "$1/$2/$3") // "2024/07/16"
+```
+
+### 非捕获组
+
+```js
+// (?:x) 不捕获，不占用编号
+"hello world".match(/(?:hello) (world)/)
+// ["hello world", "world"] — 只有一个捕获组
+```
+
+### 命名捕获组 (ES2018)
+
+```js
+let match = "2024-07-16".match(/(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})/)
+match.groups.year // "2024"
+match.groups.month // "07"
+match.groups.day // "16"
+
+// replace 中引用
+"2024-07-16".replace(/(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})/, "$<year>/$<month>/$<day>")
+
+// 反向引用命名组: \k<name>
+let re = /(?<word>\w+)\s+\k<word>/
+re.test("hello hello") // true
+re.test("hello world") // false
+```
+
+### 反向引用
+
+```js
+// \1 引用第一个捕获组
+/(\w+)\s+\1/.test("hello hello") // true
+/(\w+)\s+\1/.test("hello world") // false
+
+// 找出重复单词
+"the the cat cat".match(/\b(\w+)\s+\1\b/g) // ["the the", "cat cat"]
+```
+
+---
+
+## 断言 (零宽断言)
+
+断言只匹配位置，不消耗字符。
+
+| 语法      | 名称                  | 含义           | ES 版本 |
+| --------- | --------------------- | -------------- | ------- |
+| `x(?=y)`  | 先行断言 (Lookahead)  | x 后面紧跟着 y | ES3     |
+| `x(?!y)`  | 先行否定断言          | x 后面不是 y   | ES3     |
+| `(?<=y)x` | 后行断言 (Lookbehind) | x 前面是 y     | ES2018  |
+| `(?<!y)x` | 后行否定断言          | x 前面不是 y   | ES2018  |
+
+```js
+// 先行断言: 匹配后面跟着数字的字母
+"a1 b2 c3".match(/\w(?=\d)/g) // ["a", "b", "c"] (匹配字母但要求后面是数字)
+
+// 先行否定断言: 匹配后面不是数字的字母
+"a1 b c2".match(/\w(?!\d)/g) // ["1", "b", "2"] (被匹配的字符后面不是数字)
+
+// 后行断言 (ES2018): 匹配前面是数字的字母
+"1a 2b c3".match(/(?<=\d)\w/g) // ["a", "b"] (前面是数字)
+
+// 后行否定断言: 匹配前面不是数字的字母
+"1a b 2c".match(/(?<!\d)\w/g) // ["1", "a", " ", "b", " ", "2", "c"] (无数字在前)
+
+// 实战: 金额千分位
+"12345678".replace(/(?<=\d)(?=(\d{3})+$)/g, ",") // "12,345,678"
+```
+
+---
+
+## RegExp 实例方法
+
+### test() — 测试是否匹配
+
+```txt
+语法: regex.test(str)
+参数: str — 要测试的字符串
+返回: true / false
+```
+
+带有 `g` 或 `y` 标志时，每次调用会更新 `lastIndex`，连续调用可能产生**交替结果**。
+
+```js
+/hello/.test("hello world") // true
+/hello/.test("world") // false
+
+// ⚠️ g 标志的陷阱
+let re = /hello/g
+re.test("hello hello") // true, lastIndex = 5
+re.test("hello hello") // true, lastIndex = 11
+re.test("hello hello") // false, lastIndex = 0 (回到开头)
+re.test("hello hello") // true, lastIndex = 5 (又开始了)
+```
+
+### exec() — 执行匹配
+
+```txt
+语法: regex.exec(str)
+参数: str — 要匹配的字符串
+返回:
+  - 匹配成功: 数组 [完整匹配, 捕获组1, ...]，含 index / input / groups 属性
+  - 匹配失败: null
+```
+
+带有 `g` 或 `y` 标志时，每次调用从 `lastIndex` 开始匹配，可用于**循环获取所有匹配**。
+
+```js
+let re = /(\d{4})-(\d{2})-(\d{2})/
+let result = re.exec("date: 2024-07-16")
+// result[0] = "2024-07-16"  (完整匹配)
+// result[1] = "2024"        (捕获组 1)
+// result[2] = "07"          (捕获组 2)
+// result[3] = "16"          (捕获组 3)
+// result.index = 6          (匹配起始位置)
+// result.input = "date: 2024-07-16"
+
+// g 标志循环匹配
+let re2 = /(\w+)/g
+let match
+while ((match = re2.exec("hello world")) !== null) {
+  console.log(match[0], match.index)
+  // "hello", 0
+  // "world", 6
+}
+```
+
+---
+
+## RegExp 实例属性
+
+```js
+let re = /hello/gi
+
+re.source // "hello" — 模式字符串（不含斜杠和标志）
+re.flags // "gi" — 标志字符串 (ES2015)
+re.global // true (g)
+re.ignoreCase // true (i)
+re.multiline // false (m)
+re.sticky // false (y, ES2015)
+re.unicode // false (u, ES2015)
+re.dotAll // false (s, ES2018)
+re.lastIndex // 0 — 下一次匹配的起始位置（g/y 模式下使用）
+```
+
+---
+
+## String 中与正则配合的方法
+
+| String 方法                  | 配合正则    | 返回                |
+| ---------------------------- | ----------- | ------------------- |
+| `str.match(regex)`           | ✅ 接收正则 | 匹配数组 / null     |
+| `str.matchAll(regex)`        | ✅ 必须带 g | 匹配迭代器 (ES2020) |
+| `str.search(regex)`          | ✅ 接收正则 | 首次匹配索引 / -1   |
+| `str.replace(regex, ...)`    | ✅ 接收正则 | 新字符串            |
+| `str.replaceAll(regex, ...)` | ✅ 必须带 g | 新字符串 (ES2021)   |
+| `str.split(regex, limit)`    | ✅ 接收正则 | 数组                |
+
+```js
+let str = "hello 2024 world 2025"
+
+str.match(/\d+/g) // ["2024", "2025"]
+str.search(/\d+/) // 6
+str.replace(/\d+/g, "N") // "hello N world N"
+str.split(/\s+/) // ["hello", "2024", "world", "2025"]
+```
+
+---
+
+## 常用正则示例
+
+```js
+// 邮箱
+/^[\w.-]+@[\w-]+(\.[\w-]+)+$/
+
+// 手机号（中国大陆）
+/^1[3-9]\d{9}$/
+
+// URL
+/^https?:\/\/[\w.-]+(?:\.[\w.-]+)+[\w\-._~:/?#[\]@!$&'()*+,;=]*$/
+
+// 身份证（18 位）
+/^\d{17}[\dXx]$/
+
+// IP 地址
+/^((25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d{2}|[1-9]?\d)$/
+
+// 日期 (yyyy-mm-dd)
+/^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])$/
+
+// 中文
+/[一-龥]/
+
+// 去除首尾空白（兼容所有空白字符）
+str.replace(/^\s+|\s+$/g, "")
+
+// 驼峰转下划线
+"camelCase".replace(/([A-Z])/g, "_$1").toLowerCase() // "camel_case"
+
+// 下划线转驼峰
+"camel_case".replace(/_([a-z])/g, (match, p1) => p1.toUpperCase()) // "camelCase"
+
+// 去除 HTML 标签
+str.replace(/<[^>]+>/g, "")
+
+// 金额千分位
+"12345678".replace(/\B(?=(\d{3})+(?!\d))/g, ",") // "12,345,678"
+
+// 密码强度：至少 8 位，含大小写字母和数字
+/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/
+```
+
+---
+
+## 汇总速查表
+
+### 元字符速查
+
+| 元字符  | 含义                | 示例          |
+| ------- | ------------------- | ------------- |
+| `.`     | 任意字符（除 `\n`） | `a.c` → "abc" |
+| `\d`    | 数字                | `\d` → "3"    |
+| `\D`    | 非数字              | `\D` → "a"    |
+| `\w`    | 单词字符            | `\w` → "A"    |
+| `\W`    | 非单词字符          | `\W` → "!"    |
+| `\s`    | 空白字符            | `\s` → " "    |
+| `\S`    | 非空白              | `\S` → "a"    |
+| `^`     | 开头                | `^a` → 行首 a |
+| `$`     | 结尾                | `a$` → 行尾 a |
+| `\b`    | 单词边界            | `\bword\b`    |
+| `*`     | 0+ 次               | `a*`          |
+| `+`     | 1+ 次               | `a+`          |
+| `?`     | 0/1 次              | `a?`          |
+| `{n}`   | n 次                | `a{3}`        |
+| `{n,m}` | n~m 次              | `a{2,4}`      |
+| `(x)`   | 捕获组              | `(ab)+`       |
+| `(?:x)` | 非捕获组            | `(?:ab)+`     |
+| `x\|y`  | 或                  | `a\|b`        |
+| `(?=x)` | 正先行断言          | `a(?=b)`      |
+| `(?!x)` | 负先行断言          | `a(?!b)`      |
+
+### RegExp 实例方法
+
+| 方法   | 参数  | 返回值            | g/y 标志影响        |
+| ------ | ----- | ----------------- | ------------------- |
+| `test` | `str` | `true` / `false`  | 更新 `lastIndex`    |
+| `exec` | `str` | 匹配数组 / `null` | 从 `lastIndex` 开始 |
+
+### RegExp 实例属性
+
+| 属性         | 说明             |
+| ------------ | ---------------- |
+| `source`     | 模式字符串       |
+| `flags`      | 标志字符串       |
+| `lastIndex`  | 下次匹配起始位置 |
+| `global`     | 是否有 `g`       |
+| `ignoreCase` | 是否有 `i`       |
+| `multiline`  | 是否有 `m`       |
+| `sticky`     | 是否有 `y`       |
+| `unicode`    | 是否有 `u`       |
+| `dotAll`     | 是否有 `s`       |

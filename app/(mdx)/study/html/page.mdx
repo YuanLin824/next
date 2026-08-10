@@ -1,0 +1,1115 @@
+# HTML 学习指南
+
+> 难度递进式 HTML 学习文档，从标签到语义化、表单、多媒体、SEO。
+
+---
+
+## 第一阶段：文档骨架与基础标签（入门）
+
+### 1. HTML 是什么？
+
+HTML（HyperText Markup Language）是**网页的骨架**——定义内容和结构。浏览器将 HTML 解析为 DOM 树并渲染。
+
+### 2. 最小 HTML5 文档
+
+```html
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>页面标题</title>
+  </head>
+  <body>
+    <h1>Hello World</h1>
+    <p>这是我的第一个 HTML 页面</p>
+  </body>
+</html>
+```
+
+| 标签              | 位置   | 说明                          |
+| ----------------- | ------ | ----------------------------- |
+| `<!DOCTYPE html>` | 第一行 | 声明 HTML5 文档               |
+| `<html>`          | 根元素 | 包裹所有内容                  |
+| `<head>`          | 头部   | 元信息（标题/编码/样式/脚本） |
+| `<body>`          | 主体   | 用户可见的全部内容            |
+| `<meta charset>`  | head   | 字符编码（必填）              |
+| `<meta viewport>` | head   | 移动端视口（必填）            |
+| `<title>`         | head   | 标签页标题（SEO 关键）        |
+
+### 3. 文本与排版标签
+
+```html
+<h1>一级标题</h1>
+<!-- 每页一个 h1，SEO 最佳 -->
+<h2>二级标题</h2>
+<h3>三级</h3>
+...
+<h6>六级</h6>
+
+<p>段落 — 自动换行和间距</p>
+<span>行内容器 — 不换行</span>
+<br />
+<!-- 换行（无闭合标签） -->
+<hr />
+<!-- 水平分割线 -->
+
+<strong>语义重要（粗体）</strong>
+<em>语义强调（斜体）</em>
+<b>纯视觉粗体</b><i>纯视觉斜体</i>
+<mark>高亮文本</mark>
+
+<del>删除文本</del> → <ins>插入文本</ins> <sub>下标</sub><sup>上标</sup>
+<code>行内代码</code>
+<pre>预格式化文本（保留空格和换行）</pre>
+<blockquote>块级长引用</blockquote>
+<q>行内短引用「自动加引号」</q>
+```
+
+### 4. 列表
+
+```html
+<!-- 无序列表 -->
+<ul>
+  <li>项目 1</li>
+  <li>项目 2</li>
+</ul>
+
+<!-- 有序列表 -->
+<ol start="3" reversed>
+  <li>第三项</li>
+  <li>第二项</li>
+</ol>
+
+<!-- 自定义列表（术语-解释对） -->
+<dl>
+  <dt>HTML</dt>
+  <dd>超文本标记语言</dd>
+  <dt>CSS</dt>
+  <dd>层叠样式表</dd>
+</dl>
+```
+
+> **小结**: 能写 HTML5 标准文档结构，正确使用标题/段落/列表/文本标签。
+
+---
+
+## 第二阶段：链接、图片与表格
+
+### 5. 链接 `<a>`
+
+```html
+<a href="https://example.com">外部链接</a>
+<a href="/about">站内链接</a>
+<a href="#section-2">页面内锚点</a>
+<a href="mailto:email@example.com">发送邮件</a>
+<a href="tel:+8613800138000">拨打电话</a>
+
+<!-- target="_blank" 必须 + rel 防安全问题 -->
+<a href="https://example.com" target="_blank" rel="noopener noreferrer">新窗口打开</a>
+```
+
+| 属性              | 说明                                       |
+| ----------------- | ------------------------------------------ |
+| `href`            | 链接地址                                   |
+| `target="_blank"` | 新窗口/标签页                              |
+| `rel`             | 关系（`noopener` `noreferrer` `nofollow`） |
+| `download`        | 下载链接目标                               |
+
+### 6. 图片 `<img>` 与响应式
+
+```html
+<img
+  src="photo.jpg"
+  alt="描述（必填，无障碍+SEO+加载失败回退）"
+  width="800"
+  height="600"
+  loading="lazy"
+/>
+```
+
+| 属性               | 说明                                        |
+| ------------------ | ------------------------------------------- |
+| `src`              | 图片地址                                    |
+| `alt`              | 替换文本（必填！）                          |
+| `loading="lazy"`   | 懒加载（视口外不下载）                      |
+| `width`/`height`   | 宽高（防 CLS 布局偏移）                     |
+| `srcset` + `sizes` | 响应式图片（按屏幕分辨率/宽度选择不同尺寸） |
+
+```html
+<!-- 响应式图片 — 不同格式兼容 -->
+<picture>
+  <source srcset="photo.avif" type="image/avif" />
+  <source srcset="photo.webp" type="image/webp" />
+  <img src="photo.jpg" alt="描述" />
+</picture>
+```
+
+### 7. 表格
+
+```html
+<table>
+  <caption>
+    表格标题
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col">姓名</th>
+      <th scope="col">年龄</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">Alice</th>
+      <td>18</td>
+    </tr>
+    <tr>
+      <td>Bob</td>
+      <td>20</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2">共 2 条</td>
+    </tr>
+  </tfoot>
+</table>
+```
+
+| 属性              | 说明                    |
+| ----------------- | ----------------------- |
+| `colspan="2"`     | 跨 2 列合并             |
+| `rowspan="2"`     | 跨 2 行合并             |
+| `scope="col/row"` | th 的语义方向（无障碍） |
+
+> **小结**: 能用链接/图片/表格，理解 `alt` 必填、`target="_blank"` 安全、响应式图片。
+
+---
+
+## 第三阶段：表单（交互核心）
+
+### 8. 表单结构
+
+```html
+<form action="/submit" method="POST" enctype="multipart/form-data">
+  <label for="name">姓名</label>
+  <input type="text" id="name" name="name" required minlength="2" placeholder="请输入" />
+
+  <label for="email">邮箱</label>
+  <input type="email" id="email" name="email" />
+
+  <fieldset>
+    <legend>性别</legend>
+    <label><input type="radio" name="gender" value="male" /> 男</label>
+    <label><input type="radio" name="gender" value="female" /> 女</label>
+  </fieldset>
+
+  <label for="city">城市</label>
+  <select id="city" name="city">
+    <optgroup label="华北">
+      <option value="beijing">北京</option>
+    </optgroup>
+  </select>
+
+  <label><input type="checkbox" name="agree" required /> 同意协议</label>
+
+  <label for="bio">简介</label>
+  <textarea id="bio" name="bio" rows="4" maxlength="500"></textarea>
+
+  <button type="submit">提交</button>
+  <button type="reset">重置</button>
+  <button type="button">普通按钮</button>
+</form>
+```
+
+### 9. form 属性
+
+| 属性           | 说明                                  |
+| -------------- | ------------------------------------- |
+| `action`       | 提交 URL                              |
+| `method`       | GET / POST                            |
+| `enctype`      | `multipart/form-data`（文件上传必设） |
+| `autocomplete` | on / off                              |
+| `novalidate`   | 禁用浏览器原生校验                    |
+
+### 10. input type 大全
+
+| type     | 说明                 | type             | 说明       |
+| -------- | -------------------- | ---------------- | ---------- |
+| `text`   | 文本                 | `password`       | 密码       |
+| `email`  | 邮箱（自带格式校验） | `number`         | 数字       |
+| `url`    | 网址                 | `tel`            | 电话       |
+| `search` | 搜索框               | `date`           | 日期       |
+| `time`   | 时间                 | `datetime-local` | 日期+时间  |
+| `file`   | 文件上传             | `color`          | 颜色选择器 |
+| `range`  | 滑块                 | `checkbox`       | 复选框     |
+| `radio`  | 单选框               | `hidden`         | 隐藏字段   |
+
+### 11. 表单校验属性
+
+```html
+required 必填 minlength="2" 最少字符 maxlength="20" 最多字符 min="0" max="150" 数值范围
+pattern="[a-zA-Z]+" 正则校验 type="email/url" 浏览器自动格式校验
+```
+
+> **小结**: 能写完整表单结构，理解 `label` + `for` 关联、`type` 选择、校验属性。
+
+---
+
+## 第四阶段：语义化与 SEO
+
+### 12. HTML5 语义化布局
+
+```
+<header>            — 页头（Logo + 主导航）
+<nav>               — 导航链接组
+<main>              — 页面主体（每页一个）
+  <article>         — 独立内容（博客文章）
+  <section>         — 内容分节
+  <aside>           — 侧边栏
+<footer>            — 页脚（版权/链接）
+```
+
+```html
+<body>
+  <header>
+    <h1>我的博客</h1>
+    <nav><a href="/">首页</a></nav>
+  </header>
+  <main>
+    <article>
+      <h2>文章标题</h2>
+      <p>内容...</p>
+      <footer>发布于 <time datetime="2024-01-01">1月1日</time></footer>
+    </article>
+  </main>
+  <aside><h3>关于作者</h3></aside>
+  <footer><p>(c) 2024</p></footer>
+</body>
+```
+
+### 13. SEO 优化要点
+
+```html
+<!-- 1. 标题层级 -->
+<h1>核心关键词 — 每页一个</h1>
+<!-- 最重要！ -->
+
+<!-- 2. meta 标签 -->
+<meta name="description" content="150 字内的页面描述" />
+
+<!-- 3. Open Graph — 社交分享卡片 -->
+<meta property="og:title" content="页面标题" />
+<meta property="og:image" content="https://example.com/og.jpg" />
+
+<!-- 4. 结构化数据 JSON-LD — 富文本搜索结果 -->
+<script type="application/ld+json">
+  { "@context": "https://schema.org", "@type": "Article", "headline": "文章标题" }
+</script>
+
+<!-- 5. 图片 alt 必填 -->
+<!-- 6. 规范链接 canonical -->
+<link rel="canonical" href="https://example.com/original" />
+
+<!-- 7. 语义化标签 + 链接描述性文字 -->
+```
+
+> **小结**: 能用语义化标签构建页面结构，掌握 7 条 SEO 优化要点。
+
+---
+
+## 第五阶段：多媒体与嵌入
+
+### 14. 音视频
+
+```html
+<audio controls src="audio.mp3"></audio>
+
+<video controls width="800" poster="cover.jpg" playsinline>
+  <source src="video.mp4" type="video/mp4" />
+  <source src="video.webm" type="video/webm" />
+  <track src="subtitles.vtt" kind="subtitles" srclang="zh" label="中文" />
+</video>
+```
+
+| video 属性    | 说明                   |
+| ------------- | ---------------------- |
+| `controls`    | 显示播放控件           |
+| `autoplay`    | 自动播放（需 `muted`） |
+| `loop`        | 循环                   |
+| `poster`      | 封面图                 |
+| `playsinline` | iOS 内联播放           |
+
+### 15. iframe 嵌入
+
+```html
+<iframe
+  src="https://example.com"
+  sandbox="allow-scripts allow-same-origin"
+  loading="lazy"
+  allow="camera; microphone"
+  title="描述内容"
+></iframe>
+```
+
+| 属性             | 说明                       |
+| ---------------- | -------------------------- |
+| `sandbox`        | 限制 iframe 权限（安全！） |
+| `srcdoc`         | 用 HTML 字符串直接设置内容 |
+| `loading="lazy"` | 懒加载                     |
+| `title`          | 描述（无障碍必需）         |
+
+### 16. Canvas 与 SVG
+
+```html
+<!-- Canvas — 需要 JS 控制像素 -->
+<canvas id="c" width="800" height="600"></canvas>
+<script>
+  const ctx = document.getElementById("c").getContext("2d")
+  ctx.fillRect(10, 10, 100, 80)
+</script>
+
+<!-- SVG — 矢量图形，像 HTML 一样可操作 -->
+<svg width="100" height="100">
+  <circle cx="50" cy="50" r="40" fill="red" />
+</svg>
+```
+
+---
+
+## 第六阶段：脚本加载与性能
+
+### 17. script 加载策略
+
+```html
+<!-- 普通 — 阻塞 HTML 解析 -->
+<script src="app.js"></script>
+
+<!-- defer — 不阻塞，DOM 完成后按顺序执行（推荐业务代码） -->
+<script src="app.js" defer></script>
+
+<!-- async — 不阻塞，下载完立即执行（独立脚本/统计） -->
+<script src="analytics.js" async></script>
+
+<!-- type="module" — 默认 defer + ES Module -->
+<script type="module" src="app.js"></script>
+```
+
+| 方式     | 阻塞解析 | 执行顺序            | 适用         |
+| -------- | -------- | ------------------- | ------------ |
+| 普通     | ✅       | 按出现顺序          | —            |
+| `defer`  | ❌       | 按出现顺序 (DOM 后) | **业务代码** |
+| `async`  | ❌       | 下载完立即          | 统计/广告    |
+| `module` | ❌       | 按依赖图            | ES Module    |
+
+### 18. 资源预加载
+
+```html
+<!-- preload — 当前页面必需资源（高优先级） -->
+<link rel="preload" href="hero.jpg" as="image" />
+
+<!-- prefetch — 下一页可能用的资源（低优先级） -->
+<link rel="prefetch" href="next-page.js" as="script" />
+
+<!-- preconnect — 预热连接（第三方域名） -->
+<link rel="preconnect" href="https://api.example.com" />
+
+<!-- dns-prefetch — 仅 DNS 解析 -->
+<link rel="dns-prefetch" href="https://cdn.example.com" />
+```
+
+> **小结**: defer 放在业务代码，async 给独立脚本，preload 预加载关键资源。
+
+---
+
+## 第七阶段：可访问性 (A11y)
+
+### 19. 无障碍核心技巧
+
+```html
+<!-- 1. 图片必有 alt -->
+<img alt="团队合影：10人在办公室微笑" />
+
+<!-- 2. label 关联表单 -->
+<label for="email">邮箱</label><input id="email" />
+
+<!-- 3. 跳过导航链接 -->
+<a href="#main" class="skip-link">跳到主内容</a>
+<main id="main">...</main>
+
+<!-- 4. ARIA 属性 -->
+<button aria-label="关闭">×</button>
+<div role="alert" aria-live="polite">操作成功</div>
+
+<!-- 5. 语义化HTML（用 <button> 而非 <div onclick>） -->
+<!-- 6. 键盘可操作 — tabindex + Enter/Space 事件 -->
+<!-- 7. 颜色对比度 ≥ 4.5:1 -->
+```
+
+### 20. 屏幕阅读器专用样式
+
+```css
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+```
+
+---
+
+## 第八阶段：HTML5 API
+
+### 21. 数据属性 data-\*
+
+```html
+<div data-user-id="123" data-role="admin">内容</div>
+<script>
+  console.log(el.dataset.userId) // "123"（自动驼峰）
+</script>
+```
+
+### 22. template 与 slot
+
+```html
+<!-- template — 惰性 DOM：不渲染，可克隆使用 -->
+<template id="row-tmpl">
+  <tr>
+    <td class="name"></td>
+  </tr>
+</template>
+<script>
+  const clone = document.getElementById("row-tmpl").content.cloneNode(true)
+  clone.querySelector(".name").textContent = "Alice"
+  document.querySelector("tbody").appendChild(clone)
+</script>
+```
+
+### 23. dialog 模态框
+
+```html
+<dialog id="modal">
+  <h2>标题</h2>
+  <button onclick="this.closest('dialog').close()">关闭</button>
+</dialog>
+<script>
+  document.getElementById("modal").showModal()
+</script>
+<style>
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+  }
+</style>
+```
+
+### 24. details/summary 折叠面板
+
+```html
+<details open>
+  <summary>点击展开/收起</summary>
+  <p>详细内容</p>
+</details>
+```
+
+---
+
+## 补充速查表
+
+### 语义标签速查
+
+| 需求      | 标签                        |
+| --------- | --------------------------- |
+| 页面头    | `<header>`                  |
+| 导航区    | `<nav>`                     |
+| 主内容    | `<main>`                    |
+| 独立内容  | `<article>`                 |
+| 内容分节  | `<section>`                 |
+| 侧边栏    | `<aside>`                   |
+| 页面脚    | `<footer>`                  |
+| 插图+说明 | `<figure>` + `<figcaption>` |
+| 时间日期  | `<time datetime="">`        |
+
+### head 常用标签
+
+| 标签                      | 用途                 |
+| ------------------------- | -------------------- |
+| `<title>`                 | 页面标题（SEO 核心） |
+| `<meta charset>`          | 字符编码             |
+| `<meta viewport>`         | 移动端适配           |
+| `<meta description>`      | 搜索摘要             |
+| `<link rel="stylesheet">` | 引入 CSS             |
+| `<link rel="icon">`       | 网站图标             |
+| `<script defer>`          | 引入 JS              |
+
+### 表单校验属性速查
+
+| 属性                | 校验           |
+| ------------------- | -------------- |
+| `required`          | 必填           |
+| `minlength="2"`     | 最少 2 字符    |
+| `maxlength="20"`    | 最多 20 字符   |
+| `min="0" max="150"` | 数值范围       |
+| `pattern="[a-z]+"`  | 正则匹配       |
+| `type="email"`      | 浏览器邮箱格式 |
+
+---
+
+## 第九阶段：表单进阶
+
+### 25. button 类型与陷阱
+
+```html
+<!-- ⚠️ button 默认 type 是 submit！在 form 中会触发表单提交！ -->
+<button>点击</button>
+<!-- ⚠️ 默认 submit -->
+<button type="button">按钮</button>
+<!-- ✅ 不提交 -->
+<button type="submit">提交</button>
+<button type="reset">重置</button>
+```
+
+### 26. 输入事件差异
+
+| 事件     | 触发时机             | 适用                     |
+| -------- | -------------------- | ------------------------ |
+| `input`  | 每次值变化（实时）   | 搜索联想、字数统计       |
+| `change` | 值改变且**失去焦点** | select/checkbox 立即触发 |
+
+```html
+<input oninput="count.textContent=this.value.length" /><span id="count">0</span>
+```
+
+### 27. fieldset 与 legend
+
+```html
+<fieldset disabled>
+  <!-- 整个区域禁用 -->
+  <legend>付款信息</legend>
+  <input />
+</fieldset>
+```
+
+### 28. autocomplete 详解
+
+```html
+<input autocomplete="name" />
+<!-- 姓名 -->
+<input autocomplete="email" />
+<!-- 邮箱 -->
+<input autocomplete="new-password" />
+<!-- 新密码（不填充旧密码） -->
+<input autocomplete="one-time-code" />
+<!-- OTP 验证码（短信自动填充） -->
+```
+
+### 29. progress 与 meter
+
+```html
+<progress value="70" max="100">70%</progress>
+<!-- 任务进度 -->
+<meter value="0.6" low="0.2" high="0.8">60%</meter>
+<!-- 标量度量：磁盘/评分 -->
+```
+
+### 30. 文件上传
+
+```html
+<input type="file" accept="image/*,.pdf" multiple capture="environment" />
+```
+
+| 属性              | 说明                    |
+| ----------------- | ----------------------- |
+| `accept`          | 限制类型（MIME/扩展名） |
+| `multiple`        | 多选                    |
+| `capture`         | 直接调用摄像头          |
+| `webkitdirectory` | 选择目录（非标准）      |
+
+---
+
+## 第十阶段：HTML 实体与编码
+
+### 31. HTML 实体
+
+```html
+<!-- 显示保留字符 -->
+&lt;div&gt; → &lt;div&gt;
+<!-- <div> -->
+&amp; → &amp;
+<!-- & -->
+&quot; → &quot;
+<!-- " -->
+&nbsp; → &nbsp;
+<!-- 不换行空格 -->
+&copy; → &copy;
+<!-- (c) 版权符号 -->
+&#x1F600; → &#x1F600;
+<!-- emoji -->
+```
+
+### 32. URL 编码
+
+```
+空格 → %20（或 +） |
+中文 → %xx%xx（UTF-8 编码为字节序列）
+
+encodeURIComponent("你好") → "%E4%BD%A0%E5%A5%BD"
+```
+
+---
+
+## 第十一阶段：全局属性与 DOCTYPE
+
+### 33. 常用全局属性
+
+| 属性              | 说明       | 示例                                      |
+| ----------------- | ---------- | ----------------------------------------- |
+| `id`              | 唯一标识   | `<div id="app">`                          |
+| `class`           | 样式类     | `<div class="box active">`                |
+| `style`           | 行内样式   | `<div style="color:red">`                 |
+| `title`           | 悬浮提示   | `<abbr title="World Wide Web">WWW</abbr>` |
+| `data-*`          | 自定义数据 | `<div data-id="123">`                     |
+| `hidden`          | 隐藏元素   | `<div hidden>`                            |
+| `tabindex`        | Tab 键顺序 | `tabindex="0"` 加入导航, `-1` 移除        |
+| `contenteditable` | 可编辑     | `<div contenteditable>`                   |
+| `dir`             | 文字方向   | `ltr` / `rtl`                             |
+| `lang`            | 语言       | `<p lang="en">`                           |
+| `spellcheck`      | 拼写检查   | `spellcheck="false"`                      |
+| `translate`       | 是否翻译   | `translate="no"`                          |
+| `accesskey`       | 快捷键     | `accesskey="s"`                           |
+
+### 34. DOCTYPE 与渲染模式
+
+```html
+<!DOCTYPE html>
+<!-- HTML5，仅此一行 -->
+```
+
+- **标准模式**：有 DOCTYPE → 浏览器按 W3C 规范渲染
+- **怪异模式**：无 DOCTYPE → 模拟 IE5 渲染（盒模型不同）
+
+---
+
+## 第十二阶段：a 标签进阶
+
+### 35. rel 属性值
+
+| 值           | 说明                                 |
+| ------------ | ------------------------------------ |
+| `noopener`   | 新页面不能访问 window.opener（安全） |
+| `noreferrer` | 不发送 Referer 头 + 隐含 noopener    |
+| `nofollow`   | SEO：不给目标页面权重                |
+| `ugc`        | 用户生成内容                         |
+| `sponsored`  | 赞助/付费链接                        |
+| `external`   | 外部链接                             |
+
+```html
+<a href="https://example.com" target="_blank" rel="noopener noreferrer">安全的外部链接</a>
+```
+
+### 36. 特殊 URL 协议
+
+```html
+<a href="mailto:email@example.com?subject=Hi&body=Hello">发邮件</a>
+<a href="tel:+8613800138000">打电话</a>
+<a href="sms:+8613800138000">发短信</a>
+```
+
+---
+
+## 第十三阶段：head 深度配置
+
+### 37. meta 标签大全
+
+| meta                                   | 用途                 |
+| -------------------------------------- | -------------------- |
+| `charset="UTF-8"`                      | 字符编码             |
+| `name="viewport"`                      | 移动端适配           |
+| `name="description"`                   | SEO 描述（搜索摘要） |
+| `name="theme-color"`                   | 浏览器主题色         |
+| `name="robots"`                        | 爬虫控制             |
+| `http-equiv="X-UA-Compatible"`         | IE 兼容模式          |
+| `http-equiv="Content-Security-Policy"` | 内容安全策略         |
+
+### 38. link 标签用途（不止 CSS）
+
+| rel          | 用途                |
+| ------------ | ------------------- |
+| `stylesheet` | 引入 CSS            |
+| `icon`       | 网站图标            |
+| `preload`    | 高优预加载          |
+| `prefetch`   | 低优预获取          |
+| `preconnect` | 预热连接            |
+| `canonical`  | 规范 URL（SEO）     |
+| `alternate`  | RSS 订阅/多语言版本 |
+| `manifest`   | PWA 清单文件        |
+
+---
+
+## 第十四阶段：浏览器兼容与 HTML 邮件
+
+### 39. 常见兼容问题
+
+| 问题                   | 方案                               |
+| ---------------------- | ---------------------------------- |
+| IE 不支持 HTML5 标签   | html5shiv polyfill                 |
+| iOS 300ms 点击延迟     | `<meta viewport>` + `touch-action` |
+| 不同浏览器默认样式     | Normalize.css                      |
+| input placeholder 颜色 | `::placeholder` + `-webkit-` 前缀  |
+
+### 40. HTML 邮件注意事项
+
+```html
+<!-- 1. 用 table 布局（多数邮箱客户端不支持 flex/grid） -->
+<table width="600" align="center" cellpadding="0" cellspacing="0">
+  <tr>
+    <td>内容</td>
+  </tr>
+</table>
+<!-- 2. 内联样式（外部/内部 CSS 可能被剥离） -->
+<!-- 3. 不要 JS（全部被过滤） -->
+<!-- 4. 图片绝对路径 + alt -->
+```
+
+---
+
+## 补充速查表
+
+### 行内 vs 块级
+
+| 块级                        | 行内                        | 行内块                      |
+| --------------------------- | --------------------------- | --------------------------- |
+| `div` `p` `h1-h6` `section` | `span` `a` `strong` `em`    | `img` `input` `button`      |
+| `ul` `ol` `li` `table`      | `code` `br` `q` `sub` `sup` | `select` `textarea` `video` |
+| `header` `footer` `main`    | `small` `mark` `abbr`       | `iframe` `canvas`           |
+
+### DOCTYPE 与模式
+
+| 状态     | 条件                 | 盒模型                               |
+| -------- | -------------------- | ------------------------------------ |
+| 标准模式 | 有 `<!DOCTYPE html>` | `width` = content（content-box）     |
+| 怪异模式 | 无 DOCTYPE           | `width` = content + padding + border |
+
+### Special URL 协议
+
+| 协议                 | 说明             |
+| -------------------- | ---------------- |
+| `mailto:`            | 打开邮件客户端   |
+| `tel:`               | 拨打电话         |
+| `sms:`               | 发短信           |
+| `javascript:void(0)` | 不跳转（不推荐） |
+
+---
+
+## 第十五阶段：HTML 解析与安全
+
+### 41. 浏览器如何解析 HTML？
+
+```
+字节流 (Bytes) → 字符 (Chars) → Token (词法分析) → DOM 节点 → DOM 树
+```
+
+关键规则：
+
+- 遇到 `<script>` → 暂停解析，等 JS 下载执行完（除非 async/defer）
+- HTML 解析器有容错能力（自动补全缺失标签、忽略不认识的元素）
+- CSS 解析不阻塞 DOM 构建，但阻塞 Render 树
+
+### 42. XSS 防范 — HTML 层面的安全
+
+```js
+// ❌ 危险 — 用户输入直接插入 HTML
+el.innerHTML = userInput // 可能注入 <script> 或 <img onerror=>
+
+// ✅ 安全方式
+el.textContent = userInput // 1. 纯文本（推荐）
+el.innerHTML = escapeHTML(userInput) // 2. HTML 实体编码
+el.innerHTML = DOMPurify.sanitize(userInput) // 3. 净化为安全 HTML
+```
+
+### 43. iframe sandbox 详解
+
+| 令牌                | 允许                       |
+| ------------------- | -------------------------- |
+| `allow-scripts`     | JS 执行（不允许弹窗）      |
+| `allow-same-origin` | 同源访问（Storage/Cookie） |
+| `allow-forms`       | 表单提交                   |
+| `allow-popups`      | 弹窗                       |
+| `allow-modals`      | 模态框                     |
+| `allow-downloads`   | 文件下载                   |
+
+---
+
+## 第十六阶段：更多 HTML5 API
+
+### 44. Web Storage
+
+```js
+// 持久存储（手动清除才消失）
+localStorage.setItem("theme", "dark")
+const theme = localStorage.getItem("theme")
+
+// 标签页关闭即清除
+sessionStorage.setItem("draft", JSON.stringify(data))
+```
+
+### 45. History API — SPA 路由基础
+
+```js
+history.pushState({ page: 1 }, "", "/page1") // 修改 URL 不刷新
+window.addEventListener("popstate", (e) => console.log(e.state)) // 监听前进后退
+```
+
+### 46. Web Workers — 后台线程
+
+```js
+const worker = new Worker("worker.js")
+worker.postMessage(largeData) // 发数据
+worker.onmessage = (e) => console.log("结果:", e.data) // 收结果
+// worker.js: self.onmessage = (e) => { self.postMessage(heavyCalc(e.data)) }
+```
+
+### 47. Drag & Drop
+
+```html
+<div draggable="true" ondragstart="e.dataTransfer.setData('text', e.target.id)">拖我</div>
+<div ondragover="e.preventDefault()" ondrop="handleDrop">放这里</div>
+```
+
+### 48. 地理定位
+
+```js
+navigator.geolocation.getCurrentPosition((pos) => {
+  console.log(pos.coords.latitude, pos.coords.longitude)
+})
+```
+
+---
+
+## 全文总结
+
+HTML 学习文档共 **16 阶段、48 个核心知识点**，覆盖从标签入门到 API 编程：
+
+| 阶段              | 核心内容                                                                                                |
+| ----------------- | ------------------------------------------------------------------------------------------------------- |
+| 1-3（基础）       | HTML5 骨架/文本排版/列表/链接/图片/响应式图片/表格/表单结构/input type 18种/校验属性                    |
+| 4（语义SEO）      | 语义化布局 header/nav/main/article/section/aside/footer/SEO 7 点/json-ld                                |
+| 5-6（多媒体性能） | video/audio/iframe sandbox/Canvas/SVG/defer async/preload prefetch preconnect                           |
+| 7-8（A11y API）   | alt必填/label关联/ARIA/skip-link/template/slot/dialog/details-summary/data-\*                           |
+| 9-10（进阶）      | button-type陷阱/input vs change/fieldset/autocomplete/progress meter/HTML实体/URL编码                   |
+| 11-14（全局属性） | id/class/tabindex/contenteditable/DOOCTYPE/rel属性/head meta link大全/HTML邮件/兼容性                   |
+| 15-16（安全API）  | HTML解析流程/XSS防范/iframe sandbox令牌/localStorage/History pushState/Web Worker/Drag Drop/Geolocation |
+
+---
+
+## 第十七阶段：Web Components
+
+### 49. 自定义元素 Custom Elements
+
+```js
+class MyCounter extends HTMLElement {
+  constructor() {
+    super()
+    this.count = 0
+  }
+  connectedCallback() {
+    this.innerHTML = `<button>-</button><span>${this.count}</span><button>+</button>`
+    this.querySelectorAll("button")[0].onclick = () => {
+      this.count--
+      this.render()
+    }
+    this.querySelectorAll("button")[1].onclick = () => {
+      this.count++
+      this.render()
+    }
+  }
+  render() {
+    this.querySelector("span").textContent = this.count
+  }
+}
+customElements.define("my-counter", MyCounter)
+```
+
+```html
+<my-counter></my-counter>
+<!-- 自定义标签！ -->
+```
+
+### 50. Shadow DOM — 样式隔离
+
+```js
+const shadow = this.attachShadow({ mode: "open" })
+shadow.innerHTML = `<style>p { color: red }</style><p>Shadow DOM 内容</p>`
+// <style> 只影响 Shadow DOM 内部，不影响外部页面
+```
+
+### 51. Popover API — 原生弹层
+
+```html
+<button popovertarget="menu">菜单</button>
+<div id="menu" popover>选项 1 / 选项 2</div>
+<!-- 自动 ESC 关闭 / 点击外部关闭 / 焦点管理 / 顶层显示 -->
+```
+
+---
+
+## 第十八阶段：HTML 性能深入
+
+### 52. Critical Rendering Path
+
+```
+HTML → DOM Tree  ┐
+                 ├→ Render Tree → Layout → Paint → Composite → 屏幕
+CSS → CSSOM Tree ┘
+```
+
+```html
+<!-- 内联首屏关键 CSS（减少渲染阻塞） -->
+<style>
+  /* 首屏布局 + 关键样式 */
+</style>
+
+<!-- 非关键 CSS 异步加载 -->
+<link rel="preload" href="styles.css" as="style" onload="this.rel='stylesheet'" />
+```
+
+### 53. 图片懒加载策略
+
+```html
+<!-- 1. 原生懒加载 -->
+<img loading="lazy" src="photo.jpg" />
+
+<!-- 2. fetchpriority 控制优先级 -->
+<img src="hero.jpg" fetchpriority="high" />
+<img loading="lazy" fetchpriority="low" src="below-fold.jpg" />
+```
+
+### 54. 资源提示完整指南
+
+```
+dns-prefetch → preconnect → preload → fetchpriority
+
+加载顺序:
+1. <link rel="preload"> — 当前页必需（最高优先级）
+2. fetchpriority="high" — 关键资源优先
+3. 默认优先级 — 正常资源
+4. <link rel="prefetch"> — 下一页可能用到（空闲时加载）
+```
+
+---
+
+## 第十九阶段：更多 HTML5 API
+
+### 55. Intersection Observer — 元素可见性
+
+```js
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e) => {
+    if (e.isIntersecting) {
+      console.log("进入视口")
+      e.target.src = e.target.dataset.src
+    }
+  })
+})
+document.querySelectorAll("img[data-src]").forEach((img) => observer.observe(img))
+```
+
+### 56. Mutation Observer — DOM 变化监听
+
+```js
+const observer = new MutationObserver((mutations) => {
+  mutations.forEach((m) => console.log(m.type, m.target))
+})
+observer.observe(document.body, { childList: true, subtree: true, attributes: true })
+```
+
+### 57. Fullscreen API
+
+```js
+document.getElementById("video").requestFullscreen()
+document.exitFullscreen()
+document.addEventListener("fullscreenchange", () => console.log(document.fullscreenElement))
+```
+
+### 58. Clipboard API
+
+```js
+await navigator.clipboard.writeText("要复制的文本")
+const text = await navigator.clipboard.readText()
+```
+
+### 59. Notification API
+
+```html
+<script>
+  const perm = await Notification.requestPermission()
+  if (perm === "granted") new Notification("标题", { body: "内容", icon: "/icon.png" })
+</script>
+```
+
+---
+
+## 第二十阶段：高级标记与调试
+
+### 60. 微数据 (Microdata) — SEO 语义标记
+
+```html
+<div itemscope itemtype="https://schema.org/Person">
+  <span itemprop="name">Alice</span>
+  <span itemprop="jobTitle">工程师</span>
+  <div itemprop="address" itemscope itemtype="https://schema.org/PostalAddress">
+    <span itemprop="addressLocality">北京</span>
+  </div>
+</div>
+```
+
+### 61. 使用 Chrome DevTools 排查 HTML 问题
+
+```
+Elements 面板:
+  - 右键元素 → Edit as HTML → 直接编辑
+  - 右键元素 → Break on → 节点移除/属性修改时断点
+  - 右侧 Styles/Computed/Event Listeners → 查看样式/事件
+
+Lighthouse:
+  - 生成性能/SEO/A11y 评分 + 针对性优化建议
+```
+
+---
+
+## 补充速查表
+
+### HTML 字符实体常用
+
+| 实体      | 显示       |
+| --------- | ---------- |
+| `&lt;`    | `<`        |
+| `&gt;`    | `>`        |
+| `&amp;`   | `&`        |
+| `&quot;`  | `"`        |
+| `&apos;`  | `'`        |
+| `&nbsp;`  | 不换行空格 |
+| `&copy;`  | `(c)`      |
+| `&reg;`   | `(r)`      |
+| `&trade;` | TM         |
+
+### HTML5 API 速查
+
+| API                           | 用途         |
+| ----------------------------- | ------------ |
+| `localStorage/sessionStorage` | 本地存储     |
+| `History.pushState`           | SPA 路由     |
+| `Web Worker`                  | 后台线程     |
+| `Service Worker`              | 离线缓存     |
+| `IntersectionObserver`        | 可见性检测   |
+| `MutationObserver`            | DOM 变化监听 |
+| `Geolocation`                 | 定位         |
+| `Clipboard`                   | 剪贴板       |
+| `Notification`                | 桌面通知     |
+| `Fullscreen`                  | 全屏         |
+| `Drag & Drop`                 | 拖拽         |
+| `Custom Elements`             | 自定义标签   |
+| `Shadow DOM`                  | 样式隔离     |
+| `Popover`                     | 原生弹层     |

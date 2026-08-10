@@ -1,0 +1,581 @@
+# Object 常用方法
+
+---
+
+## 创建与复制
+
+### Object.create() — 创建对象（指定原型）
+
+```txt
+语法: Object.create(proto, propertiesObject)
+参数:
+  proto            — 新对象的原型对象
+  propertiesObject — 可选，属性描述符对象（格式同 Object.defineProperties 第二个参数）
+返回: 新创建的对象
+```
+
+以 `proto` 为原型创建一个新对象。与 `{}` 字面量不同，`Object.create(null)` 可创建**无原型的纯字典对象**（没有 `toString` / `hasOwnProperty` 等继承方法）。
+
+```js
+let parent = { x: 1 }
+let child = Object.create(parent)
+child.x // 1 (继承自 parent)
+child.__proto__ === parent // true
+
+// 创建无原型对象（适合用作哈希/字典）
+let dict = Object.create(null)
+dict.toString // undefined
+```
+
+### Object.assign() — 浅拷贝/合并 (ES2015)
+
+```txt
+语法: Object.assign(target, ...sources)
+参数:
+  target  — 目标对象（会被修改并返回）
+  sources — 一个或多个源对象
+返回: 修改后的 target 对象
+```
+
+将 `sources` 中所有**可枚举的自身属性**拷贝到 `target`。**浅拷贝**（嵌套对象只复制引用）。同名属性会被后续源覆盖。
+
+```js
+let target = { a: 1 }
+let source = { b: 2, c: 3 }
+Object.assign(target, source) // target = { a: 1, b: 2, c: 3 }
+
+// 浅拷贝示例
+let obj = { a: 1, nested: { b: 2 } }
+let copy = Object.assign({}, obj)
+copy.nested === obj.nested // true (浅拷贝，嵌套对象共享引用)
+
+// 同名属性覆盖
+Object.assign({ a: 1, b: 2 }, { b: 3, c: 4 }) // { a: 1, b: 3, c: 4 }
+```
+
+---
+
+## 属性定义与描述
+
+### Object.defineProperty() — 定义单个属性
+
+```txt
+语法: Object.defineProperty(obj, prop, descriptor)
+参数:
+  obj        — 要定义属性的目标对象
+  prop       — 属性名（字符串或 Symbol）
+  descriptor — 属性描述符对象，包含以下可选键:
+    value        — 属性值，默认 undefined
+    writable     — 是否可修改，默认 false
+    enumerable   — 是否可枚举（for...in / Object.keys），默认 false
+    configurable — 是否可删除/重新配置，默认 false
+    get          — getter 函数，默认 undefined
+    set          — setter 函数，默认 undefined
+返回: 修改后的 obj
+```
+
+通过描述符精确控制属性的行为。`value`/`writable` 与 `get`/`set` **互斥**（数据描述符 vs 访问器描述符），不能同时使用。
+
+```js
+let obj = {}
+
+// 数据属性
+Object.defineProperty(obj, "name", {
+  value: "Alice",
+  writable: true,
+  enumerable: true,
+  configurable: true,
+})
+
+// 访问器属性（getter / setter）
+let user = { firstName: "San", lastName: "Zhang" }
+Object.defineProperty(user, "fullName", {
+  get() {
+    return `${this.lastName} ${this.firstName}`
+  },
+  set(val) {
+    ;[this.lastName, this.firstName] = val.split(" ")
+  },
+  enumerable: true,
+  configurable: true,
+})
+user.fullName // "Zhang San"
+user.fullName = "Li Si"
+user.lastName // "Li"
+```
+
+### Object.defineProperties() — 定义多个属性
+
+```txt
+语法: Object.defineProperties(obj, props)
+参数:
+  obj   — 目标对象
+  props — 属性名到描述符对象的映射
+返回: 修改后的 obj
+```
+
+一次定义多个属性。
+
+```js
+let obj = {}
+Object.defineProperties(obj, {
+  name: { value: "Alice", writable: true, enumerable: true },
+  age: { value: 18, writable: true, enumerable: true },
+})
+```
+
+### Object.getOwnPropertyDescriptor() — 获取属性描述符
+
+```txt
+语法: Object.getOwnPropertyDescriptor(obj, prop)
+参数:
+  obj  — 目标对象
+  prop — 属性名
+返回: 属性描述符对象；属性不存在返回 undefined
+```
+
+只查找**自身属性**，不查原型链。
+
+```js
+let obj = { x: 1 }
+Object.getOwnPropertyDescriptor(obj, "x")
+// { value: 1, writable: true, enumerable: true, configurable: true }
+```
+
+### Object.getOwnPropertyDescriptors() — 获取所有属性描述符 (ES2017)
+
+```txt
+语法: Object.getOwnPropertyDescriptors(obj)
+参数: obj — 目标对象
+返回: 所有自身属性的描述符组成的对象 { propName: descriptor, ... }
+```
+
+常用于配合 `Object.create` 做**深层次的浅拷贝**（连同 getter/setter 一起复制）。
+
+```js
+let obj = { x: 1, get y() {} }
+Object.getOwnPropertyDescriptors(obj)
+// { x: { value: 1, writable: true, enumerable: true, configurable: true },
+//   y: { get: [Function: get y], set: undefined, enumerable: true, configurable: true } }
+
+// 完整拷贝（含 getter/setter，而非仅拷贝值）
+let clone = Object.create(Object.getPrototypeOf(obj), Object.getOwnPropertyDescriptors(obj))
+```
+
+---
+
+## 遍历与键值提取
+
+### Object.keys() — 获取自身可枚举属性名
+
+```txt
+语法: Object.keys(obj)
+参数: obj — 目标对象
+返回: 由 obj 自身可枚举属性名组成的数组
+```
+
+顺序与 `for...in` 一致，但不包含原型链上的属性。
+
+```js
+let obj = { a: 1, b: 2, c: 3 }
+Object.keys(obj) // ["a", "b", "c"]
+```
+
+### Object.values() — 获取自身可枚举属性值 (ES2017)
+
+```txt
+语法: Object.values(obj)
+参数: obj — 目标对象
+返回: 由 obj 自身可枚举属性值组成的数组
+```
+
+```js
+let obj = { a: 1, b: 2, c: 3 }
+Object.values(obj) // [1, 2, 3]
+```
+
+### Object.entries() — 获取自身可枚举键值对 (ES2017)
+
+```txt
+语法: Object.entries(obj)
+参数: obj — 目标对象
+返回: 由 [key, value] 对组成的数组
+```
+
+常用于将对象转为可迭代结构以配合 `for...of` 或 `Map`。
+
+```js
+let obj = { a: 1, b: 2 }
+Object.entries(obj) // [["a", 1], ["b", 2]]
+
+// 配合 for...of
+for (let [key, value] of Object.entries(obj)) {
+  console.log(key, value)
+}
+
+// 转为 Map
+new Map(Object.entries(obj)) // Map { "a" => 1, "b" => 2 }
+
+// 配合 reduce 逆操作 entries → object
+Object.entries(obj).reduce((acc, [k, v]) => ((acc[k] = v), acc), {})
+
+// ES2019: Object.fromEntries() 直接完成此操作
+Object.fromEntries(Object.entries(obj)) // { a: 1, b: 2 }
+```
+
+### Object.getOwnPropertyNames() — 获取所有自身属性名（含不可枚举）
+
+```txt
+语法: Object.getOwnPropertyNames(obj)
+参数: obj — 目标对象
+返回: 由 obj 所有自身属性名（可枚举 + 不可枚举，不含 Symbol）组成的数组
+```
+
+与 `Object.keys()` 区别：`keys` 只返回可枚举属性，`getOwnPropertyNames` 返回所有字符串键属性。
+
+```js
+let obj = { a: 1 }
+Object.defineProperty(obj, "hidden", { value: 2, enumerable: false })
+
+Object.keys(obj) // ["a"]
+Object.getOwnPropertyNames(obj) // ["a", "hidden"]
+```
+
+### Object.getOwnPropertySymbols() — 获取 Symbol 属性 (ES2015)
+
+```txt
+语法: Object.getOwnPropertySymbols(obj)
+参数: obj — 目标对象
+返回: 由 obj 所有自身 Symbol 键属性组成的数组
+```
+
+```js
+let sym = Symbol("key")
+let obj = { [sym]: "symbol value", name: "regular" }
+
+Object.getOwnPropertySymbols(obj) // [Symbol(key)]
+Object.keys(obj) // ["name"] (不含 Symbol)
+```
+
+---
+
+## 判断与比较
+
+### Object.is() — 同值相等比较 (ES2015)
+
+```txt
+语法: Object.is(value1, value2)
+参数: value1, value2 — 要比较的两个值
+返回: true / false
+```
+
+与 `===` 类似，但有两个特殊处理：
+
+- `+0` 与 `-0` 不相等（`===` 认为相等）
+- `NaN` 与 `NaN` 相等（`===` 认为不相等）
+
+```js
+Object.is(+0, -0) // false (+0 === -0 为 true)
+Object.is(NaN, NaN) // true (NaN === NaN 为 false)
+Object.is({}, {}) // false (引用比较)
+Object.is(1, "1") // false (类型不同)
+```
+
+### hasOwnProperty() — 判断是否为自身属性
+
+```txt
+语法: obj.hasOwnProperty(prop)
+参数: prop — 属性名（字符串或 Symbol）
+返回: true / false
+```
+
+判断属性是否为对象**自身**属性（不查原型链）。注意：`Object.create(null)` 创建的对象没有此方法，可用 `Object.hasOwn(obj, prop)` (ES2022) 替代。
+
+```js
+let obj = { own: 1 }
+obj.hasOwnProperty("own") // true
+obj.hasOwnProperty("toString") // false (继承自原型)
+"toString" in obj // true (in 会查原型链)
+
+// 安全调用（防止 hasOwnProperty 被覆盖）
+Object.prototype.hasOwnProperty.call(obj, "own")
+// ES2022
+Object.hasOwn(obj, "own")
+```
+
+### propertyIsEnumerable() — 判断是否为自身可枚举属性
+
+```txt
+语法: obj.propertyIsEnumerable(prop)
+参数: prop — 属性名（字符串或 Symbol）
+返回: true / false
+```
+
+必须是自身属性**且** `enumerable: true` 才返回 `true`。
+
+```js
+let obj = { a: 1 }
+Object.defineProperty(obj, "b", { value: 2, enumerable: false })
+
+obj.propertyIsEnumerable("a") // true
+obj.propertyIsEnumerable("b") // false
+obj.propertyIsEnumerable("toString") // false (原型属性)
+```
+
+### isPrototypeOf() — 判断是否在原型链上
+
+```txt
+语法: prototypeObj.isPrototypeOf(object)
+参数: object — 要检测的对象
+返回: true / false
+```
+
+等效于 `prototypeObj` 是否存在于 `object` 的原型链中。
+
+```js
+function Foo() {}
+let obj = new Foo()
+
+Foo.prototype.isPrototypeOf(obj) // true
+Object.prototype.isPrototypeOf(obj) // true
+```
+
+### instanceof — 判断构造函数原型是否在原型链上
+
+```txt
+语法: object instanceof Constructor
+参数: Constructor — 构造函数
+返回: true / false
+```
+
+检测 `Constructor.prototype` 是否出现在 `object` 的原型链上。
+
+```js
+[] instanceof Array // true
+[] instanceof Object // true
+{} instanceof Array // false
+```
+
+---
+
+## 限制与冻结
+
+### Object.freeze() — 冻结对象
+
+```txt
+语法: Object.freeze(obj)
+参数: obj — 要冻结的对象
+返回: 被冻结的 obj
+```
+
+冻结后对象**不可修改、不可添加、不可删除**属性，`writable` 和 `configurable` 强制变为 `false`。**浅冻结**：嵌套对象不受影响。
+
+```js
+let obj = { x: 1, nested: { y: 2 } }
+Object.freeze(obj)
+
+obj.x = 99 // 无效（严格模式抛出 TypeError）
+delete obj.x // 无效
+obj.newProp = 3 // 无效
+
+obj.nested.y = 99 // 有效！嵌套对象未被冻结
+
+Object.isFrozen(obj) // true
+Object.isFrozen(obj.nested) // false
+
+// 深冻结递归实现
+function deepFreeze(obj) {
+  Object.freeze(obj)
+  Object.values(obj).forEach((val) => {
+    if (typeof val === "object" && val !== null && !Object.isFrozen(val)) {
+      deepFreeze(val)
+    }
+  })
+}
+```
+
+### Object.seal() — 密封对象
+
+```txt
+语法: Object.seal(obj)
+参数: obj — 要密封的对象
+返回: 被密封的 obj
+```
+
+与 `freeze` 的区别：`seal` 允许**修改现有属性值**，但**不可添加/删除**属性。`configurable` 强制变为 `false`，`writable` 保持不变。
+
+```js
+let obj = { x: 1 }
+Object.seal(obj)
+
+obj.x = 2 // 有效（可以修改）
+delete obj.x // 无效
+obj.y = 3 // 无效
+
+Object.isSealed(obj) // true
+```
+
+### Object.preventExtensions() — 禁止扩展
+
+```txt
+语法: Object.preventExtensions(obj)
+参数: obj — 目标对象
+返回: 被限制的 obj
+```
+
+禁止向对象**添加新属性**，但可以删除和修改现有属性。
+
+```js
+let obj = { x: 1 }
+Object.preventExtensions(obj)
+
+obj.x = 2 // 有效
+delete obj.x // 有效
+obj.y = 3 // 无效（不可新增）
+
+Object.isExtensible(obj) // false
+```
+
+### 三种限制级别对比
+
+| 方法                | 添加属性 | 删除属性 | 修改值 | 修改属性描述符 | 检测方法       |
+| ------------------- | -------- | -------- | ------ | -------------- | -------------- |
+| `preventExtensions` | ❌       | ✅       | ✅     | ✅             | `isExtensible` |
+| `seal`              | ❌       | ❌       | ✅     | ❌             | `isSealed`     |
+| `freeze`            | ❌       | ❌       | ❌     | ❌             | `isFrozen`     |
+
+---
+
+## 原型操作
+
+### Object.getPrototypeOf() — 获取原型
+
+```txt
+语法: Object.getPrototypeOf(obj)
+参数: obj — 目标对象
+返回: obj 的原型对象
+```
+
+比已废弃的 `__proto__` 更推荐使用。
+
+```js
+let arr = []
+Object.getPrototypeOf(arr) === Array.prototype // true
+Object.getPrototypeOf({}) === Object.prototype // true
+Object.getPrototypeOf(Object.create(null)) // null
+```
+
+### Object.setPrototypeOf() — 设置原型 (ES2015)
+
+```txt
+语法: Object.setPrototypeOf(obj, prototype)
+参数:
+  obj       — 目标对象
+  prototype — 新原型对象（或 null）
+返回: 修改后的 obj
+```
+
+**性能警告**：动态修改原型非常慢，尽量避免在性能关键路径上使用。优先用 `Object.create()` 在创建时指定原型。
+
+```js
+let obj = { a: 1 }
+let proto = { b: 2 }
+Object.setPrototypeOf(obj, proto)
+obj.b // 2
+```
+
+### constructor — 构造函数引用
+
+每个原型对象上的 `constructor` 属性指回构造函数。注意 `constructor` 默认可枚举为 `false`，可被覆盖。
+
+```js
+;[].constructor === Array // true
+;(function () {}).constructor === Function // true
+
+// prototype.constructor 指向构造函数本身
+Array.prototype.constructor === Array // true
+```
+
+---
+
+## 类型转换
+
+### toString() — 转为字符串
+
+```txt
+语法: obj.toString()
+参数: 无
+返回: 字符串表示
+```
+
+默认返回 `"[object Type]"`，不同内置类型做了覆写：
+
+```js
+;({}).toString() // "[object Object]"
+;[1, 2].toString() // "1,2"
+;(function () {}).toString() // "function () {}"
+new Date().toString() // "Thu Jul 16 2026 ..."
+;(100).toString(16) // "64" (Number.prototype.toString 支持进制参数)
+```
+
+常用于类型检测：
+
+```js
+Object.prototype.toString.call([]) // "[object Array]"
+Object.prototype.toString.call(null) // "[object Null]"
+Object.prototype.toString.call(undefined) // "[object Undefined]"
+Object.prototype.toString.call(/regex/) // "[object RegExp]"
+```
+
+### valueOf() — 转为原始值
+
+```txt
+语法: obj.valueOf()
+参数: 无
+返回: 对象的原始值表示
+```
+
+在隐式类型转换中 JS 会优先调用 `valueOf()`，若结果非原始值则调用 `toString()`。自定义对象可覆写以控制转换行为。
+
+```js
+let obj = {
+  valueOf() {
+    return 42
+  },
+}
+obj + 1 // 43
+Number(obj) // 42
+```
+
+---
+
+## 汇总速查表
+
+| 方法                               | 分类     | 参数                      | 返回值                 | 说明               |
+| ---------------------------------- | -------- | ------------------------- | ---------------------- | ------------------ |
+| `Object.create`                    | 创建     | `proto, propertiesObject` | 新对象                 | 以指定原型创建对象 |
+| `Object.assign`                    | 创建     | `target, ...sources`      | `target`               | 浅拷贝/合并        |
+| `Object.defineProperty`            | 属性定义 | `obj, prop, descriptor`   | `obj`                  | 定义单个属性       |
+| `Object.defineProperties`          | 属性定义 | `obj, props`              | `obj`                  | 定义多个属性       |
+| `Object.getOwnPropertyDescriptor`  | 属性定义 | `obj, prop`               | 描述符对象 / undefined | 获取属性描述符     |
+| `Object.getOwnPropertyDescriptors` | 属性定义 | `obj`                     | 所有描述符对象         | 获取全部描述符     |
+| `Object.keys`                      | 遍历     | `obj`                     | 属性名数组             | 自身可枚举属性名   |
+| `Object.values`                    | 遍历     | `obj`                     | 属性值数组             | 自身可枚举属性值   |
+| `Object.entries`                   | 遍历     | `obj`                     | `[key, value]` 数组    | 自身可枚举键值对   |
+| `Object.getOwnPropertyNames`       | 遍历     | `obj`                     | 属性名数组             | 含不可枚举属性名   |
+| `Object.getOwnPropertySymbols`     | 遍历     | `obj`                     | Symbol 数组            | 自身 Symbol 属性   |
+| `Object.is`                        | 判断     | `value1, value2`          | `true` / `false`       | 同值相等           |
+| `hasOwnProperty`                   | 判断     | `prop`                    | `true` / `false`       | 是否为自身属性     |
+| `propertyIsEnumerable`             | 判断     | `prop`                    | `true` / `false`       | 是否为自身可枚举   |
+| `isPrototypeOf`                    | 判断     | `object`                  | `true` / `false`       | 是否在原型链上     |
+| `instanceof`                       | 判断     | `Constructor`             | `true` / `false`       | 原型链检测运算符   |
+| `Object.freeze`                    | 限制     | `obj`                     | `obj`                  | 冻结（不可改删增） |
+| `Object.seal`                      | 限制     | `obj`                     | `obj`                  | 密封（不可删增）   |
+| `Object.preventExtensions`         | 限制     | `obj`                     | `obj`                  | 禁止扩展（不可增） |
+| `Object.isFrozen`                  | 限制     | `obj`                     | `true` / `false`       | 是否已冻结         |
+| `Object.isSealed`                  | 限制     | `obj`                     | `true` / `false`       | 是否已密封         |
+| `Object.isExtensible`              | 限制     | `obj`                     | `true` / `false`       | 是否可扩展         |
+| `Object.getPrototypeOf`            | 原型     | `obj`                     | 原型对象 / null        | 获取原型           |
+| `Object.setPrototypeOf`            | 原型     | `obj, prototype`          | `obj`                  | 设置原型           |
+| `toString`                         | 转换     | 无                        | 字符串                 | 转字符串           |
+| `valueOf`                          | 转换     | 无                        | 原始值                 | 转原始值           |

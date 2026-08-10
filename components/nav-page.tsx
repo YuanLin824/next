@@ -3,6 +3,7 @@ import {
   AppWindow,
   Atom,
   Bot,
+  Braces,
   Brain,
   Cat,
   Code2,
@@ -44,6 +45,7 @@ const ICON_MAP: Record<string, IconComponent> = {
   "app-window": AppWindow,
   atom: Atom,
   bot: Bot,
+  braces: Braces,
   brain: Brain,
   cat: Cat,
   "code-2": Code2,
@@ -86,7 +88,7 @@ export interface CardGroup {
   title: string
   icon: string
   url: string
-  children: { title: string; icon: string; url: string; desc: string }[]
+  children: { title: string; icon: string; url: string; desc?: string }[]
 }
 
 export type NavPageProps = { type: "study" | "interview"; groups: CardGroup[] }

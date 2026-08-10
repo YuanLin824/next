@@ -1,0 +1,339 @@
+# JavaScript 变量
+
+---
+
+## 声明方式：var / let / const
+
+| 关键字  | 作用域 | 重复声明 | 变量提升                       | TDZ | 可修改          | ES 版本 |
+| ------- | ------ | -------- | ------------------------------ | --- | --------------- | ------- |
+| `var`   | 函数级 | ✅ 允许  | ✅ 提升 + 初始化为 `undefined` | ❌  | ✅              | ES1     |
+| `let`   | 块级   | ❌ 禁止  | ✅ 提升但未初始化              | ✅  | ✅              | ES2015  |
+| `const` | 块级   | ❌ 禁止  | ✅ 提升但未初始化              | ✅  | ❌ 不可重新赋值 | ES2015  |
+
+### 代码对比
+
+```js
+// ——— var ———
+var x = 1
+var x = 2 // ✅ 可以重复声明，x = 2
+console.log(a) // undefined（变量提升，未报错）
+var a = 10
+
+// ——— let ———
+let y = 1
+// let y = 2       // ❌ SyntaxError: 重复声明
+// console.log(b)  // ❌ ReferenceError: TDZ
+let b = 10
+
+// ——— const ———
+const z = 1
+// const z = 2     // ❌ SyntaxError: 重复声明
+// z = 2           // ❌ TypeError: 不能重新赋值
+// const c         // ❌ SyntaxError: 声明时必须初始化
+```
+
+---
+
+## 作用域 (Scope)
+
+### 三种作用域
+
+| 作用域     | 说明                         | var         | let / const |
+| ---------- | ---------------------------- | ----------- | ----------- |
+| 全局作用域 | 最外层，页面生命周期内有效   | ✅          | ✅          |
+| 函数作用域 | `function` 内部              | ✅          | ✅          |
+| 块级作用域 | `{}` 内部（if/for/while 等） | ❌ **穿透** | ✅          |
+
+### 块级作用域示例
+
+```js
+// var 穿透块级
+if (true) {
+  var a = 1
+}
+console.log(a) // 1 — var 没有块级作用域！
+
+// let/const 遵守块级
+if (true) {
+  let b = 2
+  const c = 3
+}
+// console.log(b)  // ❌ ReferenceError
+// console.log(c)  // ❌ ReferenceError
+
+// 循环中的经典差异
+for (var i = 0; i < 3; i++) {
+  setTimeout(() => console.log("var:", i), 0) // 3 3 3
+}
+for (let j = 0; j < 3; j++) {
+  setTimeout(() => console.log("let:", j), 0) // 0 1 2
+}
+// let 每次迭代创建新的绑定，var 共享同一个
+```
+
+### 函数作用域
+
+```js
+function fn() {
+  var inside = "函数内"
+  let alsoInside = "函数内"
+}
+// console.log(inside)     // ❌ ReferenceError
+// console.log(alsoInside) // ❌ ReferenceError
+
+// 内部函数可以访问外部变量（闭包基础）
+function outer() {
+  let msg = "hello"
+  function inner() {
+    console.log(msg) // 可访问
+  }
+  inner()
+}
+```
+
+---
+
+## 变量提升 (Hoisting)
+
+### 提升规则
+
+```txt
+var:    声明提升到作用域顶部，初始化为 undefined（可在声明前使用）
+let:    声明提升到作用域顶部，但不初始化（声明前不可使用 → TDZ）
+const:  同 let
+
+函数声明: 整体提升（声明 + 函数体都提升），可在声明前调用
+```
+
+### 代码示例
+
+```js
+// var 提升
+console.log(x) // undefined
+var x = 5
+// 等价于:
+// var x
+// console.log(x)  // undefined
+// x = 5
+
+// let 提升但未初始化
+// console.log(y)   // ❌ ReferenceError: Cannot access 'y' before initialization
+let y = 10
+
+// 函数声明提升
+sayHi() // "Hi!" — 可以调用
+function sayHi() {
+  console.log("Hi!")
+}
+
+// 函数表达式不提升函数体
+// fn()          // ❌ TypeError: fn is not a function
+var fn = function () {
+  console.log("fn")
+}
+// var fn 提升为 undefined，还不是函数
+```
+
+---
+
+## 暂时性死区 (TDZ)
+
+从**块开始**到 `let/const` **声明语句**之间的区域。此区域内访问变量会抛出 `ReferenceError`。
+
+```js
+{
+  // TDZ 开始
+  // console.log(a) // ❌ ReferenceError
+  // TDZ 结束
+  let a = 1
+
+  // 这里可以安全使用
+  console.log(a) // 1
+}
+
+// typeof 在 TDZ 中也不安全
+{
+  // typeof b // ❌ ReferenceError（不是返回 "undefined"！）
+  let b
+}
+
+// 对比：未声明的变量 typeof 返回 "undefined"
+typeof notDeclared // "undefined"（安全）
+```
+
+### TDZ 常见陷阱
+
+```js
+// 函数参数默认值中的 TDZ
+function fn(a = b, b = 1) {
+  // ❌ ReferenceError — b 在初始化前被 a 使用
+}
+fn()
+
+// class 也有 TDZ
+// let p = new Person()  // ❌ ReferenceError
+class Person {}
+```
+
+---
+
+## 全局对象属性
+
+### var 与 let/const 的区别
+
+```js
+// var 声明的全局变量会成为 window 的属性
+var globalVar = 1
+console.log(window.globalVar) // 1 (浏览器环境)
+delete window.globalVar // false (不可删除，configurable: false)
+
+// let/const 声明的全局变量不会挂在 window 上
+let globalLet = 2
+console.log(window.globalLet) // undefined
+
+// 直接赋值的未声明变量会成为 window 属性
+implicitGlobal = 3
+console.log(window.implicitGlobal) // 3
+delete window.implicitGlobal // true (可以删除)
+```
+
+---
+
+## const 的本质
+
+`const` 保证的是**变量指向的内存地址不变**，而不是值本身不可变。
+
+```js
+// 基本类型：值不可变
+const num = 42
+// num = 43  // ❌ TypeError
+
+// 引用类型：对象内部属性可以修改
+const obj = { name: "Alice" }
+obj.name = "Bob" // ✅ 修改属性内容
+obj.age = 18 // ✅ 添加新属性
+// obj = {}    // ❌ TypeError: 不能改变引用
+
+// 数组同理
+const arr = [1, 2, 3]
+arr.push(4) // ✅
+arr[0] = 0 // ✅
+// arr = []  // ❌
+
+// 想要真正的不可变，使用 Object.freeze
+const frozen = Object.freeze({ name: "Alice" })
+// frozen.name = "Bob" // ❌ 静默失败（严格模式抛 TypeError）
+```
+
+---
+
+## 命名规范
+
+| 规范                    | 示例                      | 适用场景                |
+| ----------------------- | ------------------------- | ----------------------- |
+| 驼峰命名 (camelCase)    | `userName`, `getUserInfo` | 变量、函数、方法        |
+| 帕斯卡命名 (PascalCase) | `User`, `Person`          | 类、构造函数            |
+| 全大写+下划线           | `MAX_SIZE`, `API_URL`     | 常量                    |
+| 下划线前缀 `_`          | `_privateVar`             | 约定"私有"              |
+| `$` 前缀                | `$el`, `$ref`             | DOM 引用（jQuery 遗留） |
+
+```js
+// ✅ 合法命名
+let name, _name, $name, name123
+
+// ❌ 非法命名
+// let 123name  // 不能以数字开头
+// let my-name  // 不能有连字符
+// let for      // 不能用保留字
+```
+
+---
+
+## 解构赋值 (ES2015)
+
+### 数组解构
+
+```js
+let [a, b, c] = [1, 2, 3] // a=1, b=2, c=3
+
+// 跳过
+let [, second] = ["a", "b", "c"] // second = "b"
+
+// 默认值
+let [x = 10, y] = [undefined, 5] // x=10, y=5
+
+// 剩余项
+let [first, ...rest] = [1, 2, 3, 4] // first=1, rest=[2,3,4]
+
+// 交换变量（无需临时变量）
+let m = 1,
+  n = 2
+;[m, n] = [n, m] // m=2, n=1
+```
+
+### 对象解构
+
+```js
+let { name, age } = { name: "Alice", age: 18 }
+
+// 重命名
+let { name: userName } = { name: "Alice" } // userName = "Alice"
+
+// 默认值
+let { role = "user" } = {} // role = "user"
+
+// 剩余属性
+let { a, ...others } = { a: 1, b: 2, c: 3 } // a=1, others={b:2, c:3}
+
+// 嵌套解构
+let {
+  info: { city },
+} = { name: "Alice", info: { city: "Beijing" } }
+// city = "Beijing"
+
+// 函数参数解构
+function greet({ name, age }) {
+  console.log(`${name}, ${age}`)
+}
+greet({ name: "Alice", age: 18 })
+```
+
+---
+
+## 汇总速查表
+
+### var / let / const 对比
+
+| 维度           | var                   | let              | const            |
+| -------------- | --------------------- | ---------------- | ---------------- |
+| 作用域         | 函数级                | 块级             | 块级             |
+| 重复声明       | ✅                    | ❌               | ❌               |
+| 提升           | ✅ 初始化为 undefined | ✅ 未初始化(TDZ) | ✅ 未初始化(TDZ) |
+| 全局对象属性   | ✅ (`window.x`)       | ❌               | ❌               |
+| 可重新赋值     | ✅                    | ✅               | ❌               |
+| 声明时需初始化 | ❌                    | ❌               | ✅               |
+| 推荐使用       | ❌ 避免               | ✅               | ✅ 首选          |
+
+### 最佳实践
+
+```js
+// 1. 默认使用 const
+const name = "Alice"
+
+// 2. 需要重新赋值时用 let
+let count = 0
+count++
+
+// 3. 不再使用 var
+// var x = 1  // ❌ 避免
+
+// 4. 先声明再使用
+let result // 声明
+result = compute() // 再赋值
+
+// 5. 声明尽量靠近使用位置，放在最小块作用域中
+if (condition) {
+  let temp = "只在 if 内使用"
+  // ...
+}
+```

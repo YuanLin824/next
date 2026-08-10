@@ -1,0 +1,1007 @@
+# Proxy & Reflect
+
+> ES2015 引入。`Proxy` 用于创建对象的**代理**，拦截并自定义对象的基本操作；`Reflect` 提供与 Proxy 陷阱**一一对应**的内置方法，用于在陷阱中还原默认行为。二者配合是 Vue 3 响应式系统的底层实现。
+>
+> 一句话记忆：「**Proxy 负责拦截，Reflect 负责还原默认行为**，二者配合 = 完整的对象元编程（Meta Programming）」。
+
+---
+
+## 一、Proxy 基础
+
+### 1. 基本语法
+
+```txt
+语法: new Proxy(target, handler)
+参数:
+  target  — 被代理的目标对象（可以是任意类型，包括函数、数组）
+  handler — 拦截器对象，定义各种"陷阱"（trap）函数
+返回: 代理对象
+```
+
+```js
+let target = { name: "Alice" }
+
+let proxy = new Proxy(target, {
+  get(obj, prop) {
+    console.log(`读取 ${prop}`)
+    return obj[prop]
+  },
+  set(obj, prop, value) {
+    console.log(`设置 ${prop} = ${value}`)
+    obj[prop] = value
+    return true
+  },
+})
+
+proxy.name // 输出 "读取 name" → "Alice"
+proxy.age = 18 // 输出 "设置 age = 18"
+target.age // 18 (原始对象也被修改)
+```
+
+> **关键原则**：代理之后的操作应完全通过 `proxy` 进行，尽量避免直接操作 `target`，否则拦截会失效。
+
+### 2. 13 种拦截操作 (Handler Traps)
+
+#### 2.1 get(target, property, receiver) — 读取属性
+
+```txt
+拦截: proxy.foo, proxy[bar]
+参数:
+  target   — 目标对象
+  property — 属性名（字符串或 Symbol）
+  receiver — 代理对象本身（或继承该代理的对象）
+返回: 任意值
+```
+
+```js
+let proxy = new Proxy(
+  {},
+  {
+    get(target, prop, receiver) {
+      if (prop in target) {
+        return Reflect.get(target, prop, receiver)
+      }
+      return `属性 "${prop}" 不存在`
+    },
+  }
+)
+
+proxy.name // "属性 "name" 不存在"
+proxy.name = "Alice"
+proxy.name // "Alice"
+```
+
+#### 2.2 set(target, property, value, receiver) — 设置属性
+
+```txt
+拦截: proxy.foo = value, proxy[bar] = value
+参数:
+  target, property, receiver — 同 get
+  value — 新值
+返回: true 表示成功；false 在严格模式下抛出 TypeError
+```
+
+```js
+let proxy = new Proxy(
+  { age: 20 },
+  {
+    set(target, prop, value) {
+      if (prop === "age") {
+        if (!Number.isInteger(value)) throw new TypeError("age 必须是整数")
+        if (value < 0 || value > 150) throw new RangeError("age 超出范围")
+      }
+      target[prop] = value
+      return true
+    },
+  }
+)
+
+proxy.age = 25 // ✅
+// proxy.age = "abc"  // ❌ TypeError
+// proxy.age = 200    // ❌ RangeError
+```
+
+#### 2.3 has(target, property) — in 运算符
+
+```txt
+拦截: prop in proxy
+参数: target, property
+返回: true / false
+```
+
+```js
+let proxy = new Proxy(
+  { secret: "hidden" },
+  {
+    has(target, prop) {
+      if (prop === "secret") return false // 隐藏私有属性
+      return prop in target
+    },
+  }
+)
+
+"name" in proxy // false
+"secret" in proxy // false (被隐藏)
+```
+
+#### 2.4 deleteProperty(target, property) — delete 运算符
+
+```txt
+拦截: delete proxy.foo
+参数: target, property
+返回: true / false
+```
+
+```js
+let proxy = new Proxy(
+  { id: 1, locked: true },
+  {
+    deleteProperty(target, prop) {
+      if (prop === "locked") throw new Error("locked 属性不可删除")
+      return Reflect.deleteProperty(target, prop)
+    },
+  }
+)
+
+delete proxy.id // true
+// delete proxy.locked  // ❌ Error
+```
+
+#### 2.5 ownKeys(target) — 遍历自身键
+
+```txt
+拦截: Object.keys(proxy), Object.getOwnPropertyNames(proxy),
+      Object.getOwnPropertySymbols(proxy), for...in
+参数: target
+返回: 可枚举的字符串/Symbol 数组
+```
+
+```js
+let proxy = new Proxy(
+  { _secret: "x", name: "Alice", age: 18 },
+  {
+    ownKeys(target) {
+      return Reflect.ownKeys(target).filter((key) => !String(key).startsWith("_"))
+    },
+  }
+)
+
+Object.keys(proxy) // ["name", "age"]
+Object.getOwnPropertyNames(proxy) // ["name", "age"]
+```
+
+#### 2.6 其余 8 种陷阱
+
+```txt
+getOwnPropertyDescriptor(target, property)  — 拦截 Object.getOwnPropertyDescriptor(proxy, prop)
+                                               返回: 属性描述符对象 / undefined
+
+defineProperty(target, property, descriptor) — 拦截 Object.defineProperty(proxy, prop, descriptor)
+                                               返回: true 表示成功
+
+preventExtensions(target)                   — 拦截 Object.preventExtensions(proxy)
+                                               返回: true / false
+
+isExtensible(target)                        — 拦截 Object.isExtensible(proxy)
+                                               返回: true / false
+
+getPrototypeOf(target)                      — 拦截 Object.getPrototypeOf(proxy), __proto__, instanceof
+                                               返回: 对象或 null
+
+setPrototypeOf(target, proto)               — 拦截 Object.setPrototypeOf(proxy, proto)
+                                               返回: true / false
+
+apply(target, thisArg, argumentsList)       — 拦截 proxy(...args), proxy.call(...), proxy.apply(...)
+                                               返回: 任意值
+
+construct(target, argumentsList, newTarget) — 拦截 new proxy(...args)
+                                               返回: 必须返回一个对象
+```
+
+```js
+// apply 示例：函数调用拦截（AOP）
+let multiply = new Proxy(
+  function (a, b) {
+    return a * b
+  },
+  {
+    apply(target, thisArg, args) {
+      console.log(`调用函数，参数:`, args)
+      return target.apply(thisArg, args) * 2
+    },
+  }
+)
+
+multiply(3, 4) // 输出日志 → 24
+
+// construct 示例：new 拦截
+function Person(name) {
+  this.name = name
+}
+
+let ProxiedPerson = new Proxy(Person, {
+  construct(target, args) {
+    console.log(`new Person(${args})`)
+    return new target(...args)
+  },
+})
+
+new ProxiedPerson("Alice") // 输出: new Person(Alice)
+```
+
+### 3. Proxy 13 种陷阱速查
+
+| 陷阱                       | 拦截操作                          | 参数                            | 返回值               |
+| -------------------------- | --------------------------------- | ------------------------------- | -------------------- |
+| `get`                      | `proxy.prop`                      | `target, prop, receiver`        | 任意                 |
+| `set`                      | `proxy.prop = val`                | `target, prop, value, receiver` | `true`/`false`       |
+| `has`                      | `prop in proxy`                   | `target, prop`                  | `true`/`false`       |
+| `deleteProperty`           | `delete proxy.prop`               | `target, prop`                  | `true`/`false`       |
+| `ownKeys`                  | `Object.keys(proxy)` 等           | `target`                        | 数组                 |
+| `getOwnPropertyDescriptor` | `Object.getOwnPropertyDescriptor` | `target, prop`                  | 描述符 / `undefined` |
+| `defineProperty`           | `Object.defineProperty`           | `target, prop, descriptor`      | `true`/`false`       |
+| `preventExtensions`        | `Object.preventExtensions`        | `target`                        | `true`/`false`       |
+| `isExtensible`             | `Object.isExtensible`             | `target`                        | `true`/`false`       |
+| `getPrototypeOf`           | `Object.getPrototypeOf`           | `target`                        | 对象 / `null`        |
+| `setPrototypeOf`           | `Object.setPrototypeOf`           | `target, proto`                 | `true`/`false`       |
+| `apply`                    | `proxy(...args)`                  | `target, thisArg, args`         | 任意                 |
+| `construct`                | `new proxy(...args)`              | `target, args, newTarget`       | 必须返回对象         |
+
+---
+
+## 二、Reflect 基础
+
+### 4. 基本认识
+
+`Reflect` 是 ES6 新增的**内置对象**，提供 13 个静态方法，专门用来**操作对象**（读取属性、设置属性、删除属性、调用函数、构造实例等）。
+
+```js
+// 使用方式：Reflect.方法名(目标对象, ...参数)
+Reflect.get(obj, "name") // 读取属性
+Reflect.set(obj, "name", "Tom") // 设置属性
+Reflect.has(obj, "name") // 判断属性
+Reflect.deleteProperty(obj, "name") // 删除属性
+Reflect.apply(fn, thisArg, args) // 调用函数
+Reflect.construct(Foo, [1, 2]) // 构造实例
+```
+
+**三个重要认知**：
+
+| 认知              | 说明                                                                                    |
+| ----------------- | --------------------------------------------------------------------------------------- |
+| 不是构造函数      | `new Reflect()` ❌ 报错；Reflect 只有静态方法，没有实例方法                             |
+| 不是一个"类"      | 不能用 `Object.setPrototypeOf(Reflect, ...)` 修改它的原型，它更像 `Math` 这样的工具对象 |
+| 与 Proxy 一一对应 | Proxy 的 13 个陷阱都有对应的 `Reflect.*` 方法（见 8 节）                                |
+
+### 5. 为什么需要 Reflect？（三大设计目的）
+
+**目的 1：统一操作对象的途径（告别散落的旧写法）**
+
+```js
+// 以前：操作对象有 5 种不同语法，行为不一致
+"name" in obj // 判断属性
+delete obj.name // 删除属性
+obj.name = "Tom" // 设置属性
+Object.defineProperty(obj, "k", {}) // 定义属性
+obj.fn() // 调用方法
+
+// 现在：统一为函数调用风格
+Reflect.has(obj, "name")
+Reflect.deleteProperty(obj, "name")
+Reflect.set(obj, "name", "Tom")
+Reflect.defineProperty(obj, "k", {})
+Reflect.apply(obj.fn, obj, [])
+```
+
+**目的 2：让默认操作可以被拦截（Proxy 的基石）**
+
+Proxy 可以拦截对象的默认行为，而 `Reflect.*` 提供了与默认行为**完全一致**的原始实现。在 Proxy 陷阱中调用 `Reflect.*` 就等于"执行默认行为"。
+
+**目的 3：修正 Object 方法的不合理行为**
+
+`Object.defineProperty` 失败时**抛异常**，而 `Reflect.defineProperty` 返回 `false`——用返回值表达结果，更符合函数式习惯（详见 7 节）。
+
+### 6. 13 个静态方法全解析
+
+**方法总览**：
+
+```
+按功能分类：
+
+┌─ 属性操作 ─────────────────────────────────┐
+│ get / set / has / deleteProperty           │
+│ defineProperty / ownKeys                   │
+│ getOwnPropertyDescriptor                   │
+├─ 原型操作 ─────────────────────────────────┤
+│ getPrototypeOf / setPrototypeOf            │
+├─ 函数操作 ─────────────────────────────────┤
+│ apply / construct                          │
+├─ 能力检查 ─────────────────────────────────┤
+│ isExtensible / preventExtensions           │
+└────────────────────────────────────────────┘
+```
+
+| 方法                                            | 作用                         | 对应旧写法                                             |
+| ----------------------------------------------- | ---------------------------- | ------------------------------------------------------ |
+| `Reflect.get(target, key, receiver?)`           | 读取属性                     | `target[key]`                                          |
+| `Reflect.set(target, key, value, receiver?)`    | 设置属性                     | `target[key] = value`                                  |
+| `Reflect.has(target, key)`                      | 判断属性（含原型链）         | `key in target`                                        |
+| `Reflect.deleteProperty(target, key)`           | 删除属性                     | `delete target[key]`                                   |
+| `Reflect.defineProperty(target, key, desc)`     | 定义属性（返回布尔）         | `Object.defineProperty`                                |
+| `Reflect.ownKeys(target)`                       | 所有键（含 Symbol/不可枚举） | `Object.getOwnPropertyNames` + `getOwnPropertySymbols` |
+| `Reflect.getOwnPropertyDescriptor(target, key)` | 属性描述符                   | `Object.getOwnPropertyDescriptor`                      |
+| `Reflect.getPrototypeOf(target)`                | 读原型                       | `Object.getPrototypeOf`                                |
+| `Reflect.setPrototypeOf(target, proto)`         | 设原型（返回布尔）           | `Object.setPrototypeOf`                                |
+| `Reflect.apply(fn, thisArg, args)`              | 调用函数                     | `fn.apply(thisArg, args)`                              |
+| `Reflect.construct(Fn, args, newTarget?)`       | 构造实例                     | `new Fn(...args)`                                      |
+| `Reflect.isExtensible(target)`                  | 是否可扩展                   | `Object.isExtensible`                                  |
+| `Reflect.preventExtensions(target)`             | 禁止扩展                     | `Object.preventExtensions`                             |
+
+**属性操作：get / set / has / deleteProperty**：
+
+```js
+const obj = { name: "Tom", age: 18 }
+
+// ── get：读取属性 ──
+Reflect.get(obj, "name") // "Tom"
+Reflect.get(obj, "name", someReceiver) // receiver：绑定 getter 的 this（见 9.2）
+
+// ── set：设置属性（返回布尔，成功 true）──
+Reflect.set(obj, "age", 19) // true（写入成功）
+// 只读属性时返回 false 而不是抛错：
+Object.defineProperty(obj, "locked", { value: 1, writable: false })
+Reflect.set(obj, "locked", 2) // false（静默失败）
+obj.locked = 2 // 严格模式才抛错，非严格模式静默失败
+
+// ── has：判断属性（会查原型链，等同 in）──
+Reflect.has(obj, "name") // true
+Reflect.has(obj, "toString") // true（原型链上的）
+
+// ── deleteProperty：删除属性（返回布尔）──
+Reflect.deleteProperty(obj, "age") // true
+// 不可配置属性删除失败返回 false：
+Object.defineProperty(obj, "fixed", { configurable: false })
+Reflect.deleteProperty(obj, "fixed") // false
+delete obj.fixed // 严格模式抛错
+```
+
+**返回值语义的优势**（对比 `in` / `delete` 运算符）：
+
+```js
+// 旧语法是「语句」，不能作为表达式直接用
+const exists = "name" in obj // 可以但仅此而已
+delete obj.age // 语句，不能嵌进表达式
+
+// Reflect 是「函数」，返回值可编程
+if (Reflect.set(obj, "age", 18)) {
+  console.log("写入成功")
+}
+const success = [obj1, obj2, obj3].every((o) => Reflect.set(o, "flag", true))
+```
+
+**receiver 参数（get/set 的第三个参数，重点）**：
+
+```js
+// 场景：对象有 getter，getter 内部用 this 访问其他属性
+const obj = {
+  _x: 10,
+  get x() {
+    return this._x // this 指向谁？
+  },
+}
+Reflect.get(obj, "x") // 10（this = obj）
+
+// receiver：指定 getter 中 this 的指向
+const other = { _x: 100 }
+Reflect.get(obj, "x", other) // 100！getter 的 this 被绑定为 other
+
+// 真实场景：Proxy 代理后，getter 的 this 必须指向 receiver（见 9.2）
+```
+
+**原型操作：getPrototypeOf / setPrototypeOf**：
+
+```js
+const proto = {
+  say() {
+    console.log("hi")
+  },
+}
+const obj = Object.create(proto)
+
+Reflect.getPrototypeOf(obj) === proto // true
+Reflect.setPrototypeOf(obj, null) // true（返回布尔）
+
+// 注意：setPrototypeOf 传非对象/非 null 会抛 TypeError
+// 与 Object.setPrototypeOf 行为一致，但返回布尔而非抛错（失败时）
+```
+
+**函数操作：apply / construct**：
+
+```js
+// ── apply：更干净的函数调用方式 ──
+const fn = function (a, b) {
+  return a + b
+}
+
+// 旧写法（this 传递繁琐）
+Function.prototype.apply.call(fn, null, [1, 2]) // 3
+
+// Reflect 写法（推荐）
+Reflect.apply(fn, null, [1, 2]) // 3
+Reflect.apply(Math.max, null, [3, 1, 5]) // 5（数组传参取最大）
+
+// ── construct：替代 new，可指定 newTarget ──
+class Animal {
+  constructor(name) {
+    this.name = name
+  }
+}
+const dog = Reflect.construct(Animal, ["旺财"]) // 等价 new Animal("旺财")
+
+// 第三个参数 newTarget：改变 instanceof 归属
+function Dog() {}
+const cat = Reflect.construct(Animal, ["咪咪"], Dog)
+cat instanceof Animal // false
+cat instanceof Dog // true（用 Dog 作为 newTarget）
+// 应用：子类继承时重定向构造（transpile 场景）
+```
+
+**能力检查：isExtensible / preventExtensions**：
+
+```js
+const obj = {}
+Reflect.isExtensible(obj) // true
+Reflect.preventExtensions(obj) // true（成功）
+Reflect.isExtensible(obj) // false
+
+// 注意：不可扩展对象仍可修改已有属性、删除属性，只是不能新增
+Reflect.set(obj, "a", 1) // false（新增失败）
+```
+
+### 7. Reflect 与 Object 方法的差异
+
+| 对比项                     | `Object.*`                     | `Reflect.*`                          |
+| -------------------------- | ------------------------------ | ------------------------------------ |
+| `defineProperty` 失败时    | **抛 TypeError**               | 返回 `false`（可编程处理）           |
+| `setPrototypeOf` 失败时    | **抛 TypeError**               | 返回 `false`                         |
+| `deleteProperty`           | 无对应方法（用 `delete` 语句） | 返回 `false`（可判断）               |
+| `getOwnPropertyNames`      | 只返回字符串键                 | `ownKeys` 返回字符串 + **Symbol** 键 |
+| `getOwnPropertyDescriptor` | 只支持字符串键                 | 支持 Symbol 键                       |
+| `get` / `set`              | 无直接对应（属性访问语法）     | 带 **receiver** 参数（Proxy 必需）   |
+| `getPrototypeOf`           | 基本一致                       | 参数必须是对象，否则抛错（更严格）   |
+
+```js
+// 差异 1：defineProperty 的失败处理
+Object.defineProperty(frozen, "x", { value: 1 })
+// ❌ 抛错（frozen 不可扩展）
+Reflect.defineProperty(frozen, "x", { value: 1 }) // false，不抛错
+// ✅ 可以优雅降级
+
+// 差异 2：ownKeys 包含 Symbol 键
+const sym = Symbol("s")
+const obj = { a: 1, [sym]: 2 }
+Object.keys(obj) // ["a"]（不含 Symbol）
+Reflect.ownKeys(obj) // ["a", Symbol(s)]（全部）
+
+// 差异 3：getPrototypeOf 参数校验更严格
+Object.getPrototypeOf(1) // 会包装成 Number 对象（宽松）
+Reflect.getPrototypeOf(1) // ❌ TypeError（必须是对象）
+```
+
+```
+设计哲学对比：
+
+Object 系列（旧）        Reflect 系列（新）
+操作失败 = 抛异常   →    操作失败 = 返回 false
+（打断程序流程）          （交给程序决定）
+                         函数式、可组合、可预测
+```
+
+---
+
+## 三、Proxy 与 Reflect 的配合（核心）
+
+### 8. 13 个陷阱的一一对应
+
+Proxy 的每个拦截陷阱，都能用对应的 `Reflect.*` 方法实现"默认行为"：
+
+| Proxy 陷阱                              | 对应 Reflect 方法                               |
+| --------------------------------------- | ----------------------------------------------- |
+| `get(target, key, receiver)`            | `Reflect.get(target, key, receiver)`            |
+| `set(target, key, value, receiver)`     | `Reflect.set(target, key, value, receiver)`     |
+| `has(target, key)`                      | `Reflect.has(target, key)`                      |
+| `deleteProperty(target, key)`           | `Reflect.deleteProperty(target, key)`           |
+| `defineProperty(target, key, desc)`     | `Reflect.defineProperty(target, key, desc)`     |
+| `ownKeys(target)`                       | `Reflect.ownKeys(target)`                       |
+| `getOwnPropertyDescriptor(target, key)` | `Reflect.getOwnPropertyDescriptor(target, key)` |
+| `getPrototypeOf(target)`                | `Reflect.getPrototypeOf(target)`                |
+| `setPrototypeOf(target, proto)`         | `Reflect.setPrototypeOf(target, proto)`         |
+| `apply(target, thisArg, args)`          | `Reflect.apply(target, thisArg, args)`          |
+| `construct(target, args, newTarget)`    | `Reflect.construct(target, args, newTarget)`    |
+| `isExtensible(target)`                  | `Reflect.isExtensible(target)`                  |
+| `preventExtensions(target)`             | `Reflect.preventExtensions(target)`             |
+
+```js
+// 默认行为模板：每个陷阱都可用 Reflect 还原
+new Proxy(target, {
+  get: (t, p, r) => Reflect.get(t, p, r), // 默认行为
+  set: (t, p, v, r) => Reflect.set(t, p, v, r),
+  has: (t, p) => Reflect.has(t, p),
+  deleteProperty: (t, p) => Reflect.deleteProperty(t, p),
+  ownKeys: (t) => Reflect.ownKeys(t),
+  apply: (t, thisArg, args) => Reflect.apply(t, thisArg, args),
+  construct: (t, args) => Reflect.construct(t, args),
+})
+```
+
+### 9. 为什么陷阱里必须用 Reflect？（receiver 传递原理）
+
+**关键问题**：Proxy 的 `get`/`set` 陷阱收到 `receiver`，这个参数的作用是把**原型链上的访问行为**正确转发。
+
+```js
+// 场景：对象有 getter，且被 Proxy 代理
+const obj = {
+  _x: 10,
+  get x() {
+    return this._x // ① this 应该指向谁？
+  },
+}
+const proxy = new Proxy(obj, {
+  get(target, key, receiver) {
+    // ❌ 错误：直接操作 target
+    return target[key] // this = target（obj）—— 丢失 receiver
+
+    // ✅ 正确：用 Reflect 透传 receiver
+    // return Reflect.get(target, key, receiver) // this = receiver（proxy）
+  },
+})
+
+proxy.x
+// 用 Reflect.get：getter 的 this = proxy（receiver）
+// → proxy._x → 又会走 get 陷阱 → 一致的行为链
+// 不用 Reflect：getter 的 this = target（原始对象）
+// → 绕过代理，拦截失效，行为不一致
+```
+
+**Vue3 响应式中的实际意义**：
+
+```js
+// Vue3 源码（简化）：
+function reactive(target) {
+  return new Proxy(target, {
+    get(target, key, receiver) {
+      track(target, key) // 依赖收集
+      return Reflect.get(target, key, receiver) // ← 必须透传 receiver
+    },
+    set(target, key, value, receiver) {
+      const result = Reflect.set(target, key, value, receiver) // ← 必须
+      trigger(target, key) // 触发更新
+      return result
+    },
+  })
+}
+
+// 为什么必须：
+// 若嵌套对象（obj.child.name）被访问，getter/原型链行为需一致；
+// 若不用 Reflect，当对象被继承时 this 指向错乱，响应式失效
+```
+
+### 10. 可撤销 Proxy (Proxy.revocable)
+
+```txt
+语法: Proxy.revocable(target, handler)
+返回: { proxy, revoke }
+  proxy  — 代理对象
+  revoke — 无参函数，调用后 proxy 全部操作抛出 TypeError
+```
+
+```js
+let { proxy, revoke } = Proxy.revocable({ data: "秘密" }, {})
+
+console.log(proxy.data) // "秘密"
+revoke()
+// proxy.data  // ❌ TypeError: Cannot perform 'get' on a proxy that has been revoked
+// 一旦撤销，代理对象彻底失效。
+```
+
+---
+
+## 四、应用场景
+
+### 11. 数据校验
+
+```js
+function createValidator(schema) {
+  return new Proxy(
+    {},
+    {
+      set(target, prop, value) {
+        let rule = schema[prop]
+        if (rule && !rule.test(value)) {
+          throw new Error(`${prop}: ${rule.message}`)
+        }
+        target[prop] = value
+        return true
+      },
+    }
+  )
+}
+
+let user = createValidator({
+  name: { test: (v) => typeof v === "string" && v.length > 0, message: "必填字符串" },
+  age: { test: (v) => Number.isInteger(v) && v > 0, message: "必须为正整数" },
+})
+
+user.name = "Alice" // ✅
+// user.age = -5     // ❌ Error: age: 必须为正整数
+```
+
+### 12. 私有属性保护（命名约定）
+
+```js
+function protectPrivate(obj) {
+  return new Proxy(obj, {
+    get(target, prop, receiver) {
+      if (String(prop).startsWith("_")) {
+        throw new Error(`不能访问私有属性 ${prop}`)
+      }
+      return Reflect.get(target, prop, receiver)
+    },
+    set(target, prop, value, receiver) {
+      if (String(prop).startsWith("_")) {
+        throw new Error(`不能修改私有属性 ${prop}`)
+      }
+      return Reflect.set(target, prop, value, receiver)
+    },
+    has(target, prop) {
+      if (String(prop).startsWith("_")) return false
+      return Reflect.has(target, prop)
+    },
+    ownKeys(target) {
+      return Reflect.ownKeys(target).filter((k) => !String(k).startsWith("_"))
+    },
+  })
+}
+
+let obj = protectPrivate({ name: "Alice", _token: "secret" })
+obj.name // "Alice"
+"_token" in obj // false
+Object.keys(obj) // ["name"]
+```
+
+### 13. 观察者模式 / 变更通知
+
+```js
+function observable(obj, onChange) {
+  return new Proxy(obj, {
+    set(target, prop, value, receiver) {
+      let oldValue = target[prop]
+      let result = Reflect.set(target, prop, value, receiver)
+      if (oldValue !== value) {
+        onChange(prop, oldValue, value)
+      }
+      return result
+    },
+    deleteProperty(target, prop) {
+      if (prop in target) {
+        let oldValue = target[prop]
+        Reflect.deleteProperty(target, prop)
+        onChange(prop, oldValue, undefined)
+      }
+      return true
+    },
+  })
+}
+
+let state = observable({ count: 0 }, (prop, oldVal, newVal) => {
+  console.log(`${prop}: ${oldVal} → ${newVal}`)
+})
+
+state.count = 5 // count: 0 → 5
+state.count = 10 // count: 5 → 10
+```
+
+### 14. Vue 3 响应式原理（完整简化版）
+
+```js
+let activeEffect = null
+
+function reactive(obj) {
+  let deps = new Map() // prop → Set<effect>
+
+  return new Proxy(obj, {
+    get(target, prop, receiver) {
+      // 依赖收集：读取属性时记录当前副作用
+      if (activeEffect) {
+        if (!deps.has(prop)) deps.set(prop, new Set())
+        deps.get(prop).add(activeEffect)
+      }
+      // 必须透传 receiver，保证 getter 的 this 指向代理
+      return Reflect.get(target, prop, receiver)
+    },
+    set(target, prop, value, receiver) {
+      // 必须用 Reflect.set，触发 setter 且保持 receiver 一致
+      let result = Reflect.set(target, prop, value, receiver)
+      // 触发更新：执行依赖该属性的所有副作用
+      if (deps.has(prop)) {
+        deps.get(prop).forEach((effect) => effect())
+      }
+      return result
+    },
+  })
+}
+
+// 使用
+let state = reactive({ count: 0 })
+let double
+
+// 跟踪依赖
+activeEffect = () => {
+  double = state.count * 2
+}
+activeEffect()
+activeEffect = null
+
+state.count = 5 // double 自动变 10
+```
+
+### 15. 负数索引数组
+
+```js
+function createNegativeIndexArray(arr) {
+  return new Proxy(arr, {
+    get(target, prop, receiver) {
+      let index = Number(prop)
+      if (!isNaN(index) && index < 0) {
+        index = target.length + index // -1 → length-1
+      }
+      return Reflect.get(target, index, receiver)
+    },
+  })
+}
+
+let arr = createNegativeIndexArray([1, 2, 3, 4, 5])
+arr[-1] // 5
+arr[-2] // 4
+arr[1] // 2
+```
+
+### 16. 链式调用自动缓存
+
+```js
+let handler = {
+  get(target, prop) {
+    if (prop in target) return target[prop]
+    // 将所有未知属性访问转为返回函数（链式调用）
+    return (...args) => {
+      let key = `${prop}:${args.join(",")}`
+      if (!target.cache) target.cache = {}
+      if (!target.cache[key]) {
+        target.cache[key] = { prop, args }
+      }
+      return handler.get(target.cache, key)
+    }
+  },
+}
+
+let api = new Proxy({}, handler)
+// api.user.find(1).posts.recent(10) — 链式收集而不报错
+```
+
+### 17. 日志代理（读写全记录）
+
+```js
+const logger = (target) =>
+  new Proxy(target, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver)
+      console.log(`[读取] ${String(key)} =`, value)
+      return value
+    },
+    set(target, key, value, receiver) {
+      const result = Reflect.set(target, key, value, receiver)
+      console.log(`[写入] ${String(key)} =`, value, result ? "成功" : "失败")
+      return result
+    },
+    apply(target, thisArg, args) {
+      console.log(`[调用] ${target.name}(${args.join(", ")})`)
+      return Reflect.apply(target, thisArg, args)
+    },
+  })
+
+const obj = {
+  a: 1,
+  add(x) {
+    return this.a + x
+  },
+}
+const proxied = logger(obj)
+proxied.a // [读取] a = 1
+proxied.a = 5 // [写入] a = 5 成功
+proxied.add(3) // [调用] add(3) → 8
+```
+
+### 18. 实用场景速查
+
+| 场景                         | 用法                                                    |
+| ---------------------------- | ------------------------------------------------------- |
+| Vue3/响应式实现              | Proxy 陷阱中 `Reflect.get/set` 透传 receiver            |
+| 只读/校验/日志代理           | 陷阱中 `Reflect.*` 实现默认行为 + 自定义逻辑            |
+| 函数式调用（无 this 依赖）   | `Reflect.apply(fn, undefined, args)` 替代 `.apply` 调用 |
+| 宽松删除                     | `Reflect.deleteProperty` 不抛错，返回布尔判断           |
+| 防御性 defineProperty        | 返回 `false` 而非抛错，适合批量处理                     |
+| 获取全部键（含 Symbol）      | `Reflect.ownKeys(obj)` 替代两段式获取                   |
+| 动态构造（newTarget 重定向） | `Reflect.construct(Fn, args, OtherFn)` 控制 instanceof  |
+| 判断属性是否可扩展           | `Reflect.isExtensible(obj)` 提前判断，避免 set 静默失败 |
+
+---
+
+## 五、Proxy vs Object.defineProperty
+
+| 维度         | `Proxy`                        | `Object.defineProperty`                    |
+| ------------ | ------------------------------ | ------------------------------------------ |
+| **拦截范围** | 13 种操作                      | 只拦截 `get`/`set`                         |
+| **数组监听** | ✅ 直接支持 `arr[0]=x`、`push` | ❌ 只拦截索引赋值，`push`/`splice` 需 hack |
+| **新增属性** | ✅ `set` 陷阱拦截              | ❌ 新增属性不可拦截（需 `$set`）           |
+| **删除属性** | ✅ `deleteProperty` 陷阱       | ❌ 不可拦截                                |
+| **嵌套对象** | 需手动递归代理                 | 需手动递归代理                             |
+| **性能**     | 代理整个对象，性能较好         | 逐属性劫持，大量属性时性能差               |
+| **兼容性**   | IE 不支持                      | IE9+                                       |
+| **Polyfill** | ❌ 不可 polyfill               | ✅                                         |
+| **使用场景** | Vue 3                          | Vue 2                                      |
+
+---
+
+## 六、注意事项与易错点
+
+### 19. Proxy 注意事项
+
+```js
+// 1. Proxy 的 this 指向代理对象本身
+let target = {
+  getThis() {
+    return this
+  },
+}
+let proxy = new Proxy(target, {})
+proxy.getThis() === proxy // true (this 指向 proxy)
+target.getThis() === target // true (this 指向 target)
+
+// 2. 内建对象的内部槽 (Internal Slots) 不可代理
+let map = new Map()
+let proxy = new Proxy(map, {})
+proxy.set(1, "value") // TypeError: Method Map.prototype.set called on incompatible receiver
+// 解决: 在 get 陷阱中 bind
+let proxy2 = new Proxy(map, {
+  get(target, prop, receiver) {
+    let value = Reflect.get(target, prop, receiver)
+    return typeof value === "function" ? value.bind(target) : value
+  },
+})
+proxy2.set(1, "value") // ✅
+
+// 3. Proxy 性能开销
+// 虽然有开销，但远小于 Object.defineProperty 逐属性劫持
+
+// 4. Proxy 不可 polyfill
+// Node 6+ 和现代浏览器均原生支持（IE 除外）
+```
+
+### 20. Reflect 易错点
+
+```js
+// 1. 不能 new / 不能当构造函数
+new Reflect() // ❌ TypeError: Reflect is not a constructor
+
+// 2. 不是类，不能继承/扩展
+class MyReflect extends Reflect {} // ❌ 语法错误
+
+// 3. 参数不是对象时，部分方法抛错（比 Object 严格）
+Reflect.getPrototypeOf(1) // ❌ TypeError
+Reflect.get(1, "a") // ❌ TypeError
+
+// 4. receiver 只在目标有 getter/setter 时才有意义
+Reflect.get({ a: 1 }, "a", fakeReceiver) // 1（无 getter，receiver 无效果）
+
+// 5. Reflect.get 的"读取"语义：会触发 getter、会查原型链
+const parent = {
+  get a() {
+    return 1
+  },
+}
+const child = Object.create(parent)
+Reflect.get(child, "a") // 1（原型链 getter 触发）
+
+// 6. ownKeys 返回顺序：数字键升序 → 字符串键插入序 → Symbol 键
+Reflect.ownKeys({ b: 1, 2: 2, a: 3, [Symbol()]: 4 })
+// ["2", "b", "a", Symbol()]（注意：数字键 2 排最前且升序）
+```
+
+---
+
+## 七、常见面试题
+
+**Q1：`Reflect.get` 和 `obj[key]` 有什么区别？**
+
+```
+① Reflect.get 可传 receiver 绑定 getter 的 this（obj[key] 做不到）
+② Reflect.get 是函数，可编程组合（作为回调/参数传递）
+③ 语义上等价，但 Reflect 用于 Proxy 陷阱中保持默认行为
+```
+
+**Q2：为什么 Vue3 的 set 陷阱中必须用 `Reflect.set(target, key, value, receiver)` 而不是直接赋值？**
+
+```js
+// 直接赋值的问题：
+set(target, key, value) {
+  target[key] = value // ❌ 绕过 receiver
+  return true
+}
+
+// 场景：对象被继承时
+const child = Object.create(proxy)
+child.name = "x" // 会触发原型链上的 set 陷阱
+// 若用 target[key] = value：this/receiver 指向混乱，响应式依赖收集失效
+// 用 Reflect.set(target, key, value, receiver)：
+// → 正确转发给 receiver（child），触发其原型链行为，保持响应式一致
+```
+
+**Q3：`Reflect.ownKeys` 和 `Object.keys` 的区别？**
+
+| 对比项    | `Object.keys` | `Reflect.ownKeys`           |
+| --------- | ------------- | --------------------------- |
+| 范围      | 自身 + 可枚举 | 自身全部（含不可枚举）      |
+| Symbol 键 | ❌ 不含       | ✅ 含                       |
+| 顺序      | 插入序        | 数字升序 → 字符串 → Symbol  |
+| 场景      | 常规遍历      | 完整枚举（配合 Proxy 快照） |
+
+**Q4：`Reflect.apply` 与 `fn.apply` 的区别？**
+
+```
+① fn.apply(thisArg, args) 依赖 fn 上有 apply 方法；
+   若 fn 是 Proxy 且有 apply 陷阱，会走陷阱（Reflect.apply 也会触发 apply 陷阱！）
+② Reflect.apply(fn, thisArg, args) 无需借用方法，fn 为 null/undefined 时明确报错
+③ 传参顺序统一：Reflect.apply(fn, thisArg, args)
+```
+
+**Q5：为什么说 Reflect 让"默认操作可编程"？**
+
+```js
+// 没有 Reflect 时：想代理对象的默认行为只能手写复刻
+// 有 Reflect 后：陷阱里调用 Reflect.* 即 100% 复刻默认行为
+// → Proxy 拦截 + Reflect 还原 = 元编程的完整闭环
+```
+
+---
+
+## 八、汇总速查表
+
+### 最常用陷阱
+
+| 陷阱             | 拦截操作                  | 常用场景                           |
+| ---------------- | ------------------------- | ---------------------------------- |
+| `get`            | 读属性                    | 默认值、懒加载、私有保护、依赖收集 |
+| `set`            | 写属性                    | 校验、观察、限制写入               |
+| `has`            | `in` 操作符               | 隐藏属性                           |
+| `deleteProperty` | `delete`                  | 禁止删除                           |
+| `ownKeys`        | `for...in`、`Object.keys` | 过滤私有属性                       |
+| `apply`          | 函数调用                  | 日志、AOP                          |
+| `construct`      | `new`                     | 统计实例数                         |
+
+### 学习要点
+
+```
+Proxy 学习要点：
+1. new Proxy(target, handler)，13 种陷阱拦截对象基本操作
+2. 陷阱返回值有约定（set/has/delete 等返回布尔）
+3. 代理后统一通过 proxy 操作，否则拦截失效
+4. 与 Object.defineProperty 对比：范围广、数组/新增/删除全覆盖，Vue3 采用
+
+Reflect 学习要点：
+1. 是什么：ES6 内置对象，13 个静态方法，统一操作对象的函数式 API
+2. 为什么：三大目的（统一 / 可拦截 / 修正 Object 不合理行为）
+3. 13 方法：属性 7 个 + 原型 2 个 + 函数 2 个 + 能力 2 个
+4. 与 Object 差异：返回值语义（false vs 抛错）、ownKeys 更全、receiver
+5. 与 Proxy：一一对应，陷阱中必须用 Reflect.* 透传 receiver
+6. 实战：Vue3 响应式 / 校验代理 / 日志代理 / 只读代理
+```

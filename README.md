@@ -26,8 +26,8 @@
 next/
 ├── app/
 │   ├── (mdx)/             # 文档页面（MDX 路由组，共享目录抽屉布局）
-│   │   ├── study/         #   学习文档: agent/db/devops/node/react/system/vue
-│   │   ├── interview/     #   面试题文档: db/devops/node/react/vue
+│   │   ├── study/         #   学习文档: agent/css/db/devops/html/js/node/react/system/ts/vue
+│   │   ├── interview/     #   面试题文档: css/db/devops/html/js/node/react/ts/vue
 │   │   └── layout.tsx     #   目录抽屉 + 正文区布局
 │   ├── (other)/           # 导航页 + 关于
 │   │   ├── study/         #   学习文档导航（根页面）
@@ -67,16 +67,24 @@ next/
 | 板块         | 分类   | 主题                                    |
 | ------------ | ------ | --------------------------------------- |
 | **学习文档** | Agent  | Ccswitch、Claude Code、Reasonix         |
+|              | CSS    | CSS                                     |
 |              | DB     | PostgreSQL、MySQL、MongoDB、Redis       |
 |              | Devops | Git、Docker、Kubernetes、Jenkins、Nginx |
+|              | HTML   | HTML                                    |
+|              | JS     | JavaScript（ES5/ES6）                   |
 |              | Node   | Node.js、Express、Koa、Fastify、NestJS  |
 |              | React  | React、Next.js、React Router、Taro      |
 |              | System | Linux、Windows                          |
+|              | TS     | TypeScript                              |
 |              | Vue    | Vue、UniApp                             |
-| **面试题**   | DB     | PostgreSQL、MySQL、MongoDB、Redis       |
+| **面试题**   | CSS    | CSS                                     |
+|              | DB     | PostgreSQL、MySQL、MongoDB、Redis       |
 |              | Devops | Git、Docker、Kubernetes、Jenkins、Nginx |
+|              | HTML   | HTML                                    |
+|              | JS     | JavaScript                              |
 |              | Node   | Node.js、Express、Koa、Fastify、NestJS  |
 |              | React  | React、Next.js、React Router、Taro      |
+|              | TS     | TypeScript                              |
 |              | Vue    | Vue、UniApp                             |
 
 ## 开始

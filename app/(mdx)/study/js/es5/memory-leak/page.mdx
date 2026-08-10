@@ -1,0 +1,358 @@
+# 内存泄漏与垃圾回收
+
+---
+
+## 内存生命周期
+
+无论什么语言，内存生命周期大致相同：
+
+```
+分配内存 → 使用内存 → 释放内存
+```
+
+C/C++ 中需要手动 `malloc` / `free`，而 JS 在创建变量时自动分配内存，通过**垃圾回收机制**自动释放不再使用的内存。
+
+---
+
+## 垃圾回收机制 (Garbage Collection)
+
+### 1. 引用计数 (Reference Counting)
+
+**原理**：跟踪每个值的引用次数。引用次数为 0 时，该内存可被回收。
+
+```js
+let obj = { name: "Alice" } // { name: "Alice" } 引用计数 = 1
+let ref = obj // 引用计数 = 2
+obj = null // 引用计数 = 1
+ref = null // 引用计数 = 0 → 可回收
+```
+
+**致命缺陷：循环引用**。两个对象互相引用，但外部已无法访问，引用计数永远不会归零，导致内存无法回收。
+
+```js
+function createCycle() {
+  let a = {}
+  let b = {}
+  a.ref = b
+  b.ref = a
+  // a 和 b 互相引用，函数执行完后引用计数仍为 1，不会被回收
+}
+```
+
+> IE6/7 的 DOM 对象使用引用计数，容易出现循环引用导致的内存泄漏。现代浏览器已弃用纯引用计数。
+
+### 2. 标记清除 (Mark-and-Sweep) — 主流
+
+**原理**：从根对象（`window` / `global`）出发，递归遍历所有可达对象并"标记"，清除未被标记的对象。
+
+```
+步骤:
+1. 垃圾回收器从根对象出发，标记所有可达对象
+2. 遍历堆内存，清除未被标记的对象
+3. 整理内存碎片（可选）
+```
+
+**可达性**：如果一个值可以通过根对象、通过引用链访问到，则"可达"，不会被回收。
+
+```js
+let user = { name: "Alice" }
+// user → { name: "Alice" } 可达
+
+user = null
+// { name: "Alice" } 不可达 → 被回收
+```
+
+**标记清除能解决循环引用问题**：
+
+```js
+function fn() {
+  let a = {}
+  let b = {}
+  a.ref = b
+  b.ref = a
+}
+fn()
+// 函数执行完，a 和 b 在根对象上不再可达，被回收
+```
+
+### 3. V8 的分代回收
+
+V8 将堆内存分为两代：
+
+| 区域                   | 特点                      | 回收频率           | 算法                |
+| ---------------------- | ------------------------- | ------------------ | ------------------- |
+| **新生代** (Young Gen) | 存活时间短的对象（1~8MB） | 频繁（Scavenge）   | Cheney 算法（复制） |
+| **老生代** (Old Gen)   | 存活时间长的对象          | 低频（几十秒一次） | 标记清除 + 标记整理 |
+
+**新生代晋升老生代的条件**：
+
+- 经历过一次 Scavenge 回收仍存活
+- To-Space 空间使用超过 25%
+
+### 4. 增量标记与惰性清除
+
+为了减少 GC 造成的**全停顿**（Stop-The-World），V8 将标记过程拆分为多个小步骤，与 JS 执行交替进行。清除阶段也采用惰性策略，按需清除。
+
+---
+
+## 常见内存泄漏场景
+
+### 1. 意外全局变量
+
+```js
+// ❌ 未声明变量成为全局对象属性
+function fn() {
+  leak = "I am a global leak" // 等价于 window.leak
+}
+
+// ❌ this 指向全局对象
+function Foo() {
+  this.bar = "leak" // 非严格模式下 this → window
+}
+Foo()
+
+// ✅ 使用严格模式 + let/const
+;("use strict")
+function fn() {
+  let local = "safe"
+}
+```
+
+### 2. 未清理的定时器/回调
+
+```js
+// ❌ setInterval 未清除，引用外部变量导致无法回收
+let data = loadHugeData()
+let timer = setInterval(() => {
+  console.log(data) // data 一直被引用
+}, 1000)
+
+// ✅ 及时清理
+clearInterval(timer)
+timer = null
+data = null
+```
+
+### 3. 闭包中的意外引用
+
+```js
+// ❌ 闭包引用大对象，且闭包长期存活
+function createHandler() {
+  let hugeData = new Array(10000000).fill("*")
+  return function () {
+    console.log(hugeData[0]) // 只用了第一个元素，但整个数组都被保留
+  }
+}
+let handler = createHandler() // hugeData 永远不会被回收
+
+// ✅ 只保留需要的数据
+function createHandler() {
+  let hugeData = new Array(10000000).fill("*")
+  let firstItem = hugeData[0] // 只保留需要的
+  return function () {
+    console.log(firstItem)
+  }
+}
+```
+
+### 4. 脱离 DOM 树的引用
+
+```js
+// ❌ JS 变量持有 DOM 引用，即使 DOM 已从页面移除
+let elements = {
+  button: document.getElementById("myButton"),
+  image: document.getElementById("myImage"),
+}
+
+document.body.removeChild(document.getElementById("myButton"))
+// DOM 节点从页面移除，但 elements.button 仍引用它 → 不会回收
+
+// ✅ 清理引用
+elements.button = null
+```
+
+### 5. 事件监听未移除
+
+```js
+// ❌ 组件销毁时忘记移除事件监听
+class Component {
+  mount() {
+    window.addEventListener("resize", this.onResize)
+  }
+  // 缺少销毁方法
+}
+
+// ✅ 在适当时机移除
+class Component {
+  mount() {
+    this.onResize = this.handleResize.bind(this)
+    window.addEventListener("resize", this.onResize)
+  }
+  unmount() {
+    window.removeEventListener("resize", this.onResize)
+    this.onResize = null
+  }
+}
+```
+
+### 6. 未关闭的网络连接
+
+```js
+// ❌ WebSocket / EventSource 未关闭
+let ws = new WebSocket("wss://example.com")
+// 离开页面时未关闭
+
+// ✅ 页面卸载时关闭
+window.addEventListener("beforeunload", () => {
+  ws.close()
+  ws = null
+})
+```
+
+### 7. Map / Set 中的强引用
+
+```js
+// ❌ Map key 使用对象时，对象无法被回收
+let map = new Map()
+let obj = { data: new Array(10000000) }
+map.set(obj, "value")
+obj = null // obj 仍被 map 引用，不会回收
+
+// ✅ 使用 WeakMap / WeakSet（弱引用，不阻止 GC）
+let weakMap = new WeakMap()
+;(function () {
+  let obj = { data: "huge" }
+  weakMap.set(obj, "value")
+  // obj 离开作用域后，WeakMap 中的引用不阻止 GC
+})()
+```
+
+### 8. console.log 的坑
+
+```js
+// ⚠️ console.log 在部分浏览器中会保留对象引用，导致无法回收
+console.log(hugeObject)
+// 生产环境应移除 console.log，或使用构建工具自动剔除
+```
+
+---
+
+## 内存泄漏排查
+
+### Chrome DevTools — Memory 面板
+
+**1. Heap Snapshot（堆快照）**：对比两次快照，查看哪些对象数量/大小异常增长。
+
+```
+步骤:
+1. F12 → Memory → Heap snapshot
+2. 执行可疑操作前拍快照 (Snapshot 1)
+3. 执行可疑操作后拍快照 (Snapshot 2)
+4. 对比 (Comparison)，按 Delta（增量）排序
+5. 定位异常增长的对象类型
+```
+
+**2. Allocation instrumentation on timeline**：记录内存分配时间线，精确定位哪段代码分配了内存。
+
+**3. Allocation sampling**：采样模式，性能开销小，适合长时间记录。
+
+### Chrome DevTools — Performance 面板
+
+```
+1. 勾选 "Memory" 选项录制
+2. 执行操作
+3. 观察 JS Heap 折线图
+4. 如果图形持续上升且不回落（锯齿状正常，阶梯状异常）
+   → 可能存在内存泄漏
+```
+
+### 常见排查线索
+
+| 现象                              | 可能原因             |
+| --------------------------------- | -------------------- |
+| JS heap 阶梯状持续上升            | 内存泄漏             |
+| detached DOM 节点数量大           | DOM 引用未释放       |
+| 闭包内大对象未释放                | 闭包持有不必要的引用 |
+| 事件监听数量持续增长              | 未解绑               |
+| ArrayBuffer / TypedArray 持续增长 | 大块数据未释放       |
+
+---
+
+## 最佳实践
+
+```js
+// 1. 使用 let / const，避免意外全局变量
+// 2. 及时清理定时器、事件监听、网络连接
+// 3. 避免闭包持有大对象的不必要引用
+// 4. 大对象使用 WeakMap / WeakSet 存储
+// 5. 移除 DOM 时同时解除 JS 引用
+// 6. 生产环境移除 console.log
+// 7. 组件类实现 destroy / unmount 方法
+// 8. 避免在循环中创建函数（或合理使用事件委托）
+// 9. 及时将不再使用的大变量设为 null（辅助 GC 判断）
+// 10. 使用 AbortController 取消 fetch 请求
+```
+
+### 组件生命周期销毁模板
+
+```js
+class Component {
+  constructor() {
+    this.listeners = []
+    this.timers = []
+    this.requests = []
+  }
+
+  addListener(target, event, handler) {
+    target.addEventListener(event, handler)
+    this.listeners.push({ target, event, handler })
+  }
+
+  addTimer(fn, delay) {
+    let id = setInterval(fn, delay)
+    this.timers.push(id)
+    return id
+  }
+
+  destroy() {
+    // 清理事件
+    this.listeners.forEach(({ target, event, handler }) => {
+      target.removeEventListener(event, handler)
+    })
+    this.listeners = []
+
+    // 清理定时器
+    this.timers.forEach(clearInterval)
+    this.timers = []
+
+    // 清理引用
+    this.data = null
+    this.el = null
+  }
+}
+```
+
+---
+
+## 汇总速查表
+
+### GC 机制
+
+| 算法     | 原理                           | 优点         | 缺点             |
+| -------- | ------------------------------ | ------------ | ---------------- |
+| 引用计数 | 跟踪引用数，为 0 则回收        | 简单、实时   | 无法处理循环引用 |
+| 标记清除 | 从根对象标记可达对象，清除其余 | 解决循环引用 | 有停顿           |
+| 分代回收 | 新生代/老生代分开管理          | 高效         | 需额外维护       |
+| 增量标记 | 标记过程分步执行               | 减少停顿     | 实现复杂         |
+
+### 内存泄漏场景速查
+
+| 场景            | 原因                           | 解决方案                 |
+| --------------- | ------------------------------ | ------------------------ |
+| 意外全局变量    | 未声明 / `this` 指向全局       | 严格模式 + `let`/`const` |
+| 未清理定时器    | 闭包引用变量一直存活           | `clearInterval` + 置空   |
+| 闭包持有大对象  | 只取部分，但闭包保留整个对象   | 只保留需要的数据         |
+| 脱离 DOM 的引用 | JS 变量持 DOM 引用             | 移除后置 `null`          |
+| 事件监听未移除  | 组件销毁但事件仍绑定           | `removeEventListener`    |
+| 未关闭连接      | WebSocket/EventSource 持续占用 | `close()` + 置空         |
+| Map 强引用      | Map 的 key 阻止对象 GC         | 改用 `WeakMap`/`WeakSet` |

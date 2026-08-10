@@ -1,0 +1,509 @@
+# Array 常用方法 (增删改查)
+
+> **会修改原数组的方法**: `push` / `pop` / `unshift` / `shift` / `splice` / `reverse` / `sort`
+> **不会修改原数组的方法**: `concat` / `slice` / `join` / `indexOf` / `lastIndexOf` / `forEach` / `map` / `filter` / `every` / `some` / `reduce` / `reduceRight`
+
+---
+
+## 增 (添加元素)
+
+### push() — 末尾添加
+
+```txt
+语法: arr.push(element1, ..., elementN)
+参数: elementN — 要添加到数组末尾的一个或多个元素
+返回: 添加元素后数组的新 length 值
+```
+
+**修改原数组**。向数组末尾追加一个或多个元素。
+
+```js
+let arr = [1, 2, 3]
+let len = arr.push(4, 5) // len = 5, arr = [1, 2, 3, 4, 5]
+```
+
+### unshift() — 开头添加
+
+```txt
+语法: arr.unshift(element1, ..., elementN)
+参数: elementN — 要添加到数组开头的一个或多个元素
+返回: 添加元素后数组的新 length 值
+```
+
+**修改原数组**。向数组开头插入一个或多个元素，原有元素索引整体后移。
+
+```js
+let arr = [3, 4, 5]
+let len = arr.unshift(1, 2) // len = 5, arr = [1, 2, 3, 4, 5]
+```
+
+### concat() — 合并数组
+
+```txt
+语法: arr.concat(value1, ..., valueN)
+参数: valueN — 要合并的数组或单个值（可传入多个，用逗号分隔）
+返回: 合并后的新数组
+```
+
+**不修改原数组**。将参数中的数组/值依次拼接到原数组末尾，返回全新数组。若参数是数组则展开一层（浅展开），单个值直接追加。
+
+```js
+let arr1 = [1, 2]
+let arr2 = [3, 4]
+let arr3 = arr1.concat(arr2, 5, [6, 7])
+// arr3 = [1, 2, 3, 4, 5, 6, 7], arr1 和 arr2 不变
+
+// 嵌套数组只展开一层
+let arr4 = [1].concat([2, [3]]) // [1, 2, [3]]
+```
+
+### splice() — 指定位置插入
+
+```txt
+语法: arr.splice(start, deleteCount, item1, ..., itemN)
+参数:
+  start      — 起始索引（支持负数，-1 表示倒数第一个）
+  deleteCount — 要删除的元素个数（插入时不删，填 0）
+  itemN      — 要插入到 start 位置的一个或多个元素
+返回: 空数组 []
+```
+
+**修改原数组**。`deleteCount` 为 `0` 时，不删除只插入。
+
+```js
+let arr = [1, 2, 5, 6]
+let removed = arr.splice(2, 0, 3, 4) // removed = [], arr = [1, 2, 3, 4, 5, 6]
+```
+
+---
+
+## 删 (删除元素)
+
+### pop() — 末尾删除
+
+```txt
+语法: arr.pop()
+参数: 无
+返回: 被删除的那个元素；空数组调用时返回 undefined
+```
+
+**修改原数组**。移除数组最后一个元素，数组 length 减 1。
+
+```js
+let arr = [1, 2, 3]
+let item = arr.pop() // item = 3, arr = [1, 2]
+```
+
+### shift() — 开头删除
+
+```txt
+语法: arr.shift()
+参数: 无
+返回: 被删除的那个元素；空数组调用时返回 undefined
+```
+
+**修改原数组**。移除数组第一个元素，后续元素索引前移，length 减 1。
+
+```js
+let arr = [1, 2, 3]
+let item = arr.shift() // item = 1, arr = [2, 3]
+```
+
+### splice() — 指定位置删除
+
+```txt
+语法: arr.splice(start, deleteCount)
+参数:
+  start      — 起始索引（支持负数，-1 表示倒数第一个）
+  deleteCount — 要删除的元素个数（省略则从 start 删到末尾）
+返回: 被删除元素组成的数组
+```
+
+**修改原数组**。从 `start` 开始，连续删除 `deleteCount` 个元素。
+
+```js
+let arr = [1, 2, 3, 4, 5]
+let removed = arr.splice(1, 2) // removed = [2, 3], arr = [1, 4, 5]
+
+// 省略 deleteCount: 删到末尾
+let arr2 = [1, 2, 3, 4]
+arr2.splice(1) // 返回 [2, 3, 4], arr2 = [1]
+```
+
+### slice() — 提取子数组
+
+```txt
+语法: arr.slice(begin, end)
+参数:
+  begin — 起始索引（含），默认 0；支持负数（-1 表示倒数第一个）
+  end   — 结束索引（不含），默认 arr.length；支持负数
+返回: 提取的新数组
+```
+
+**不修改原数组**。常用于浅拷贝和截取片段。`slice()` 无参调用可快速浅拷贝整个数组。
+
+```js
+let arr = [1, 2, 3, 4, 5]
+let sub = arr.slice(1, 3) // sub = [2, 3], arr 不变
+let copy = arr.slice() // copy = [1, 2, 3, 4, 5] (浅拷贝)
+
+// 负数索引
+arr.slice(-2) // [4, 5]
+arr.slice(-3, -1) // [3, 4]
+```
+
+---
+
+## 改 (修改元素/数组)
+
+### splice() — 替换元素
+
+```txt
+语法: arr.splice(start, deleteCount, item1, ..., itemN)
+参数:
+  start      — 起始索引（支持负数）
+  deleteCount — 要删除的元素个数
+  itemN      — 要插入到 start 位置的新元素
+返回: 被删除元素组成的数组
+```
+
+**修改原数组**。删除 `start` 处 `deleteCount` 个元素，再在该位置插入新元素——相当于"先删后插"实现替换。
+
+```js
+let arr = [1, 2, 99, 4]
+let removed = arr.splice(2, 1, 3) // removed = [99], arr = [1, 2, 3, 4]
+```
+
+### reverse() — 反转数组
+
+```txt
+语法: arr.reverse()
+参数: 无
+返回: 反转后的原数组的引用（即返回值和原数组是同一个对象）
+```
+
+**修改原数组**。将数组元素顺序颠倒。
+
+```js
+let arr = [1, 2, 3]
+let ref = arr.reverse() // ref = [3, 2, 1], arr = [3, 2, 1]
+console.log(ref === arr) // true
+```
+
+### sort() — 排序
+
+```txt
+语法: arr.sort(compareFunction)
+参数: compareFunction(a, b) — 可选，自定义比较函数
+  - 返回 < 0: a 排在 b 前面
+  - 返回 0: a 和 b 顺序不变
+  - 返回 > 0: a 排在 b 后面
+返回: 排序后的原数组的引用（和原数组是同一个对象）
+```
+
+**修改原数组**。默认按字符串 Unicode 码点升序排序。数字排序必须传入比较函数。
+
+```js
+let arr = [3, 1, 10, 2]
+arr.sort() // arr = [1, 10, 2, 3] (按字符串)
+
+// 数字升序
+arr.sort((a, b) => a - b) // [1, 2, 3, 10]
+
+// 数字降序
+arr.sort((a, b) => b - a) // [10, 3, 2, 1]
+```
+
+---
+
+## 查 (查找/查询)
+
+### indexOf() — 查找索引（从前往后）
+
+```txt
+语法: arr.indexOf(searchElement, fromIndex)
+参数:
+  searchElement — 要查找的元素
+  fromIndex     — 可选，起始查找位置索引，默认 0；支持负数（从末尾倒数）
+返回: 元素首次出现的索引，未找到返回 -1
+```
+
+**不修改原数组**。使用严格相等（`===`）比较，无法查找 `NaN`。
+
+```js
+let arr = [1, 2, 3, 2]
+arr.indexOf(2) // 1
+arr.indexOf(2, 2) // 3 (从索引 2 开始)
+arr.indexOf(9) // -1
+
+arr.indexOf(NaN) // -1 (NaN !== NaN)
+```
+
+### lastIndexOf() — 查找索引（从后往前）
+
+```txt
+语法: arr.lastIndexOf(searchElement, fromIndex)
+参数:
+  searchElement — 要查找的元素
+  fromIndex     — 可选，从此位置开始向前查找，默认 arr.length - 1；支持负数
+返回: 元素最后一次出现的索引，未找到返回 -1
+```
+
+**不修改原数组**。同样使用 `===` 比较，无法查找 `NaN`。
+
+```js
+let arr = [1, 2, 3, 2]
+arr.lastIndexOf(2) // 3
+arr.lastIndexOf(2, 2) // 1 (从索引 2 往前找)
+arr.lastIndexOf(9) // -1
+```
+
+### includes() — 是否包含 (ES2016)
+
+```txt
+语法: arr.includes(searchElement, fromIndex)
+参数:
+  searchElement — 要查找的元素
+  fromIndex     — 可选，起始查找位置索引，默认 0；支持负数
+返回: true / false
+```
+
+**不修改原数组**。使用 `SameValueZero` 算法，能正确判断 `NaN`。
+
+```js
+let arr = [1, 2, 3, NaN]
+arr.includes(2) // true
+arr.includes(5) // false
+arr.includes(NaN) // true (indexOf 做不到)
+```
+
+### join() — 转为字符串
+
+```txt
+语法: arr.join(separator)
+参数: separator — 可选，分隔符字符串，默认 ","
+返回: 由分隔符连接所有元素组成的字符串
+```
+
+**不修改原数组**。`null` / `undefined` 元素会被转换为空字符串。
+
+```js
+let arr = [1, 2, 3]
+arr.join() // "1,2,3"
+arr.join("-") // "1-2-3"
+arr.join("") // "123"
+
+// null / undefined 处理
+;[1, null, 3].join("-") // "1--3"
+;[1, undefined, 3].join("-") // "1--3"
+```
+
+### toString() / toLocaleString()
+
+```txt
+语法: arr.toString()     — 无参数
+      arr.toLocaleString() — 无参数（使用本地化格式转换每个元素）
+返回: 逗号连接的字符串
+```
+
+**不修改原数组**。`toString()` 等价于 `arr.join(",")`。`toLocaleString()` 对每个元素调用其 `toLocaleString()` 方法。
+
+```js
+let arr = [1, 2, 3]
+arr.toString() // "1,2,3"
+```
+
+---
+
+## 遍历/迭代 (ES5 新增，不修改原数组)
+
+### forEach() — 遍历
+
+```txt
+语法: arr.forEach(callback(element, index, array), thisArg)
+参数:
+  callback — 为每个元素执行的回调函数
+    element — 当前元素值
+    index   — 当前元素索引
+    array   — 被遍历的数组本身
+  thisArg  — 可选，callback 内部的 this 值
+返回: undefined
+```
+
+**不修改原数组**（但回调内可修改）。无法中途 `break` / `continue` / `return` 跳出，会遍历完所有元素。跳过空位（稀疏数组）。
+
+```js
+let arr = [1, 2, 3]
+arr.forEach((item, index, array) => {
+  console.log(item, index)
+  // return 无效，不会跳出循环
+})
+
+// thisArg 用法
+let obj = { multiplier: 2 }
+arr.forEach(function (item) {
+  console.log(item * this.multiplier)
+}, obj)
+// 输出: 2 4 6
+```
+
+### map() — 映射
+
+```txt
+语法: arr.map(callback(element, index, array), thisArg)
+参数:
+  callback — 映射函数，每次迭代的返回值会作为新数组对应位置的元素
+  thisArg  — 可选，callback 内部的 this 值
+返回: 由每次 callback 返回值组成的新数组（长度与原数组相同）
+```
+
+**不修改原数组**。对每个元素执行回调，收集返回值构成新数组。
+
+```js
+let arr = [1, 2, 3]
+let doubled = arr.map((item) => item * 2) // [2, 4, 6]
+let indexed = arr.map((item, i) => item + i) // [1, 3, 5]
+```
+
+### filter() — 过滤
+
+```txt
+语法: arr.filter(callback(element, index, array), thisArg)
+参数:
+  callback — 过滤函数，返回 truthy 则保留该元素，falsy 则丢弃
+  thisArg  — 可选，callback 内部的 this 值
+返回: 由通过测试的元素组成的新数组
+```
+
+**不修改原数组**。只保留 `callback` 返回 truthy 值的元素。
+
+```js
+let arr = [1, 2, 3, 4, 5]
+let evens = arr.filter((item) => item % 2 === 0) // [2, 4]
+let big = arr.filter((item) => item > 2) // [3, 4, 5]
+```
+
+### every() — 全满足
+
+```txt
+语法: arr.every(callback(element, index, array), thisArg)
+参数:
+  callback — 测试函数，每个元素都返回 truthy 才最终返回 true
+  thisArg  — 可选，callback 内部的 this 值
+返回: true / false
+```
+
+**不修改原数组**。一旦 `callback` 返回 falsy 就短路停止遍历。空数组直接返回 `true`。
+
+```js
+let arr = [2, 4, 6]
+arr.every((item) => item % 2 === 0) // true
+arr.every((item) => item > 5) // false
+
+[].every(() => false) // true (空数组)
+```
+
+### some() — 有满足
+
+```txt
+语法: arr.some(callback(element, index, array), thisArg)
+参数:
+  callback — 测试函数，有一个元素返回 truthy 就最终返回 true
+  thisArg  — 可选，callback 内部的 this 值
+返回: true / false
+```
+
+**不修改原数组**。一旦 `callback` 返回 truthy 就短路停止遍历。空数组直接返回 `false`。
+
+```js
+let arr = [1, 3, 4]
+arr.some((item) => item % 2 === 0) // true
+arr.some((item) => item > 5) // false
+
+[].some(() => true) // false (空数组)
+```
+
+### reduce() — 累加器
+
+```txt
+语法: arr.reduce(callback(accumulator, currentValue, index, array), initialValue)
+参数:
+  callback — 累加函数
+    accumulator  — 累积值（上一轮回调的返回值，或 initialValue）
+    currentValue — 当前元素值
+    index        — 当前索引
+    array        — 原数组
+  initialValue — 可选，累积初始值
+    - 提供 initialValue: 从索引 0 开始遍历，accumulator 初始为 initialValue
+    - 不提供: 从索引 1 开始遍历，accumulator 初始为 arr[0]
+返回: 最终的累积值
+```
+
+**不修改原数组**。将数组所有元素"折叠"为单个值。
+
+```js
+let arr = [1, 2, 3, 4]
+
+// 求和
+arr.reduce((acc, cur) => acc + cur, 0) // 10
+
+// 求最大值（无 initialValue，acc 初始为 arr[0]）
+arr.reduce((acc, cur) => Math.max(acc, cur)) // 4
+
+// 应用: 数组扁平化
+let nested = [[1, 2], [3, 4], [5]]
+let flat = nested.reduce((acc, cur) => acc.concat(cur), []) // [1, 2, 3, 4, 5]
+
+// 应用: 计数
+let items = ["a", "b", "a", "c"]
+let count = items.reduce((acc, cur) => {
+  acc[cur] = (acc[cur] || 0) + 1
+  return acc
+}, {})
+// count = { a: 2, b: 1, c: 1 }
+```
+
+### reduceRight() — 反向累加器
+
+```txt
+语法: arr.reduceRight(callback(accumulator, currentValue, index, array), initialValue)
+参数: 同 reduce
+返回: 最终的累积值
+```
+
+**不修改原数组**。与 `reduce` 逻辑完全相同，但从右向左遍历（最后一个元素开始）。
+
+```js
+let arr = ["a", "b", "c"]
+arr.reduceRight((acc, cur) => acc + cur, "") // "cba"
+```
+
+---
+
+## 汇总速查表
+
+| 方法                  | 分类  | 参数                                                                                   | 返回值       | 修改原数组 | 说明         |
+| --------------------- | ----- | -------------------------------------------------------------------------------------- | ------------ | ---------- | ------------ |
+| `push`                | 增    | `element1, ..., elementN`                                                              | 新 length    | ✅         | 末尾添加     |
+| `unshift`             | 增    | `element1, ..., elementN`                                                              | 新 length    | ✅         | 开头添加     |
+| `concat`              | 增    | `value1, ..., valueN`                                                                  | 新数组       | ❌         | 合并数组     |
+| `splice(idx, 0, ...)` | 增    | `start, deleteCount(0), item1, ..., itemN`                                             | `[]`         | ✅         | 指定位置插入 |
+| `pop`                 | 删    | 无                                                                                     | 被删元素     | ✅         | 末尾删除     |
+| `shift`               | 删    | 无                                                                                     | 被删元素     | ✅         | 开头删除     |
+| `splice(idx, n)`      | 删    | `start, deleteCount`                                                                   | 被删元素数组 | ✅         | 指定位置删除 |
+| `slice`               | 删/查 | `begin, end` （均可选，支持负数）                                                      | 新数组       | ❌         | 提取子数组   |
+| `splice(idx, n, ...)` | 改    | `start, deleteCount, item1, ..., itemN`                                                | 被删元素数组 | ✅         | 替换元素     |
+| `reverse`             | 改    | 无                                                                                     | 原数组引用   | ✅         | 反转         |
+| `sort`                | 改    | `compareFunction(a, b)` — 可选                                                         | 原数组引用   | ✅         | 排序         |
+| `indexOf`             | 查    | `searchElement, fromIndex` — 可选                                                      | 索引 / -1    | ❌         | 查找索引     |
+| `lastIndexOf`         | 查    | `searchElement, fromIndex` — 可选                                                      | 索引 / -1    | ❌         | 反向查找索引 |
+| `includes`            | 查    | `searchElement, fromIndex` — 可选                                                      | 布尔值       | ❌         | 是否包含     |
+| `join`                | 查    | `separator` — 可选，默认 `","`                                                         | 字符串       | ❌         | 转字符串     |
+| `toString`            | 查    | 无                                                                                     | 字符串       | ❌         | 转字符串     |
+| `forEach`             | 遍历  | `callback(element, index, array), thisArg`                                             | `undefined`  | ❌         | 遍历         |
+| `map`                 | 遍历  | `callback(element, index, array), thisArg`                                             | 新数组       | ❌         | 映射         |
+| `filter`              | 遍历  | `callback(element, index, array), thisArg`                                             | 新数组       | ❌         | 过滤         |
+| `every`               | 遍历  | `callback(element, index, array), thisArg`                                             | 布尔值       | ❌         | 全满足       |
+| `some`                | 遍历  | `callback(element, index, array), thisArg`                                             | 布尔值       | ❌         | 有满足       |
+| `reduce`              | 遍历  | `callback(accumulator, currentValue, index, array), initialValue`（initialValue 可选） | 累积值       | ❌         | 累加         |
+| `reduceRight`         | 遍历  | `callback(accumulator, currentValue, index, array), initialValue`（initialValue 可选） | 累积值       | ❌         | 反向累加     |

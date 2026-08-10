@@ -1,0 +1,586 @@
+# Promise & Async/Await
+
+---
+
+## 一、Promise
+
+### 概述
+
+Promise 是 ES2015 引入的**异步编程**解决方案，解决了回调地狱问题。它是一个表示异步操作最终完成或失败的对象。
+
+### 三种状态
+
+```
+pending (进行中) → fulfilled (已成功)   → 不可逆
+                 → rejected (已失败)    → 不可逆
+```
+
+- 状态一旦改变就**不可逆**
+- `resolve` → pending → fulfilled
+- `reject` → pending → rejected
+- 状态变更结果可以被多次 `.then()` 消费
+
+### 基本用法
+
+```js
+let promise = new Promise((resolve, reject) => {
+  // 异步操作
+  setTimeout(() => {
+    let success = true
+    if (success) {
+      resolve("数据") // pending → fulfilled
+    } else {
+      reject(new Error("失败原因")) // pending → rejected
+    }
+  }, 1000)
+})
+
+promise
+  .then((result) => console.log("成功:", result))
+  .catch((err) => console.error("失败:", err))
+  .finally(() => console.log("无论成败都会执行"))
+```
+
+### Promise 构造函数执行时机
+
+`new Promise` 的 executor（执行器函数）**同步立即执行**，而 `then`/`catch` 回调是微任务：
+
+```js
+console.log("1")
+new Promise((resolve) => {
+  console.log("2") // 同步
+  resolve()
+}).then(() => {
+  console.log("3") // 微任务
+})
+console.log("4")
+// 输出: 1 2 4 3
+```
+
+---
+
+### then / catch / finally
+
+#### then(onFulfilled, onRejected)
+
+```txt
+语法: promise.then(onFulfilled, onRejected)
+参数:
+  onFulfilled — 成功回调 (result) => {}
+  onRejected  — 可选，失败回调 (error) => {}
+返回: 一个新 Promise
+```
+
+**链式调用**：`then` 返回一个新 Promise，回调的返回值会被自动包装：
+
+```js
+fetch("/api/user")
+  .then((res) => res.json()) // 返回 Promise
+  .then((user) => fetch(`/api/posts?userId=${user.id}`))
+  .then((res) => res.json())
+  .then((posts) => console.log(posts))
+  .catch((err) => console.error("任何环节失败都会到达这里", err))
+```
+
+**返回值处理规则**：
+
+| `then` 回调返回值       | `then` 返回的 Promise 状态 |
+| ----------------------- | -------------------------- |
+| 普通值 `"hello"`        | `fulfilled("hello")`       |
+| Promise                 | 跟随该 Promise 的状态      |
+| `throw new Error()`     | `rejected(Error)`          |
+| `undefined` (无 return) | `fulfilled(undefined)`     |
+
+```js
+Promise.resolve(1)
+  .then((v) => v * 2) // 返回普通值 → fulfilled(2)
+  .then((v) => Promise.resolve(v + 3)) // 返回 Promise → fulfilled(5)
+  .then((v) => {
+    throw new Error("出错了") // 抛出异常 → rejected
+  })
+  .catch((err) => console.log(err.message)) // "出错了"
+```
+
+#### catch(onRejected)
+
+```txt
+语法: promise.catch(onRejected)
+等价于: promise.then(null, onRejected)
+返回: 一个新 Promise
+```
+
+`catch` 捕获前面任何环节的错误后，返回的 Promise 默认是 fulfilled。之后可以继续 `then`：
+
+```js
+fetch("/api/data")
+  .then((res) => res.json())
+  .catch((err) => {
+    console.error("请求或 JSON 解析失败", err)
+    return { default: true } // 返回默认值，恢复为 fulfilled
+  })
+  .then((data) => {
+    console.log("总能执行到这里", data)
+  })
+```
+
+**then 中第二个参数 vs catch 的区别**：
+
+```js
+// 情景: then 的 onFulfilled 中抛出错误
+
+// ❌ 方式 1: then 的第二个参数 — 捕获不到 onFulfilled 内部错误
+Promise.resolve()
+  .then(
+    () => {
+      throw new Error("内部错误")
+    },
+    (err) => console.log("捕获不到!", err) // 不会被调用
+  )
+  .catch((err) => console.log("这里才能捕获")) // ← 会被调用
+
+// ✅ 方式 2: 链式 catch — 能捕获前面所有错误（推荐）
+Promise.resolve()
+  .then(() => {
+    throw new Error("内部错误")
+  })
+  .catch((err) => console.log("正确捕获", err))
+```
+
+#### finally(onFinally)
+
+```txt
+语法: promise.finally(onFinally)
+参数: onFinally — 回调函数（无参数）
+返回: 一个新 Promise，状态与原 promise 保持一致
+```
+
+无论 promise 成功还是失败都会执行，**不改变原值**，常用于清理操作：
+
+```js
+showLoading = true
+
+fetch("/api/data")
+  .then((res) => res.json())
+  .catch((err) => console.error(err))
+  .finally(() => {
+    showLoading = false // 无论成败都关闭 loading
+  })
+```
+
+---
+
+### 静态方法
+
+#### Promise.resolve(value)
+
+```txt
+语法: Promise.resolve(value)
+返回: 一个已 fulfilled 的 Promise
+
+- value 是普通值 → fulfilled(value)
+- value 是 Promise → 原样返回
+- value 是 thenable → 跟随其 then()
+```
+
+```js
+Promise.resolve(42).then((v) => console.log(v)) // 42
+
+// 用于快速将值转为 Promise
+function maybeAsync(value) {
+  return Promise.resolve(value) // 保证返回 Promise
+}
+```
+
+#### Promise.reject(reason)
+
+```txt
+语法: Promise.reject(reason)
+返回: 一个已 rejected 的 Promise
+```
+
+```js
+Promise.reject(new Error("fail")).catch((err) => console.log(err.message))
+```
+
+#### Promise.all(iterable) — 全部成功
+
+```txt
+语法: Promise.all(iterable)
+参数: 可迭代对象（数组等），含多个 Promise
+返回: 新 Promise
+  - 全部 fulfilled → fulfilled([result1, result2, ...])
+  - 任一 rejected → rejected(第一个rejected的reason)
+```
+
+结果顺序与传入顺序一致，而非完成顺序。
+
+```js
+let [user, posts] = await Promise.all([
+  fetch("/api/user").then((r) => r.json()),
+  fetch("/api/posts").then((r) => r.json()),
+])
+// 两个都成功才会赋值
+```
+
+#### Promise.allSettled(iterable) — 全部结束 (ES2020)
+
+```txt
+语法: Promise.allSettled(iterable)
+返回: 新 Promise，总是 fulfilled
+  结果数组每项: { status: "fulfilled"|"rejected", value|reason }
+```
+
+不会 reject，等所有完成后再返回每个的结果：
+
+```js
+let results = await Promise.allSettled([
+  fetch("/api/user"),
+  fetch("/api/broken"),
+  fetch("/api/posts"),
+])
+
+results.forEach((r) => {
+  if (r.status === "fulfilled") {
+    console.log("成功:", r.value)
+  } else {
+    console.log("失败:", r.reason)
+  }
+})
+```
+
+#### Promise.race(iterable) — 竞速
+
+```txt
+语法: Promise.race(iterable)
+返回: 新 Promise，状态跟随第一个 settled 的 Promise
+```
+
+```js
+// 超时控制
+let result = await Promise.race([
+  fetch("/api/slow"),
+  new Promise((_, reject) => setTimeout(() => reject(new Error("超时")), 5000)),
+])
+```
+
+#### Promise.any(iterable) — 任一成功 (ES2021)
+
+```txt
+语法: Promise.any(iterable)
+返回: 新 Promise
+  - 任一 fulfilled → 跟随其值
+  - 全部 rejected → AggregateError(所有错误)
+```
+
+与 `race` 的区别：`race` 跟随第一个 settled（包括 reject），`any` 只关心第一个 fulfilled。
+
+```js
+let result = await Promise.any([
+  fetch("https://cdn1.example.com/data"),
+  fetch("https://cdn2.example.com/data"),
+  fetch("https://cdn3.example.com/data"),
+])
+// 任一 CDN 成功即返回
+```
+
+#### Promise 静态方法对比
+
+| 方法         | 成功条件        | 失败条件        | 返回值                      | ES 版本 |
+| ------------ | --------------- | --------------- | --------------------------- | ------- |
+| `all`        | **全部**成功    | **任一**失败    | 结果数组 / 单个错误         | ES2015  |
+| `allSettled` | 永远不会 reject | 永远不会 reject | `{status, value/reason}[]`  | ES2020  |
+| `race`       | —               | —               | 第一个 settled 的结果       | ES2015  |
+| `any`        | **任一**成功    | **全部**失败    | 首个成功值 / AggregateError | ES2021  |
+
+---
+
+## 二、Async/Await
+
+### async 函数
+
+ES2017 引入。`async` 声明的函数**自动返回 Promise**：
+
+```js
+// 返回普通值 → Promise.resolve(普通值)
+async function foo() {
+  return "hello"
+}
+foo().then((v) => console.log(v)) // "hello"
+
+// 抛出异常 → Promise.reject(error)
+async function bar() {
+  throw new Error("出错了")
+}
+bar().catch((err) => console.log(err.message))
+```
+
+### await 表达式
+
+```txt
+语法: await expression
+  - expression 是 Promise → 等待其 settled，返回 resolve 的值
+  - expression 是普通值 → 包装为 Promise.resolve(值)
+  - expression 是 rejected Promise → 抛出异常（可用 try/catch 捕获）
+```
+
+`await` **只能在 async 函数内部使用**（ES2022 支持顶层 `await`）。
+
+```js
+async function getUser(id) {
+  let response = await fetch(`/api/user/${id}`)
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`)
+  }
+  let user = await response.json()
+  return user
+}
+
+// 调用
+try {
+  let user = await getUser(1)
+  console.log(user)
+} catch (err) {
+  console.error(err.message)
+}
+```
+
+### 错误处理
+
+```js
+// 方式 1: try/catch（推荐）
+async function fetchData() {
+  try {
+    let data = await fetch("/api/data").then((r) => r.json())
+    return data
+  } catch (err) {
+    console.error("请求失败:", err)
+    return { error: true }
+  }
+}
+
+// 方式 2: .catch() 链
+async function fetchData() {
+  let data = await fetch("/api/data")
+    .then((r) => r.json())
+    .catch((err) => ({ error: true }))
+  return data
+}
+
+// 方式 3: 封装安全 await（避免 try/catch 嵌套）
+async function to(promise) {
+  return promise.then((data) => [null, data]).catch((err) => [err, null])
+}
+
+let [err, data] = await to(fetch("/api/data").then((r) => r.json()))
+if (err) {
+  // 处理错误
+}
+```
+
+### 串行 vs 并行
+
+```js
+// ❌ 串行执行（总耗时 = 请求1 + 请求2 + 请求3）
+let user = await fetchUser()
+let posts = await fetchPosts()
+let comments = await fetchComments()
+
+// ✅ 并行执行（总耗时 = 最慢的那个）
+let [user, posts, comments] = await Promise.all([fetchUser(), fetchPosts(), fetchComments()])
+
+// 半并行：某些请求依赖前一个的结果
+let user = await fetchUser()
+// 以下两个不依赖 user → 可并行
+let [friends, photos] = await Promise.all([fetchFriends(user.id), fetchPhotos(user.id)])
+```
+
+### 循环中的 await
+
+```js
+// ❌ 串行（不推荐，除非任务之间存在依赖）
+for (let id of ids) {
+  let user = await fetchUser(id) // 一个一个执行
+}
+
+// ✅ 并行（推荐）
+let users = await Promise.all(ids.map((id) => fetchUser(id)))
+
+// forEach 不会等待 async 回调
+// ❌ 错误：这里不会等
+ids.forEach(async (id) => {
+  await fetchUser(id) // forEach 内部 await 无效
+})
+```
+
+---
+
+## 三、综合
+
+### Promise 实现原理（简易版）
+
+```js
+class MyPromise {
+  constructor(executor) {
+    this.state = "pending"
+    this.value = undefined
+    this.callbacks = []
+
+    let resolve = (value) => {
+      if (this.state !== "pending") return
+      this.state = "fulfilled"
+      this.value = value
+      this.callbacks.forEach((cb) => cb.onFulfilled(value))
+    }
+
+    let reject = (reason) => {
+      if (this.state !== "pending") return
+      this.state = "rejected"
+      this.value = reason
+      this.callbacks.forEach((cb) => cb.onRejected(reason))
+    }
+
+    try {
+      executor(resolve, reject)
+    } catch (e) {
+      reject(e)
+    }
+  }
+
+  then(onFulfilled, onRejected) {
+    return new MyPromise((resolve, reject) => {
+      let handler = () => {
+        try {
+          let callback = this.state === "fulfilled" ? onFulfilled : onRejected
+          if (typeof callback === "function") {
+            let result = callback(this.value)
+            result instanceof MyPromise ? result.then(resolve, reject) : resolve(result)
+          } else {
+            ;(this.state === "fulfilled" ? resolve : reject)(this.value)
+          }
+        } catch (e) {
+          reject(e)
+        }
+      }
+
+      if (this.state !== "pending") {
+        setTimeout(handler, 0) // 模拟微任务
+      } else {
+        this.callbacks.push({ onFulfilled: () => handler(), onRejected: () => handler() })
+      }
+    })
+  }
+
+  catch(onRejected) {
+    return this.then(null, onRejected)
+  }
+
+  finally(onFinally) {
+    return this.then(
+      (v) => MyPromise.resolve(onFinally()).then(() => v),
+      (e) =>
+        MyPromise.resolve(onFinally()).then(() => {
+          throw e
+        })
+    )
+  }
+
+  static resolve(value) {
+    return value instanceof MyPromise ? value : new MyPromise((r) => r(value))
+  }
+
+  static reject(reason) {
+    return new MyPromise((_, r) => r(reason))
+  }
+}
+```
+
+### async/await 与事件循环
+
+```js
+async function async1() {
+  console.log("async1 start")
+  await async2()
+  console.log("async1 end") // → 微任务
+}
+
+async function async2() {
+  console.log("async2")
+}
+
+console.log("script start")
+setTimeout(() => console.log("setTimeout"), 0)
+async1()
+new Promise((resolve) => {
+  console.log("promise1")
+  resolve()
+}).then(() => console.log("promise2"))
+
+console.log("script end")
+
+// 输出: script start → async1 start → async2 → promise1 → script end
+//       → async1 end → promise2 → setTimeout
+```
+
+### 常见易错点
+
+```js
+// 1. await 后面不是 Promise 时是等价的
+await 42
+// 等价于 await Promise.resolve(42)
+
+// 2. async 函数中的 return 值被自动 Promise.resolve 包装
+async function foo() {
+  return 1
+}
+// 等价于
+function foo() {
+  return Promise.resolve(1)
+}
+
+// 3. .then() 总是返回新 Promise（即使回调返回 undefined）
+Promise.resolve(1)
+  .then(() => {})
+  .then((v) => console.log(v)) // undefined
+
+// 4. rejected 不处理会"吞掉"错误
+Promise.reject("err") // UnhandledPromiseRejection
+// 必须加 .catch() 或 try/catch
+
+// 5. new Promise 中 resolve 后仍可执行后续代码（需 return 阻止）
+new Promise((resolve) => {
+  resolve(1)
+  console.log("仍会执行") // ← 会输出，但状态已定
+})
+```
+
+---
+
+## 汇总速查表
+
+### Promise 实例方法
+
+| 方法                            | 参数          | 返回值     | 说明                  |
+| ------------------------------- | ------------- | ---------- | --------------------- |
+| `then(onFulfilled, onRejected)` | 成功/失败回调 | 新 Promise | 链式调用              |
+| `catch(onRejected)`             | 失败回调      | 新 Promise | 等价 `then(null, fn)` |
+| `finally(onFinally)`            | 回调（无参）  | 新 Promise | 无论成败都执行        |
+
+### Promise 静态方法
+
+| 方法                           | 触发时机       | 结果                        |
+| ------------------------------ | -------------- | --------------------------- |
+| `Promise.resolve(v)`           | 立即           | 包装为 fulfilled Promise    |
+| `Promise.reject(e)`            | 立即           | 包装为 rejected Promise     |
+| `Promise.all([p1, p2])`        | 全部 fulfilled | 结果数组 / 第一个 reject    |
+| `Promise.allSettled([p1, p2])` | 全部 settled   | `[{status, value/reason}]`  |
+| `Promise.race([p1, p2])`       | 第一个 settled | 跟随首个结果                |
+| `Promise.any([p1, p2])`        | 任一 fulfilled | 首个成功值 / AggregateError |
+
+### Async/Await
+
+| 语法                         | 说明                                        |
+| ---------------------------- | ------------------------------------------- |
+| `async function fn() {}`     | 声明 async 函数，返回 Promise               |
+| `await expression`           | 等待 Promise settled，仅在 async 函数内使用 |
+| `try { await ... } catch {}` | async/await 错误处理                        |
+| `await Promise.all([...])`   | 并行执行多个 await                          |

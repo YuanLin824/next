@@ -1,0 +1,1393 @@
+# HTML 面试题
+
+---
+
+## 一、基础概念
+
+### Q1: HTML5 有哪些新特性？
+
+| 类别           | 新特性                                                                                                   |
+| -------------- | -------------------------------------------------------------------------------------------------------- |
+| **语义化标签** | `header` `nav` `main` `article` `section` `aside` `footer` `figure` `time`                               |
+| **表单增强**   | 新 input type（`email/date/url/number/range/color`）、新属性（`required/placeholder/autofocus/pattern`） |
+| **多媒体**     | `<audio>` `<video>` 原生支持，无需 Flash                                                                 |
+| **图形**       | `<canvas>` 2D/3D 绘图、`<svg>` 矢量图形                                                                  |
+| **存储**       | `localStorage` `sessionStorage`（替代 Cookie 存大数据）                                                  |
+| **通信**       | WebSocket、Server-Sent Events、`postMessage` 跨文档通信                                                  |
+| **离线**       | Application Cache（已废弃）→ Service Worker + Cache API                                                  |
+| **性能**       | `<script defer/async>`、`<link rel="preload/prefetch">`、`<img loading="lazy">`                          |
+| **设备 API**   | Geolocation、拖拽、Web Worker、History API                                                               |
+
+### Q2: HTML 全局属性有哪些？
+
+| 属性              | 说明                   |
+| ----------------- | ---------------------- |
+| `id`              | 唯一标识               |
+| `class`           | 样式类名               |
+| `style`           | 行内样式               |
+| `title`           | 悬浮提示               |
+| `data-*`          | 自定义数据属性         |
+| `hidden`          | 隐藏元素               |
+| `tabindex`        | Tab 键聚焦顺序         |
+| `contenteditable` | 内容是否可编辑         |
+| `draggable`       | 是否可拖拽             |
+| `dir`             | 文字方向 (`ltr`/`rtl`) |
+| `lang`            | 元素语言               |
+| `spellcheck`      | 拼写检查               |
+
+### Q3: data-\* 属性的作用和使用？
+
+```html
+<div data-user-id="123" data-role="admin" data-last-login="2024-01-01">用户信息</div>
+```
+
+```js
+const el = document.querySelector("div")
+console.log(el.dataset.userId) // "123"          — 驼峰转换
+console.log(el.dataset.role) // "admin"
+console.log(el.dataset.lastLogin) // "2024-01-01" — data-last-login → lastLogin
+
+// 设置
+el.dataset.newField = "value" // → data-new-field="value"
+```
+
+---
+
+## 二、语义化与 SEO
+
+### Q4: 什么是语义化 HTML？有哪些好处？
+
+| 好处         | 说明                                     |
+| ------------ | ---------------------------------------- |
+| **SEO**      | 搜索引擎理解页面结构和内容权重           |
+| **可访问性** | 屏幕阅读器按语义导航（`<nav>` = 导航区） |
+| **可维护性** | `<main>` 比 `<div class="main">` 更清晰  |
+| **设备适配** | 阅读模式、智能音箱等依赖语义解析         |
+
+```html
+<!-- ❌ 全用 div -->
+<div class="header">...</div>
+<div class="nav">...</div>
+<div class="main">...</div>
+
+<!-- ✅ 语义化 -->
+<header>...</header>
+<nav>...</nav>
+<main>...</main>
+```
+
+### Q5: SEO 相关的 HTML 优化手段？
+
+```html
+<!-- 1. 标题层级 — 一个页面一个 h1 -->
+<h1>页面主标题（核心关键词）</h1>
+
+<!-- 2. meta 标签 -->
+<meta name="description" content="150字内的页面描述（搜索摘要展示）" />
+<meta name="robots" content="index, follow" />
+
+<!-- 3. Open Graph — 社交分享卡片 -->
+<meta property="og:title" content="页面标题" />
+<meta property="og:image" content="https://example.com/og.jpg" />
+
+<!-- 4. 结构化数据 (JSON-LD) — 富文本搜索结果 -->
+<script type="application/ld+json">
+  { "@context": "https://schema.org", "@type": "Article", "headline": "..." }
+</script>
+
+<!-- 5. img alt — 搜索引擎读图 + 无障碍 -->
+<img src="photo.jpg" alt="团队合影：10 位员工在办公室微笑" />
+
+<!-- 6. canonical — 解决重复内容 -->
+<link rel="canonical" href="https://example.com/original-page" />
+
+<!-- 7. 语义化链接文本 — "了解产品" 优于 "点击这里" -->
+<a href="/product">了解产品</a>
+```
+
+### Q6: h1 标签的使用原则是什么？
+
+- **每个页面只有一个** `h1`（SEO 最佳实践）
+- 标题层级不跳级：`h1 → h2 → h3`（不用 `h1 → h3`）
+- `h1` 应包含核心关键词
+- 语义化：`h1` 是页面主题，不是用来控制字体大小的
+
+---
+
+## 三、表单
+
+### Q7: input type 有哪些？新增了哪些 H5 类型？
+
+| type                               | 说明                     | H5 新增 |
+| ---------------------------------- | ------------------------ | ------- |
+| `text`                             | 文本                     | ❌      |
+| `password`                         | 密码                     | ❌      |
+| `number`                           | 数字（移动端调数字键盘） | ✅      |
+| `email`                            | 邮箱（自带格式校验）     | ✅      |
+| `url`                              | 网址                     | ✅      |
+| `tel`                              | 电话（移动端调电话键盘） | ✅      |
+| `search`                           | 搜索（自带清除按钮）     | ✅      |
+| `date` / `time` / `datetime-local` | 日期/时间                | ✅      |
+| `range`                            | 滑块                     | ✅      |
+| `color`                            | 颜色选择器               | ✅      |
+| `file`                             | 文件上传                 | ❌      |
+| `checkbox` / `radio`               | 多选/单选                | ❌      |
+| `hidden`                           | 隐藏字段                 | ❌      |
+
+### Q8: 表单校验属性有哪些？
+
+```html
+<!-- required — 必填 -->
+<input required />
+
+<!-- minlength / maxlength — 字符数范围 -->
+<input minlength="2" maxlength="20" />
+
+<!-- min / max — 数值范围 -->
+<input type="number" min="0" max="150" />
+
+<!-- pattern — 正则校验 -->
+<input pattern="[a-zA-Z0-9]+" title="仅字母和数字" />
+
+<!-- type 自带校验 — email/url/number -->
+<input type="email" />
+
+<!-- 禁用浏览器校验 -->
+<form novalidate>
+  <!-- 自定义校验消息（JS） -->
+  <script>
+    input.setCustomValidity("自定义错误信息")
+    input.reportValidity()
+  </script>
+</form>
+```
+
+### Q9: form 的 enctype 属性有哪些取值？
+
+| 值                                  | 说明             |
+| ----------------------------------- | ---------------- |
+| `application/x-www-form-urlencoded` | 默认，URL 编码   |
+| `multipart/form-data`               | 文件上传时必须用 |
+| `text/plain`                        | 纯文本（不常用） |
+
+### Q10: label 的作用？如何关联表单元素？
+
+```html
+<!-- 方式 1: for + id 关联（推荐） -->
+<label for="email">邮箱</label>
+<input id="email" type="email" />
+
+<!-- 方式 2: 隐式关联（包裹） -->
+<label>邮箱 <input type="email" /></label>
+```
+
+**作用**：点击 label 自动聚焦/激活对应表单元素（提升可访问性和用户体验）。
+
+---
+
+## 四、多媒体
+
+### Q11: video 和 audio 标签的常用属性和事件？
+
+```html
+<video
+  src="video.mp4"
+  controls
+  autoplay
+  muted
+  loop
+  poster="cover.jpg"
+  playsinline
+  preload="metadata"
+  width="800"
+>
+  <source src="video.mp4" type="video/mp4" />
+  <source src="video.webm" type="video/webm" />
+  <track src="subtitles.vtt" kind="subtitles" srclang="zh" label="中文" />
+  您的浏览器不支持 video 标签
+</video>
+```
+
+| 属性          | 说明                               |
+| ------------- | ---------------------------------- |
+| `controls`    | 显示播放控件                       |
+| `autoplay`    | 自动播放（需 `muted`）             |
+| `muted`       | 静音                               |
+| `loop`        | 循环                               |
+| `poster`      | 封面图（视频）                     |
+| `preload`     | 预加载（`none`/`metadata`/`auto`） |
+| `playsinline` | iOS 内联播放（不自动全屏）         |
+
+### Q12: 响应式图片怎么做？
+
+```html
+<!-- 1. srcset: 根据 DPR 选择不同分辨率 -->
+<img src="photo-1x.jpg" srcset="photo-1x.jpg 1x, photo-2x.jpg 2x, photo-3x.jpg 3x" alt="photo" />
+
+<!-- 2. srcset + sizes: 根据屏幕宽度选图 -->
+<img
+  src="photo-800.jpg"
+  srcset="photo-400.jpg 400w, photo-800.jpg 800w, photo-1200.jpg 1200w"
+  sizes="(max-width: 768px) 100vw, 50vw"
+  alt="photo"
+/>
+
+<!-- 3. picture: 不同格式适配 -->
+<picture>
+  <source srcset="photo.avif" type="image/avif" />
+  <source srcset="photo.webp" type="image/webp" />
+  <img src="photo.jpg" alt="fallback" />
+</picture>
+```
+
+---
+
+## 五、性能与加载
+
+### Q13: script 标签的 async / defer / module 有什么区别？
+
+```html
+<!-- 普通: 阻塞 HTML 解析，按顺序执行 -->
+<script src="app.js"></script>
+
+<!-- defer: 不阻塞解析，DOM 解析完后按顺序执行（推荐） -->
+<script src="app.js" defer></script>
+
+<!-- async: 不阻塞解析，下载完立刻执行（顺序不保证） -->
+<script src="analytics.js" async></script>
+
+<!-- type="module": 默认 defer，支持 import/export -->
+<script type="module" src="app.js"></script>
+```
+
+| 方式     | 阻塞解析 | 执行顺序   | 适用      |
+| -------- | -------- | ---------- | --------- |
+| 普通     | ✅       | 按出现顺序 | —         |
+| `defer`  | ❌       | 按出现顺序 | 业务代码  |
+| `async`  | ❌       | 下载完立即 | 独立脚本  |
+| `module` | ❌       | 按依赖图   | ES Module |
+
+### Q14: 资源预加载 (preload/prefetch/preconnect) 怎么用？
+
+```html
+<!-- preload: 提前加载当前页面需要的资源（高优先级） -->
+<link rel="preload" href="critical.css" as="style" />
+<link rel="preload" href="hero.jpg" as="image" />
+<link rel="preload" href="font.woff2" as="font" crossorigin />
+
+<!-- prefetch: 预加载后续页面可能需要的资源（低优先级，空闲时） -->
+<link rel="prefetch" href="next-page.js" as="script" />
+
+<!-- preconnect: 提前建立连接（DNS + TCP + TLS） -->
+<link rel="preconnect" href="https://api.example.com" />
+
+<!-- dns-prefetch: 仅 DNS 解析 -->
+<link rel="dns-prefetch" href="https://cdn.example.com" />
+```
+
+| 方式           | 时机   | 优先级 | 用途                 |
+| -------------- | ------ | ------ | -------------------- |
+| `preload`      | 立即   | 高     | 当前页面必需资源     |
+| `prefetch`     | 空闲时 | 低     | 下一页可能用到的资源 |
+| `preconnect`   | 立即   | —      | 第三方域名预热连接   |
+| `dns-prefetch` | 立即   | —      | 仅 DNS 解析          |
+
+### Q15: img loading="lazy" 的实现原理？
+
+浏览器原生懒加载：图片进入视口前不下载。
+
+```html
+<img src="photo.jpg" loading="lazy" alt="描述" />
+<!-- loading="lazy" — 视口外不加载 -->
+<!-- loading="eager" — 立即加载（默认） -->
+```
+
+---
+
+## 六、可访问性
+
+### Q16: 如何提升网页的 A11y（Accessibility）？
+
+| 手段        | 说明                                          |
+| ----------- | --------------------------------------------- |
+| 语义化 HTML | 原生标签优先（`<button>` > `<div onclick>`）  |
+| alt 属性    | 所有图片必加 `alt`                            |
+| label 关联  | `<label for="id">` 关联表单                   |
+| ARIA 属性   | `aria-label` `aria-hidden` `aria-live` `role` |
+| 键盘可操作  | `tabindex` + 键盘事件                         |
+| 颜色对比度  | ≥ 4.5:1 (WCAG AA)                             |
+| 跳过导航    | `<a href="#main">跳到主内容</a>`              |
+| 焦点管理    | 弹窗打开时焦点移到弹窗，关闭时移回触发按钮    |
+
+```html
+<!-- ARIA 示例 -->
+<button aria-label="关闭弹窗">×</button>
+<div role="alert" aria-live="polite">操作成功</div>
+<span aria-hidden="true">装饰图标</span>
+
+<!-- 跳过导航 -->
+<a href="#main-content" class="skip-link">跳到主内容</a>
+<main id="main-content">...</main>
+```
+
+---
+
+## 七、meta 与 head
+
+### Q17: viewport 是什么？为什么移动端必须设置？
+
+```html
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+```
+
+| 属性                 | 说明                    |
+| -------------------- | ----------------------- |
+| `width=device-width` | 视口宽度 = 设备屏幕宽度 |
+| `initial-scale=1.0`  | 初始缩放 100%           |
+| `maximum-scale=5.0`  | 最大缩放                |
+| `user-scalable=no`   | 禁止用户缩放（不推荐）  |
+
+不设置 viewport → 移动浏览器以 980px 桌面宽度渲染 → 页面缩小（字体极小，需手动放大）。
+
+### Q18: 如何用 meta 做安全策略？
+
+```html
+<!-- CSP -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'" />
+
+<!-- 防止 MIME 嗅探 -->
+<meta http-equiv="X-Content-Type-Options" content="nosniff" />
+
+<!-- IE 兼容模式 -->
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+```
+
+---
+
+## 八、HTML5 API
+
+### Q19: Web Storage (localStorage / sessionStorage) 的区别？
+
+| 维度             | `localStorage`    | `sessionStorage` | `Cookie`          |
+| ---------------- | ----------------- | ---------------- | ----------------- |
+| 容量             | ~5MB              | ~5MB             | ~4KB              |
+| 生命周期         | 永久              | 标签页关闭       | 可设过期          |
+| 跨标签共享       | ✅                | ❌ 各自独立      | ✅                |
+| 自动发送到服务端 | ❌                | ❌               | ✅ 每次请求       |
+| API              | `setItem/getItem` | 同               | `document.cookie` |
+
+### Q20: Web Worker 是什么？什么场景用？
+
+```js
+// 主线程
+const worker = new Worker("worker.js")
+worker.postMessage({ data: largeArray })
+worker.onmessage = (e) => console.log("结果:", e.data)
+
+// worker.js — 独立线程，不阻塞 UI
+self.onmessage = (e) => {
+  const result = e.data.data.map(heavyComputation) // 耗时计算
+  self.postMessage(result)
+}
+```
+
+- **独立线程**，不能操作 DOM
+- 适合：大量计算、数据处理、加密、图像处理
+
+---
+
+## 九、Web Components
+
+### Q21: Web Components 由哪三个技术组成？
+
+| 技术                | 说明                                   |
+| ------------------- | -------------------------------------- |
+| **Custom Elements** | 自定义 HTML 标签 + 生命周期回调        |
+| **Shadow DOM**      | 隔离的 DOM 和样式（不受外部 CSS 影响） |
+| **HTML Templates**  | `<template>` + `<slot>` 声明式模板     |
+
+```js
+class MyCounter extends HTMLElement {
+  constructor() {
+    super()
+    this.count = 0
+    this.attachShadow({ mode: "open" })
+  }
+  connectedCallback() {
+    this.shadowRoot.innerHTML = `
+      <button id="dec">-</button>
+      <span>${this.count}</span>
+      <button id="inc">+</button>
+    `
+  }
+}
+customElements.define("my-counter", MyCounter)
+```
+
+```html
+<my-counter></my-counter>
+```
+
+---
+
+## 十、高频真题
+
+### Q22: src 和 href 的区别？
+
+- `src`（source）— **替换**当前元素，把资源嵌入当前位置（`<script src>` `<img src>` `<iframe src>`）
+- `href`（hypertext reference）— **关联**外部资源，建立链接（`<a href>` `<link href>`）
+
+### Q23: 块级元素和行内元素有什么区别？
+
+| 类型   | 独占一行 | 宽高     | 元素                                  |
+| ------ | -------- | -------- | ------------------------------------- |
+| 块级   | ✅       | 可设     | `div` `p` `h1-h6` `ul` `li` `section` |
+| 行内   | ❌       | 由内容定 | `span` `a` `strong` `em` `code`       |
+| 行内块 | ❌       | 可设     | `img` `input` `button`                |
+
+### Q24: 行内元素间的空白怎么产生的？怎么解决？
+
+```html
+<!-- 源码中的换行/空格被解析为文本节点 → 产生约 4px 间隙 -->
+<span>hello</span>
+<span>world</span>
+```
+
+解决：
+
+1. 去掉标签间空格（不推荐）
+2. 父元素 `font-size: 0`，子元素重新设 `font-size`
+3. `display: flex` 替代 `inline-block`
+4. `float` / `flex` / `grid` 布局
+
+### Q25: HTML5 的离线存储和 Service Worker 是什么关系？
+
+| 技术              | 说明                               | 状态            |
+| ----------------- | ---------------------------------- | --------------- |
+| Application Cache | HTML5 离线缓存，使用 manifest 文件 | **已废弃**      |
+| Service Worker    | 拦截网络请求，Cache API 存储       | ✅ **现代方案** |
+
+```js
+// Service Worker — 离线可用
+self.addEventListener("fetch", (e) => {
+  e.respondWith(caches.match(e.request).then((cached) => cached || fetch(e.request)))
+})
+```
+
+### Q26: 如何禁用 a 标签的默认跳转？
+
+```html
+<!-- JavaScript -->
+<a href="javascript:void(0)">不跳转</a>
+<a href="javascript:;">不跳转</a>
+
+<!-- CSS -->
+<a style="pointer-events: none">不响应</a>
+
+<!-- JS 阻止 -->
+<a href="/page" onclick="return false">不跳转</a>
+<a href="/page" onclick="e.preventDefault()">不跳转</a>
+```
+
+### Q27: HTML 元素的 draggable 属性怎么用？
+
+```html
+<div draggable="true" ondragstart="e.dataTransfer.setData('text', e.target.id)">拖我</div>
+<div ondragover="e.preventDefault()" ondrop="handleDrop(e)">放在这里</div>
+```
+
+### Q28: 有过期时间的 localStorage 如何实现？
+
+```js
+function setWithExpiry(key, value, ttlMs) {
+  const item = { value, expiry: Date.now() + ttlMs }
+  localStorage.setItem(key, JSON.stringify(item))
+}
+
+function getWithExpiry(key) {
+  const raw = localStorage.getItem(key)
+  if (!raw) return null
+  const item = JSON.parse(raw)
+  if (Date.now() > item.expiry) {
+    localStorage.removeItem(key)
+    return null
+  }
+  return item.value
+}
+```
+
+---
+
+## 汇总速查表
+
+### HTML5 新增语义标签
+
+| 标签                        | 用途                 |
+| --------------------------- | -------------------- |
+| `<header>`                  | 页头/区块头          |
+| `<nav>`                     | 导航                 |
+| `<main>`                    | 主体（一个页面一个） |
+| `<article>`                 | 独立完整内容         |
+| `<section>`                 | 章节分组             |
+| `<aside>`                   | 侧边栏/补充内容      |
+| `<footer>`                  | 页脚                 |
+| `<figure>` + `<figcaption>` | 插图+说明            |
+| `<time>`                    | 时间日期             |
+| `<mark>`                    | 高亮标记             |
+
+### 常用 Meta 速查
+
+| Meta                           | 用途         |
+| ------------------------------ | ------------ |
+| `charset="UTF-8"`              | 字符编码     |
+| `name="viewport"`              | 移动端适配   |
+| `name="description"`           | SEO 描述     |
+| `name="robots"`                | 爬虫控制     |
+| `http-equiv="X-UA-Compatible"` | IE 模式      |
+| `property="og:title"`          | Open Graph   |
+| `name="theme-color"`           | 浏览器主题色 |
+
+### 表单校验属性速查
+
+| 属性             | 校验规则 |
+| ---------------- | -------- |
+| `required`       | 必填     |
+| `minlength="n"`  | 最少字符 |
+| `maxlength="n"`  | 最多字符 |
+| `min="n"`        | 最小值   |
+| `max="n"`        | 最大值   |
+| `pattern="正则"` | 正则     |
+| `type="email"`   | 邮箱格式 |
+| `type="url"`     | 网址格式 |
+
+---
+
+## 十一、更多核心概念
+
+### Q29: DOCTYPE 的作用？不写会怎样？
+
+```html
+<!DOCTYPE html>
+```
+
+作用：告诉浏览器使用**标准模式**（Standards Mode）渲染，而非怪异模式（Quirks Mode）。
+
+| 模式     | 盒模型        | 行为                              |
+| -------- | ------------- | --------------------------------- |
+| 标准模式 | 按 W3C 规范   | 跨浏览器一致                      |
+| 怪异模式 | 模拟 IE5 行为 | 布局/尺寸计算不一致（盒模型不同） |
+
+不写 DOCTYPE → 浏览器进入怪异模式 → 最明显的是 `width` 的计算方式不同（IE 盒模型）→ 布局错乱。
+
+### Q30: HTML 解析过程中遇到 script 会发生什么？
+
+```
+1. HTML 解析器遇到 <script> 标签
+2. 暂停 HTML 解析
+3. 下载 JS 文件（如果外链） → 执行 JS 代码
+4. JS 执行完 → 恢复 HTML 解析
+```
+
+→ 所以 `<script>` 放 `<body>` 底部，或用 `defer`/`async` 避免阻塞渲染。
+
+### Q31: iframe 的优缺点？srcdoc 属性是什么？
+
+| 优点                               | 缺点                 |
+| ---------------------------------- | -------------------- |
+| 隔离环境（独立的 Window/Document） | 阻塞主页面 onload    |
+| 嵌入第三方内容（地图/广告）        | SEO 不友好           |
+| 沙箱沙盒 (`sandbox` 属性)          | 安全风险（点击劫持） |
+
+```html
+<!-- srcdoc — 用 HTML 字符串设置内容（比 src + data URI 更简洁） -->
+<iframe srcdoc="<h1>内嵌内容</h1>" sandbox="allow-scripts" loading="lazy"></iframe>
+
+<!-- 常用属性 -->
+<iframe
+  src="page.html"
+  sandbox="allow-same-origin allow-scripts"
+  loading="lazy"
+  referrerpolicy="no-referrer"
+  allow="camera; microphone"
+>
+</iframe>
+```
+
+### Q32: SVG 和 Canvas 有什么区别？
+
+| 维度     | SVG                         | Canvas                       |
+| -------- | --------------------------- | ---------------------------- |
+| 渲染方式 | **矢量图**（缩放不失真）    | **位图**（像素级）           |
+| DOM      | 每个元素是独立 DOM 节点     | 单个像素画布                 |
+| 事件绑定 | ✅ 可给每个图形元素绑定事件 | ❌ 只能给整个 canvas 绑定    |
+| 修改     | JS / CSS 直接操作           | 需要清空重绘                 |
+| 场景     | 图标、数据可视化、交互图表  | 游戏、图像处理、大量粒子动画 |
+| 性能     | 元素少时快（元素多时慢）    | 大量对象时更快（GPU 加速）   |
+
+```html
+<svg width="100" height="100">
+  <circle cx="50" cy="50" r="40" fill="red" onclick="alert('clicked')" />
+</svg>
+
+<canvas id="c" width="100" height="100"></canvas>
+<script>
+  const ctx = document.getElementById("c").getContext("2d")
+  ctx.fillStyle = "red"
+  ctx.beginPath()
+  ctx.arc(50, 50, 40, 0, Math.PI * 2)
+  ctx.fill()
+</script>
+```
+
+### Q33: HTML template 和 slot 有什么用？
+
+```html
+<!-- template — 惰性 DOM：不会被渲染，但可被 JS 克隆使用 -->
+<template id="row-template">
+  <tr>
+    <td class="name"></td>
+    <td class="age"></td>
+  </tr>
+</template>
+
+<script>
+  const template = document.getElementById("row-template")
+  const clone = template.content.cloneNode(true) // 深克隆
+  clone.querySelector(".name").textContent = "Alice"
+  document.querySelector("tbody").appendChild(clone)
+</script>
+
+<!-- slot — Web Components 的插槽（内容分发） -->
+<my-card>
+  <h2 slot="header">标题</h2>
+  <p>默认插槽内容</p>
+</my-card>
+```
+
+### Q34: HTML 的字符编码和 charset 的作用？
+
+```html
+<meta charset="UTF-8" />
+<!-- 告诉浏览器用 UTF-8 解码文档 -->
+<!-- 1. 必须在 head 的前 1024 字节内（否则浏览器需重新解析） -->
+<!-- 2. 未指定 → 浏览器猜测编码（可能乱码） -->
+```
+
+```html
+<!-- HTML 实体（避免被解析为 HTML 标签） -->
+&lt;div&gt;
+<!-- <div> -->
+&amp;
+<!-- & -->
+&quot;
+<!-- " -->
+&copy;
+<!-- (c) 版权符号 -->
+&nbsp;
+<!-- 不换行空格 -->
+&#x1F600;
+<!-- emoji -->
+```
+
+---
+
+## 十二、Link 标签详解
+
+### Q35: link 标签除了加载 CSS 还有哪些用途？
+
+```html
+<!-- 1. 网站图标 -->
+<link rel="icon" href="/favicon.ico" sizes="32x32" />
+<link rel="apple-touch-icon" href="/icon-180.png" />
+
+<!-- 2. RSS 订阅 -->
+<link rel="alternate" type="application/rss+xml" href="/rss.xml" />
+
+<!-- 3. 预加载 / 预连接（见 Q14） -->
+<link rel="preload" rel="prefetch" rel="preconnect" rel="dns-prefetch" />
+
+<!-- 4. SEO canonical -->
+<link rel="canonical" href="https://example.com/original" />
+
+<!-- 5. 分页导航 -->
+<link rel="prev" href="/page/2" />
+<link rel="next" href="/page/4" />
+
+<!-- 6. Manifest (PWA) -->
+<link rel="manifest" href="/manifest.json" />
+
+<!-- 7. DNS 预解析 -->
+<link rel="dns-prefetch" href="//cdn.example.com" />
+```
+
+### Q36: HTML Entity (实体字符) 有什么用？
+
+```html
+<!-- 显示保留字符，防止被解析为 HTML -->
+&lt;script&gt;alert(1)&lt;/script&gt;
+<!-- 渲染为: <script>alert(1)</script>（纯文本，不执行） -->
+
+<!-- 常见实体 -->
+&nbsp;
+<!-- 空格（不会被合并） -->
+&lt;
+<!-- < -->
+&gt;
+<!-- > -->
+&amp;
+<!-- & -->
+&quot;
+<!-- " -->
+&copy;
+<!-- (c) -->
+
+<!-- 任意 Unicode 字符 -->
+&#x1F600;
+<!-- emoji -->
+&#27721;
+<!-- 汉 -->
+```
+
+---
+
+## 十三、HTML 邮件
+
+### Q37: HTML 邮件的注意事项？
+
+```html
+<!-- 1. 用 table 布局（多数邮箱客户端不支持 flex/grid） -->
+<table width="600" align="center" cellpadding="0" cellspacing="0">
+  <tr>
+    <td>内容</td>
+  </tr>
+</table>
+
+<!-- 2. 内联样式（外部/内部 CSS 可能被剥离） -->
+<p style="font-size: 16px; color: #333;">文本</p>
+
+<!-- 3. 不要用 JS（全部被过滤） -->
+
+<!-- 4. 图片用绝对路径 + alt -->
+<img src="https://example.com/logo.png" alt="Logo" />
+
+<!-- 5. 链接用完整 URL -->
+<a href="https://example.com" target="_blank">访问</a>
+
+<!-- 6. 移动端适配 -->
+<meta name="viewport" content="width=device-width" />
+```
+
+---
+
+## 十四、更多实战
+
+### Q38: 如何实现一个懒加载的 img？
+
+```html
+<!-- 1. 现代浏览器原生支持 -->
+<img src="photo.jpg" loading="lazy" />
+
+<!-- 2. Intersection Observer Polyfill -->
+<img data-src="photo.jpg" class="lazy" />
+
+<script>
+  const observer = new IntersectionObserver((entries) => {
+    entries.forEach((entry) => {
+      if (entry.isIntersecting) {
+        const img = entry.target
+        img.src = img.dataset.src
+        observer.unobserve(img)
+      }
+    })
+  })
+  document.querySelectorAll("img.lazy").forEach((img) => observer.observe(img))
+</script>
+```
+
+### Q39: HTML 的全局事件处理器有哪些？
+
+| 事件类别 | 事件                                                                           |
+| -------- | ------------------------------------------------------------------------------ |
+| 窗口     | `onload` `onunload` `onresize` `onscroll` `onerror`                            |
+| 表单     | `onchange` `oninput` `onsubmit` `onreset` `onfocus` `onblur`                   |
+| 键盘     | `onkeydown` `onkeyup` `onkeypress`                                             |
+| 鼠标     | `onclick` `ondblclick` `onmousedown` `onmouseup` `onmouseenter` `onmouseleave` |
+| 拖拽     | `ondragstart` `ondragover` `ondrop`                                            |
+| 媒体     | `onplay` `onpause` `onended` `ontimeupdate`                                    |
+| 剪贴板   | `oncopy` `oncut` `onpaste`                                                     |
+
+```html
+<!-- 属性写法（不推荐，应该用 addEventListener） -->
+<button onclick="handleClick()">按钮</button>
+```
+
+### Q40: base 标签有什么用？
+
+```html
+<head>
+  <base href="https://example.com/assets/" target="_blank" />
+</head>
+<body>
+  <!-- 所有相对路径都相对于 base URL -->
+  <img src="logo.png" />
+  <!-- → https://example.com/assets/logo.png -->
+  <a href="/about">About</a>
+  <!-- → https://example.com/assets/about -->
+</body>
+```
+
+> 一个页面最多一个 `<base>`，放在所有相对 URL 之前。
+
+---
+
+## 补充速查表
+
+### 所有 input type
+
+| type     | 说明     | type           | 说明      |
+| -------- | -------- | -------------- | --------- |
+| text     | 文本     | color          | 颜色      |
+| password | 密码     | range          | 滑块      |
+| email    | 邮箱     | date           | 日期      |
+| url      | 网址     | time           | 时间      |
+| tel      | 电话     | datetime-local | 日期+时间 |
+| number   | 数字     | month          | 月份      |
+| search   | 搜索     | week           | 周        |
+| file     | 文件     | checkbox       | 复选      |
+| hidden   | 隐藏     | radio          | 单选      |
+| submit   | 提交按钮 | reset          | 重置      |
+| button   | 按钮     | image          | 图片提交  |
+
+### 行内 vs 块级元素
+
+| 块级                      | 行内                | 行内块            |
+| ------------------------- | ------------------- | ----------------- |
+| `div` `p` `h1-h6`         | `span` `a` `strong` | `img` `input`     |
+| `ul` `ol` `li`            | `em` `code` `label` | `button` `select` |
+| `section` `article` `nav` | `i` `b` `sub` `sup` | `textarea`        |
+| `header` `footer` `main`  | `br` `q` `abbr`     | `video` `canvas`  |
+| `table` `form` `figure`   | `small` `mark`      | `iframe`          |
+
+### iframe sandbox 令牌
+
+| 令牌                   | 允许                  |
+| ---------------------- | --------------------- |
+| `allow-same-origin`    | 同源访问              |
+| `allow-scripts`        | JS 执行（不包括弹窗） |
+| `allow-forms`          | 表单提交              |
+| `allow-popups`         | 弹窗                  |
+| `allow-modals`         | 模态框                |
+| `allow-downloads`      | 下载                  |
+| `allow-top-navigation` | 修改顶层窗口 URL      |
+
+### link rel 速查
+
+| rel             | 说明                 |
+| --------------- | -------------------- |
+| `stylesheet`    | 样式表               |
+| `icon`          | 网站图标             |
+| `preload`       | 高优预加载           |
+| `prefetch`      | 低优预获取           |
+| `preconnect`    | 预热连接             |
+| `dns-prefetch`  | DNS 预解析           |
+| `canonical`     | 规范 URL             |
+| `alternate`     | 替代版（RSS/多语言） |
+| `manifest`      | PWA Manifest         |
+| `modulepreload` | ESM 预加载           |
+
+---
+
+## 十五、表单进阶
+
+### Q41: button 的 type 属性不写默认是什么？
+
+```html
+<!-- ⚠️ button 的默认 type 是 submit！ -->
+<button>点击</button>
+<!-- 等价于 type="submit" → 在 form 中会触发表单提交 -->
+
+<!-- ✅ 必须显式设 type -->
+<button type="button">普通按钮</button>
+<!-- 不提交 -->
+<button type="submit">提交</button>
+<button type="reset">重置</button>
+```
+
+### Q42: input / button / a 在表单中的区别？
+
+| 元素                     | 作用                       | 提交表单 |
+| ------------------------ | -------------------------- | -------- |
+| `<input type="submit">`  | 提交按钮                   | ✅       |
+| `<button type="submit">` | 提交（可含 HTML 子元素）   | ✅       |
+| `<button type="button">` | 普通按钮                   | ❌       |
+| `<input type="image">`   | 图片提交（点击坐标会提交） | ✅       |
+
+### Q43: fieldset 和 legend 的作用？
+
+```html
+<form>
+  <fieldset>
+    <legend>个人信息</legend>
+    <label>姓名: <input /></label>
+  </fieldset>
+  <fieldset disabled>
+    <!-- 整个区域禁用 -->
+    <legend>付款信息</legend>
+    ...
+  </fieldset>
+</form>
+```
+
+### Q44: select / optgroup 的常用属性？
+
+| 属性       | 说明                              |
+| ---------- | --------------------------------- |
+| `multiple` | 多选                              |
+| `size`     | 可见选项数                        |
+| `selected` | 默认选中                          |
+| `optgroup` | 分组（`<optgroup label="华北">`） |
+
+### Q45: progress 和 meter 的区别？
+
+```html
+<progress value="70" max="100">70%</progress>
+<!-- 任务进度 -->
+<meter value="0.6" low="0.2" high="0.8">60%</meter>
+<!-- 标量度量（磁盘/评分） -->
+```
+
+### Q46: input 的 autocomplete 详解？
+
+```html
+<input autocomplete="new-password" />
+<!-- 新密码（不填旧密码） -->
+<input autocomplete="current-password" />
+<!-- 当前密码 -->
+<input autocomplete="one-time-code" />
+<!-- OTP 验证码（短信自动填充） -->
+<input autocomplete="off" />
+<!-- 禁用自动填充 -->
+```
+
+### Q47: details / summary 折叠面板
+
+```html
+<details open>
+  <summary>点击展开/收起</summary>
+  <p>任何 HTML 内容</p>
+</details>
+<!-- open 属性 → 默认展开；JS 监听 toggle 事件 -->
+```
+
+---
+
+## 十六、对话框与原生弹层
+
+### Q48: dialog 元素怎么用？
+
+```html
+<dialog id="modal">
+  <h2>标题</h2>
+  <button onclick="this.closest('dialog').close()">关闭</button>
+</dialog>
+
+<script>
+  dialog.showModal() // 模态 → ::backdrop + 焦点锁定 + ESC 关闭
+  dialog.show() // 非模态（背景仍可交互）
+  dialog.close()
+</script>
+
+<style>
+  dialog::backdrop {
+    background: rgba(0, 0, 0, 0.5);
+  }
+</style>
+```
+
+### Q49: Popover API（原生弹层）
+
+```html
+<button popovertarget="menu">菜单</button>
+<div id="menu" popover>选项 1 / 选项 2</div>
+<!-- 自动焦点管理 / ESC 关闭 / 点击外部关闭 / 顶层显示 -->
+```
+
+### Q50: Fullscreen API
+
+```js
+el.requestFullscreen()
+document.exitFullscreen()
+document.addEventListener("fullscreenchange", () => {
+  if (document.fullscreenElement) {
+    /* 全屏中 */
+  }
+})
+```
+
+### Q51: Clipboard API
+
+```js
+await navigator.clipboard.writeText("要复制的文本")
+const text = await navigator.clipboard.readText()
+```
+
+---
+
+## 十七、输入事件
+
+### Q52: oninput vs onchange？
+
+| 事件     | 触发               | 适用                     |
+| -------- | ------------------ | ------------------------ |
+| `input`  | 每次值变化（实时） | 搜索联想、字数统计       |
+| `change` | 值变化 + 失去焦点  | select/checkbox 立即触发 |
+
+### Q53: 所有表单相关事件
+
+| 事件                     | 触发                    |
+| ------------------------ | ----------------------- |
+| `focus` / `blur`         | 获得/失去焦点（不冒泡） |
+| `focusin` / `focusout`   | 获得/失去焦点（冒泡）   |
+| `input`                  | 值变化（实时）          |
+| `change`                 | 值变化 + 失焦           |
+| `invalid`                | 校验失败                |
+| `submit` / `reset`       | 表单提交/重置           |
+| `copy` / `cut` / `paste` | 剪贴板                  |
+
+---
+
+## 补充速查表
+
+### form 属性速查
+
+| 属性           | 说明                                  |
+| -------------- | ------------------------------------- |
+| `action`       | 提交 URL                              |
+| `method`       | GET / POST                            |
+| `enctype`      | `multipart/form-data`（文件上传必需） |
+| `target`       | `_blank` / `_self`                    |
+| `novalidate`   | 禁用浏览器校验                        |
+| `autocomplete` | on / off                              |
+
+### dialog vs popover 对比
+
+| 维度         | dialog(showModal) | popover        |
+| ------------ | ----------------- | -------------- |
+| 遮挡背景     | ✅ (`::backdrop`) | ❌             |
+| ESC 关闭     | ✅                | ✅             |
+| 焦点管理     | 自动              | 自动           |
+| 点击外部关闭 | ✅                | ✅             |
+| 适用         | 模态框/确认窗     | 菜单/提示/下拉 |
+
+---
+
+## 十八、更多元素详解
+
+### Q54: input type="file" 的完整用法？
+
+```html
+<!-- 基本 -->
+<input type="file" accept="image/*" />
+
+<!-- 多文件 -->
+<input type="file" multiple />
+
+<!-- 限制 -->
+<input type="file" accept="image/png, image/jpeg, .pdf" />
+
+<!-- 摄像头直接拍照 -->
+<input type="file" accept="image/*" capture="environment" />
+<!-- 后置 -->
+<input type="file" accept="image/*" capture="user" />
+<!-- 前置 -->
+
+<!-- JS 操作 -->
+<script>
+  input.addEventListener("change", (e) => {
+    const files = e.target.files // FileList
+    for (const file of files) {
+      console.log(file.name, file.size, file.type)
+      // 预览
+      const reader = new FileReader()
+      reader.onload = (e) => (img.src = e.target.result)
+      reader.readAsDataURL(file)
+    }
+  })
+</script>
+```
+
+| 属性              | 说明                          |
+| ----------------- | ----------------------------- |
+| `accept`          | 限制文件类型（MIME / 扩展名） |
+| `multiple`        | 多选文件                      |
+| `capture`         | 直接调用摄像头                |
+| `webkitdirectory` | 选择整个目录（非标准）        |
+
+### Q55: a 标签的 rel 属性所有值？
+
+| 值           | 说明                                         |
+| ------------ | -------------------------------------------- |
+| `noopener`   | 新页面不能访问 `window.opener`（安全）       |
+| `noreferrer` | 不发送 Referer 头 + 隐含 noopener            |
+| `nofollow`   | SEO：不给目标页面权重                        |
+| `noindex`    | SEO：不索引（需配合 `<meta name="robots">`） |
+| `ugc`        | 用户生成内容（评论/UGC）                     |
+| `sponsored`  | 赞助/付费链接                                |
+| `external`   | 外部链接                                     |
+| `bookmark`   | 固定链接（永久链接）                         |
+
+```html
+<!-- target="_blank" 必须加 rel="noopener noreferrer" 防 tabnabbing -->
+<a href="https://example.com" target="_blank" rel="noopener noreferrer">外部链接</a>
+```
+
+### Q56: table 的完整结构？
+
+```html
+<table>
+  <caption>
+    表格标题（可选，第一个子元素）
+  </caption>
+  <colgroup>
+    <col span="1" style="background: #f0f0f0" />
+    <col span="1" style="background: #fff" />
+  </colgroup>
+  <thead>
+    <tr>
+      <th scope="col">姓名</th>
+      <th scope="col">年龄</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <th scope="row">Alice</th>
+      <td>18</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="2">共 1 条</td>
+    </tr>
+  </tfoot>
+</table>
+```
+
+| 属性/标签                     | 说明                                |
+| ----------------------------- | ----------------------------------- |
+| `scope="col"` / `scope="row"` | th 的语义方向（列头/行头 — 无障碍） |
+| `colspan` / `rowspan`         | 单元格合并                          |
+| `<colgroup>` / `<col>`        | 列样式控制                          |
+| `<caption>`                   | 表格标题                            |
+| `border-collapse: collapse`   | 合并边框（CSS，非 HTML 属性）       |
+
+### Q57: img 的 srcset 和 sizes 的计算规则？
+
+```html
+<img
+  src="default.jpg"
+  srcset="small.jpg 480w, medium.jpg 800w, large.jpg 1200w"
+  sizes="(max-width: 600px) 480px, (max-width: 900px) 800px, 1200px"
+  alt="demo"
+/>
+```
+
+1. 浏览器根据 `sizes` 计算当前视口下图片的**期望宽度**
+2. 在 `srcset` 中选 ≥ 且最接近该宽度的图片（结合 DPR）
+3. 若浏览器不支持 `srcset`，用 `src` 兜底
+
+### Q58: picture 和 img srcset 什么时候用哪个？
+
+| 场景                        | 方案                                       |
+| --------------------------- | ------------------------------------------ |
+| 同一图片不同分辨率          | `img srcset`                               |
+| 不同格式（WebP/AVIF 降级）  | `<picture>`                                |
+| 不同裁剪（横屏/竖屏不同图） | `<picture>` + `media`                      |
+| 两者可组合                  | `<picture>` 内 `<source>` + `<img srcset>` |
+
+```html
+<picture>
+  <source media="(max-width: 768px)" srcset="portrait.jpg" />
+  <source media="(min-width: 769px)" srcset="landscape.jpg" />
+  <img src="fallback.jpg" alt="photo" />
+</picture>
+```
+
+### Q59: track 元素（字幕/章节）怎么用？
+
+```html
+<video controls>
+  <source src="video.mp4" />
+  <track src="subtitles-zh.vtt" kind="subtitles" srclang="zh" label="中文" default />
+  <track src="subtitles-en.vtt" kind="subtitles" srclang="en" label="English" />
+</video>
+```
+
+| track kind     | 说明                   |
+| -------------- | ---------------------- |
+| `subtitles`    | 翻译字幕               |
+| `captions`     | 听障字幕（含音效描述） |
+| `descriptions` | 画面描述（盲人用）     |
+| `chapters`     | 章节导航               |
+| `metadata`     | 脚本使用（不显示）     |
+
+### Q60: object 和 embed 标签？
+
+```html
+<!-- 嵌入外部资源（PDF/Flash/SVG） -->
+<object data="file.pdf" type="application/pdf" width="600" height="400">
+  <p>无法显示 PDF — <a href="file.pdf">下载</a></p>
+</object>
+
+<!-- embed — 类似 object，但无法提供 fallback -->
+<embed src="file.pdf" type="application/pdf" width="600" height="400" />
+```
+
+> 现在优先用 `<img>` `<video>` `<iframe>` 等专门标签，`<object>/<embed>` 仅用于特殊场景。
+
+---
+
+## 十九、HTML 解析与浏览器细节
+
+### Q61: 浏览器如何解析 HTML？（从字节到 DOM）
+
+```
+字节 (Bytes) → 字符 (Chars) → Token → 节点 (Node) → DOM 树
+```
+
+1. 网络层接收字节流
+2. 按 `charset` 解码为字符
+3. 词法分析 → Token（开始标签/结束标签/属性/文本）
+4. 语法分析 → DOM 节点 → DOM 树
+5. 遇到 `<script>` 阻塞（除非 async/defer）
+6. 遇到 `<link>` 异步加载（不阻塞解析，但可能阻塞渲染）
+
+### Q62: 什么是重排（reflow）和重绘（repaint）？HTML 层面如何优化？
+
+| 操作 | 触发                                                                      |
+| ---- | ------------------------------------------------------------------------- |
+| 重排 | 修改几何属性（width/height/padding/display/position/offsetTop scrollTop） |
+| 重绘 | 修改外观属性（color/background/visibility 不影响几何）                    |
+
+```html
+<!-- HTML 层面优化 — 批量 DOM 操作 -->
+
+<!-- ❌ 逐个操作 — 每次都触发重排 -->
+<script>
+  for (let i = 0; i < 1000; i++) {
+    ul.innerHTML += `<li>Item ${i}</li>` // 1000 次重排
+  }
+</script>
+
+<!-- ✅ 批量 — DocumentFragment 或一次性 innerHTML -->
+<script>
+  const fragment = document.createDocumentFragment()
+  for (let i = 0; i < 1000; i++) {
+    const li = document.createElement("li")
+    li.textContent = `Item ${i}`
+    fragment.appendChild(li)
+  }
+  ul.appendChild(fragment) // 1 次重排
+</script>
+```
+
+### Q63: HTML 与浏览器的回流触发条件？
+
+```js
+// 读取以下属性会触发强制回流（浏览器需要先计算布局才能返回正确值）
+element.offsetTop / offsetLeft / offsetWidth / offsetHeight
+element.scrollTop / scrollLeft / scrollWidth / scrollHeight
+element.clientTop / clientLeft / clientWidth / clientHeight
+element.getBoundingClientRect()
+window.getComputedStyle(element)
+
+// ❌ 读写交替 → 强制同步布局（性能杀手）
+el.style.width = "100px"
+const h = el.offsetHeight // 读取 → 浏览器被迫立即计算
+el.style.height = h + "px"
+
+// ✅ 先批量读，再批量写
+const h = el.offsetHeight
+el.style.width = "100px"
+el.style.height = h + "px"
+```
+
+---
+
+## 二十、安全与性能
+
+### Q64: HTML 注入（XSS）如何防范？
+
+```js
+// ❌ 危险：直接插入用户输入
+el.innerHTML = userInput
+
+// ✅ 安全方式 1：textContent（不解析 HTML）
+el.textContent = userInput
+
+// ✅ 安全方式 2：HTML 实体编码
+function escapeHTML(str) {
+  return str.replace(
+    /[&<>"']/g,
+    (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#x27;" })[c]
+  )
+}
+
+// ✅ 安全方式 3：净化（需 DOMPurify 库）
+el.innerHTML = DOMPurify.sanitize(userInput)
+```
+
+### Q65: Clickjacking 是什么？如何防范？
+
+攻击者将目标网站放在透明 iframe 中覆盖在诱饵按钮上，用户以为在点诱饵，实际在点击目标网站。
+
+```html
+<!-- 防范方式 1: HTTP 头（推荐，非 HTML） -->
+<!-- X-Frame-Options: DENY -->
+<!-- Content-Security-Policy: frame-ancestors 'none' -->
+
+<!-- 防范方式 2: JS frame-busting（可被绕过） -->
+<script>
+  if (window.top !== window.self) window.top.location = window.self.location
+</script>
+```
+
+---
+
+## 补充速查表
+
+### target 属性值
+
+| 值        | 说明                              |
+| --------- | --------------------------------- |
+| `_self`   | 当前窗口（默认）                  |
+| `_blank`  | 新窗口（必须 + `rel="noopener"`） |
+| `_parent` | 父框架                            |
+| `_top`    | 顶层框架                          |
+| `name`    | 指定窗口名称                      |
+
+### 特殊 URL 协议
+
+| 协议                        | 说明             |
+| --------------------------- | ---------------- |
+| `mailto:email@example.com`  | 打开邮件客户端   |
+| `tel:+8613800138000`        | 拨打电话         |
+| `sms:+8613800138000`        | 发短信           |
+| `javascript:void(0)`        | 不跳转（不推荐） |
+| `data:image/png;base64,...` | Base64 内联数据  |
+
+### 音频格式兼容
+
+| 格式         | Chrome | Firefox | Safari |
+| ------------ | ------ | ------- | ------ |
+| MP3          | ✅     | ✅      | ✅     |
+| OGG (Vorbis) | ✅     | ✅      | ❌     |
+| WAV          | ✅     | ✅      | ✅     |
+| AAC          | ✅     | ⚠️      | ✅     |
+
+### 视频格式兼容
+
+| 格式           | Chrome | Firefox | Safari |
+| -------------- | ------ | ------- | ------ |
+| MP4 (H.264)    | ✅     | ✅      | ✅     |
+| WebM (VP8/VP9) | ✅     | ✅      | ❌     |
+| OGG (Theora)   | ✅     | ✅      | ❌     |

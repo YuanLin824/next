@@ -46,8 +46,8 @@ playwright-cli close                         # 关闭浏览器
 app/
 ├── (mdx)/           # 文档路由组 — MDX 页面，共享 MDX 布局
 │   ├── layout.tsx   #   布局: TableOfContents(浮动按钮+抽屉) + <article id="dmx-layout">
-│   ├── study/       #   学习文档: agent/db/devops/node/react/system/vue
-│   ├── interview/   #   面试题文档: db/devops/node/react/vue
+│   ├── study/       #   学习文档: agent/css/db/devops/html/js/node/react/system/ts/vue
+│   ├── interview/   #   面试题文档: css/db/devops/html/js/node/react/ts/vue
 │   └── */page.mdx   #   各文档页面
 ├── (other)/         # 导航页 + 关于（px-3 pb-3 容器在根 layout 的 <main> 上）
 │   ├── study/       #   学习文档导航（根页面）
@@ -120,3 +120,13 @@ app/
 - scope 自动从 `app/` 直接子目录读取（`(mdx)`/`(other)` 等），配置在 `commitlint.config.cjs`
 - 新增 `types` 提交类型（czg 自定义枚举）
 - husky + lint-staged: 提交前对 `*.{js(x),ts(x),vue,css,less,scss,sass,md,json}` 执行 Prettier 格式化（`.lintstagedrc`）
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

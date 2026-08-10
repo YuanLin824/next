@@ -1,0 +1,387 @@
+# Web Components
+
+> Web Components 是一组浏览器原生 API，用于创建**可复用、封装**的自定义 HTML 元素。由三大核心技术组成：**Custom Elements**、**Shadow DOM**、**HTML Templates**。
+
+---
+
+## 三大核心技术
+
+```
+Custom Elements  → 自定义 HTML 标签，定义元素行为
+Shadow DOM       → 样式和 DOM 的封装隔离（不受外部 CSS 影响）
+HTML Templates   → 声明式的 DOM 模板（<template> + <slot>）
+```
+
+---
+
+## 一、Custom Elements（自定义元素）
+
+### 定义自定义元素
+
+```txt
+语法: customElements.define(name, constructor, options)
+参数:
+  name        — 元素名称（必须包含连字符 "-"，如 <my-button>）
+  constructor — 继承 HTMLElement 的类
+  options     — 可选 { extends: "内置标签名" }，用于扩展内置元素
+```
+
+**命名规则**：必须包含连字符 `-`（如 `my-button`），且必须是小写字母开头。这是为了与内置元素以及未来的 HTML 标准标签区分。
+
+### 两种类型
+
+| 类型               | 继承                                 | 使用方式                  |
+| ------------------ | ------------------------------------ | ------------------------- |
+| **自主自定义元素** | `HTMLElement`                        | `<my-button>`             |
+| **扩展内置元素**   | 内置元素类（`HTMLButtonElement` 等） | `<button is="my-button">` |
+
+### 生命周期回调
+
+| 回调                                             | 触发时机         |
+| ------------------------------------------------ | ---------------- |
+| `connectedCallback()`                            | 元素被插入 DOM   |
+| `disconnectedCallback()`                         | 元素从 DOM 移除  |
+| `adoptedCallback()`                              | 元素移动到新文档 |
+| `attributeChangedCallback(name, oldVal, newVal)` | 被监听的属性变化 |
+
+### 基本示例
+
+```js
+class MyCounter extends HTMLElement {
+  // 声明需要监听的属性
+  static get observedAttributes() {
+    return ["value"]
+  }
+
+  constructor() {
+    super()
+    this._value = 0
+  }
+
+  connectedCallback() {
+    this.innerHTML = `
+      <button id="dec">-</button>
+      <span id="display">${this._value}</span>
+      <button id="inc">+</button>
+    `
+    this.querySelector("#inc").addEventListener("click", () => {
+      this._value++
+      this.setAttribute("value", this._value)
+    })
+    this.querySelector("#dec").addEventListener("click", () => {
+      this._value--
+      this.setAttribute("value", this._value)
+    })
+  }
+
+  disconnectedCallback() {
+    console.log("<my-counter> 被移除")
+  }
+
+  attributeChangedCallback(name, oldVal, newVal) {
+    if (name === "value") {
+      this._value = Number(newVal)
+      let display = this.querySelector("#display")
+      if (display) display.textContent = this._value
+    }
+  }
+}
+
+// 注册
+customElements.define("my-counter", MyCounter)
+```
+
+```html
+<!-- 使用 -->
+<my-counter value="10"></my-counter>
+```
+
+### 扩展内置元素
+
+```js
+class MyButton extends HTMLButtonElement {
+  connectedCallback() {
+    this.addEventListener("click", () => {
+      console.log("自定义按钮被点击")
+    })
+  }
+}
+
+// 注意第三个参数
+customElements.define("my-button", MyButton, { extends: "button" })
+```
+
+```html
+<!-- 扩展内置元素用 is 属性 -->
+<button is="my-button">点击我</button>
+```
+
+---
+
+## 二、Shadow DOM
+
+### 概述
+
+Shadow DOM 创建**隔离的 DOM 子树**，内部的样式和结构不受外部影响，外部也无法直接访问内部。
+
+```js
+let host = document.querySelector("#host")
+let shadow = host.attachShadow({ mode: "open" })
+shadow.innerHTML = `<p>Shadow DOM 内容</p>`
+```
+
+### mode: open vs closed
+
+| mode       | 外部访问                      | 使用场景           |
+| ---------- | ----------------------------- | ------------------ |
+| `"open"`   | `host.shadowRoot` 可访问      | 大多数场景（推荐） |
+| `"closed"` | `host.shadowRoot` 返回 `null` | 需要完全封装时     |
+
+```js
+let openShadow = element.attachShadow({ mode: "open" })
+element.shadowRoot // ✅ ShadowRoot 对象
+
+let closedShadow = element.attachShadow({ mode: "closed" })
+element.shadowRoot // null — 外部无法访问（但 JS 代码仍可通过保存引用来绕过）
+```
+
+### 样式隔离
+
+Shadow DOM 的样式**不会泄露到外部**，外部的全局样式也**不会影响 Shadow DOM 内部**。但继承属性（`color`、`font-family` 等）会穿透。
+
+```js
+class MyCard extends HTMLElement {
+  constructor() {
+    super()
+    let shadow = this.attachShadow({ mode: "open" })
+    shadow.innerHTML = `
+      <style>
+        /* 这部分 CSS 完全隔离，不影响页面其他元素 */
+        .card {
+          border: 1px solid #ccc;
+          border-radius: 8px;
+          padding: 16px;
+          margin: 8px;
+          color: var(--card-color, #333); /* CSS 变量可穿透 Shadow DOM */
+        }
+      </style>
+      <div class="card">
+        <slot></slot>
+      </div>
+    `
+  }
+}
+
+customElements.define("my-card", MyCard)
+```
+
+**样式穿透方式**：
+
+| 方式                        | 说明                           |
+| --------------------------- | ------------------------------ |
+| CSS 自定义属性 `var(--xxx)` | ✅ 继承属性可穿透              |
+| `::part()` 伪元素           | 暴露指定元素供外部样式         |
+| `:host` 选择器              | 在 Shadow DOM 内部选择宿主元素 |
+| `:host-context()`           | 根据宿主的外部上下文应用样式   |
+
+```js
+// ::part 暴露内部元素
+shadow.innerHTML = `
+  <style>
+    .inner { color: red; }
+  </style>
+  <div part="content" class="inner">内容</div>
+`
+// 外部 CSS: my-card::part(content) { color: blue; }
+
+// :host 选择器（在 Shadow DOM 内部写）
+// :host { display: block; }
+// :host(.active) { border-color: blue; }
+```
+
+---
+
+## 三、HTML Templates `<template>` 和 `<slot>`
+
+### `<template>`
+
+`<template>` 中的内容不会被渲染，也不会被执行（`<script>` 不运行、`<img>` 不加载），但可以通过 JS 克隆使用。
+
+```html
+<template id="my-template">
+  <style>
+    p {
+      color: red;
+    }
+  </style>
+  <p>模板内容</p>
+</template>
+
+<script>
+  let template = document.getElementById("my-template")
+  let clone = template.content.cloneNode(true)
+  document.body.appendChild(clone)
+</script>
+```
+
+### `<slot>` — 插槽
+
+`<slot>` 让自定义元素可以接收外部传入的 DOM 内容（Light DOM 投射到 Shadow DOM 的指定位置）。
+
+```js
+class MyPanel extends HTMLElement {
+  constructor() {
+    super()
+    let shadow = this.attachShadow({ mode: "open" })
+    shadow.innerHTML = `
+      <style>
+        .panel { border: 1px solid #ddd; padding: 16px; }
+        ::slotted(h2) { color: blue; } /* ::slotted 只能选择顶层的投射元素 */
+      </style>
+      <div class="panel">
+        <slot name="header">默认标题</slot>
+        <hr>
+        <slot>默认内容</slot>
+      </div>
+    `
+  }
+}
+
+customElements.define("my-panel", MyPanel)
+```
+
+```html
+<my-panel>
+  <h2 slot="header">自定义标题</h2>
+  <p>这是主体内容</p>
+  <p>这段也在默认插槽中</p>
+</my-panel>
+```
+
+### 命名插槽 vs 默认插槽
+
+```js
+// 命名插槽
+// <slot name="header">  →  接收 slot="header" 的元素
+// 默认插槽
+// <slot>               →  接收未指定 slot 属性的所有元素
+```
+
+---
+
+## 四、完整示例 — 可复用卡片组件
+
+```js
+class InfoCard extends HTMLElement {
+  static get observedAttributes() {
+    return ["title", "theme"]
+  }
+
+  constructor() {
+    super()
+    this._title = ""
+    this._theme = "light"
+
+    // 创建 Shadow DOM
+    let shadow = this.attachShadow({ mode: "open" })
+
+    // 使用 template
+    let template = document.getElementById("info-card-template")
+    if (template) {
+      shadow.appendChild(template.content.cloneNode(true))
+    }
+  }
+
+  connectedCallback() {
+    this._render()
+  }
+
+  attributeChangedCallback(name, oldVal, newVal) {
+    if (name === "title") this._title = newVal
+    if (name === "theme") this._theme = newVal
+    this._render()
+  }
+
+  _render() {
+    let shadow = this.shadowRoot
+    if (!shadow) return
+
+    shadow.innerHTML = `
+      <style>
+        :host { display: block; border-radius: 8px; overflow: hidden; }
+        :host([theme="dark"]) .card { background: #333; color: #fff; }
+        .card { padding: 16px; background: #f5f5f5; }
+        .title { font-size: 18px; font-weight: bold; margin-bottom: 8px; }
+      </style>
+      <div class="card">
+        <div class="title">${this._title}</div>
+        <slot></slot>
+      </div>
+    `
+  }
+}
+
+customElements.define("info-card", InfoCard)
+```
+
+```html
+<info-card title="通知" theme="dark">
+  <p>这是一条 Shadow DOM 封装的内容</p>
+</info-card>
+```
+
+---
+
+## 五、Web Components 与框架对比
+
+| 维度         | Web Components         | Vue/React 组件            |
+| ------------ | ---------------------- | ------------------------- |
+| **原生支持** | ✅ 浏览器原生          | ❌ 需要框架运行时         |
+| **跨框架**   | ✅ 与框架无关          | ❌ 框架绑定               |
+| **样式隔离** | ✅ Shadow DOM          | 需要 CSS Modules / scoped |
+| **学习成本** | 低（原生 API）         | 中（需学框架体系）        |
+| **生态**     | 弱（无状态管理/路由）  | 强                        |
+| **SSR**      | ❌ 困难                | ✅ 框架支持               |
+| **适用场景** | 通用组件库、跨框架组件 | 应用级开发                |
+
+> Web Components **不是框架的替代品**，而是互补的。可以在 Vue/React 中嵌入 Web Components，也可用 Lit / Stencil 等库简化开发。
+
+---
+
+## 汇总速查表
+
+### Custom Elements
+
+| API / 回调                                 | 说明                          |
+| ------------------------------------------ | ----------------------------- |
+| `customElements.define(name, klass, opts)` | 注册自定义元素                |
+| `customElements.get(name)`                 | 获取已注册元素构造函数        |
+| `customElements.upgrade(el)`               | 强制升级元素（未插入 DOM 时） |
+| `connectedCallback()`                      | 插入 DOM                      |
+| `disconnectedCallback()`                   | 移除 DOM                      |
+| `adoptedCallback()`                        | 移动到新文档                  |
+| `attributeChangedCallback(name, o, n)`     | 监听到属性变化                |
+| `static observedAttributes`                | 声明要监听的属性名数组        |
+
+### Shadow DOM
+
+| API                         | 说明                               |
+| --------------------------- | ---------------------------------- |
+| `el.attachShadow({ mode })` | 创建 Shadow Root                   |
+| `el.shadowRoot`             | 获取 Shadow Root（`mode: "open"`） |
+| `:host`                     | Shadow DOM 内选择宿主              |
+| `:host(selector)`           | 宿主的条件选择                     |
+| `:host-context(selector)`   | 宿主外部上下文条件                 |
+| `::slotted(selector)`       | 选择投射到 slot 的元素             |
+| `::part(name)`              | 暴露内部元素供外部样式             |
+| CSS 变量 `var(--xxx)`       | 穿透 Shadow DOM 传递样式           |
+
+### Templates & Slots
+
+| API                                | 说明                                 |
+| ---------------------------------- | ------------------------------------ |
+| `<template>`                       | 声明式模板，不被渲染                 |
+| `template.content`                 | 模板的 DocumentFragment              |
+| `template.content.cloneNode(true)` | 深克隆模板内容                       |
+| `<slot>`                           | 默认插槽（接收未命名的 Light DOM）   |
+| `<slot name="xxx">`                | 命名插槽（接收 `slot="xxx"` 的元素） |

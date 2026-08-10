@@ -1,0 +1,1773 @@
+# CSS 学习指南
+
+> 难度递进式 CSS 学习文档，从盒模型到现代 CSS 工程化。
+
+---
+
+## 第一阶段：盒模型与基础属性（入门）
+
+### 1. 盒模型
+
+```
+┌─────────────────────────────┐
+│          margin             │
+│  ┌───────────────────────┐  │
+│  │        border         │  │
+│  │  ┌─────────────────┐  │  │
+│  │  │     padding     │  │  │
+│  │  │  ┌───────────┐  │  │  │
+│  │  │  │  content  │  │  │  │ ← width/height 的测量基准取决于 box-sizing
+│  │  │  └───────────┘  │  │  │
+│  │  └─────────────────┘  │  │
+│  └───────────────────────┘  │
+└─────────────────────────────┘
+```
+
+```css
+/* content-box（默认）: width = content */
+/* border-box（推荐）: width = content + padding + border */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+```
+
+### 2. 宽高与单位
+
+```css
+div {
+  width: 200px;
+  height: 100px;
+} /* 固定像素 */
+div {
+  width: 50%;
+} /* 相对父元素 */
+div {
+  min-width: 200px;
+  max-width: 600px;
+} /* 响应式约束 */
+div {
+  width: 100vw;
+  height: 100vh;
+} /* 视口宽高 */
+div {
+  width: fit-content;
+} /* 内容自适应宽度 */
+```
+
+### 3. 外边距 margin
+
+```css
+margin: 10px; /* 四边 */
+margin: 10px 20px; /* 上下 左右 */
+margin: 10px 20px 30px; /* 上 左右 下 */
+margin: 10px 20px 30px 40px; /* 上 右 下 左（顺时针） */
+margin: 0 auto; /* 水平居中（需 width） */
+```
+
+margin 重叠：**垂直方向**的相邻 margin 取最大值（不是相加）。BFC 或 flex/grid 可阻止。
+
+### 4. 内边距 padding 与边框 border
+
+```css
+padding: 16px 24px;
+border: 1px solid #ccc;
+border-radius: 8px; /* 圆角 */
+border-radius: 50%; /* 圆形 */
+box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1); /* 阴影 */
+```
+
+> **小结**：理解盒模型四层结构，会用基本宽高和 margin/padding/border。
+
+---
+
+## 第二阶段：选择器与优先级（基础）
+
+### 5. 选择器分类
+
+```css
+/* 基础选择器 */
+*           /* 通配符 */
+div         /* 标签 */
+.class      /* 类 */
+#id         /* ID */
+
+/* 组合选择器 */
+div p       /* 后代（所有 p 后代） */
+div > p     /* 子代（直接 p 子元素） */
+h1 + p      /* 紧邻下一个兄弟 p */
+h1 ~ p      /* 后面所有兄弟 p */
+
+/* 属性选择器 */
+[data-type]              /* 有该属性 */
+[type="text"]            /* 精确匹配 */
+[href^="https"]          /* 以 https 开头 */
+[src$=".png"]            /* 以 .png 结尾 */
+[class*="btn"]           /* 包含 btn */
+[class~="btn"]           /* 包含单词 btn（空格分隔） */
+
+/* 分组 */
+h1, h2, h3 {
+} /* 多个选择器共享样式 */
+```
+
+### 6. 伪类（状态选择器）
+
+```css
+a:hover {
+} /* 鼠标悬停 */
+input:focus {
+} /* 获得焦点 */
+button:active {
+} /* 按下时 */
+li:first-child {
+} /* 第一个子元素 */
+li:last-child {
+} /* 最后一个 */
+li:nth-child(2) {
+} /* 第 2 个 */
+li:nth-child(odd) {
+} /* 奇数（1,3,5...） */
+li:nth-child(even) {
+} /* 偶数（2,4,6...） */
+li:nth-child(3n + 1) {
+} /* 每 3 个一组，选第 1 个 */
+input:checked {
+} /* 被选中的 checkbox */
+input:disabled {
+} /* 禁用的表单元素 */
+div:empty {
+} /* 无子元素的 div */
+a:not(.disabled) {
+} /* 排除 .disabled 类的 a */
+div:has(img) {
+} /* 包含 img 的 div（父选择器） */
+```
+
+### 7. 伪元素（虚拟元素）
+
+```css
+.quote::before {
+  content: "「";
+} /* 内容前缀 */
+.quote::after {
+  content: "」";
+} /* 内容后缀 */
+p::first-letter {
+  font-size: 2em;
+} /* 首字母 */
+p::first-line {
+  font-weight: bold;
+} /* 首行 */
+::selection {
+  background: yellow;
+} /* 选中文字 */
+input::placeholder {
+  color: #999;
+} /* placeholder */
+```
+
+### 8. 优先级计算
+
+```
+内联 style (1,0,0,0) > ID (0,1,0,0) > 类/属性/伪类 (0,0,1,0) > 标签/伪元素 (0,0,0,1) > 通配符 (0,0,0,0)
+!important > 一切（但应避免使用）
+同优先级 → 后者覆盖前者
+```
+
+> **小结**：能组合各种选择器，理解优先级计算规则和伪类/伪元素的使用场景。
+
+---
+
+## 第三阶段：文本与背景（视觉基础）
+
+### 9. 文本样式
+
+```css
+font-size: 16px;
+font-weight: 400; /* 100-900, 400=normal, 700=bold */
+font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+line-height: 1.5; /* 无单位 → 相对于 font-size */
+text-align: left | center | right | justify;
+text-decoration: none | underline | line-through;
+text-transform: uppercase | lowercase | capitalize;
+letter-spacing: 0.5px; /* 字间距 */
+word-spacing: 2px; /* 词间距 */
+white-space: nowrap | pre | pre-wrap;
+word-break: break-all | break-word;
+overflow-wrap: break-word; /* 长单词换行 */
+text-overflow: ellipsis; /* 文字溢出显示 ... */
+
+/* 单行省略 */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 多行省略 */
+.ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+```
+
+### 10. 背景
+
+```css
+background-color: #f0f0f0;
+background-image: url("bg.jpg");
+background-repeat: no-repeat | repeat-x | repeat-y;
+background-size: cover | contain | 100% auto;
+background-position: center | 50% 50% | top right;
+background-attachment: fixed; /* 视差滚动效果 */
+
+/* 简写 */
+background: #f0f0f0 url("bg.jpg") no-repeat center/cover;
+
+/* 渐变 */
+background: linear-gradient(to right, red, blue);
+background: linear-gradient(135deg, red 0%, blue 100%);
+background: radial-gradient(circle, red, blue);
+```
+
+### 11. 颜色表示法
+
+```css
+color: #3b82f6; /* HEX */
+color: rgb(59, 130, 246); /* RGB */
+color: rgba(59, 130, 246, 0.5); /* RGBA（透明） */
+color: hsl(217, 91%, 60%); /* HSL */
+color: oklch(0.6 0.2 250); /* OKLCH（现代！均匀感知） */
+color: var(--primary); /* CSS 变量 */
+color: currentColor; /* 继承当前文本颜色 */
+```
+
+> **小结**：能排版文本、设置背景渐变，理解颜色体系。
+
+---
+
+## 第四阶段：布局（核心能力）
+
+### 12. display 属性
+
+| 值             | 独占一行     | 可设宽高 | 典型元素                    |
+| -------------- | ------------ | -------- | --------------------------- |
+| `block`        | ✅           | ✅       | `div`, `p`, `h1`, `section` |
+| `inline`       | ❌           | ❌       | `span`, `a`, `strong`       |
+| `inline-block` | ❌           | ✅       | `button`, `input`           |
+| `none`         | ❌（不渲染） | —        | 隐藏元素                    |
+
+### 13. position 定位
+
+| 值         | 参照         | 脱离文档流 | 典型用法             |
+| ---------- | ------------ | ---------- | -------------------- |
+| `static`   | 默认         | ❌         | 默认流               |
+| `relative` | 自身原位置   | ❌         | 微调 + absolute 参照 |
+| `absolute` | 最近定位祖先 | ✅         | 弹窗/下拉/覆盖       |
+| `fixed`    | 视口         | ✅         | 固定导航/回到顶部    |
+| `sticky`   | 滚动容器     | ❌         | 吸顶表头             |
+
+```css
+/* 绝对居中 */
+.center {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+```
+
+### 14. float 与 clearfix
+
+```css
+.float-left {
+  float: left;
+  margin-right: 16px;
+} /* 文字环绕 */
+.clearfix::after {
+  display: table;
+  clear: both;
+  content: "";
+} /* 清除浮动 */
+
+/* 现代替代：用 flex/grid 代替 float 布局 */
+```
+
+### 15. overflow 溢出处理
+
+```css
+overflow: visible | hidden | scroll | auto;
+overflow-x: auto; /* 横向滚动 */
+overflow-y: scroll; /* 纵向滚动 */
+```
+
+> **小结**：掌握 display/position/float/overflow 四大布局基础能力。
+
+---
+
+## 第五阶段：Flexbox（一维布局）
+
+### 16. 容器属性
+
+```css
+.container {
+  display: flex;
+  flex-direction: row | row-reverse | column | column-reverse;
+  flex-wrap: nowrap | wrap | wrap-reverse;
+  align-content: stretch | flex-start | flex-end | center | space-between;
+  justify-content: flex-start | flex-end | center | space-between | space-around | space-evenly;
+  align-items: stretch | flex-start | flex-end | center | baseline;
+  gap: 16px; /* row-gap + column-gap */
+}
+```
+
+### 17. 项目属性
+
+```css
+.item {
+  flex-grow: 1; /* 放大比例 */
+  flex-shrink: 0; /* 不缩小 */
+  flex-basis: 200px; /* 初始尺寸 */
+  align-self: center; /* 覆盖容器的 align-items */
+  order: 1; /* 排列顺序（默认 0） */
+}
+
+/* flex 简写 */
+flex: 1; /* = flex: 1 1 0（等分） */
+flex: 0 0 200px; /* 固定 200px */
+flex: 1 1 280px; /* 最小 280px 自动换行 */
+```
+
+### 18. 常见 Flex 布局
+
+```css
+/* 水平垂直居中 */
+.center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+/* 三栏：侧边固定 + 中间自适应 */
+.sidebar {
+  flex: 0 0 200px;
+}
+.content {
+  flex: 1;
+}
+
+/* 粘性底部 */
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.main {
+  flex: 1;
+}
+
+/* 响应式卡片网格 */
+.grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+.card {
+  flex: 1 1 280px;
+}
+```
+
+> **小结**：能用 Flexbox 实现水平居中、三栏布局、响应式网格等常见场景。
+
+---
+
+## 第六阶段：Grid（二维布局）
+
+### 19. 容器属性
+
+```css
+.container {
+  display: grid;
+  grid-template-rows: auto 1fr auto; /* 三行 */
+  grid-template-columns: 200px 1fr 200px; /* 三列：固定 + 自适应 + 固定 */
+  grid-template-columns: repeat(3, 1fr); /* 三等分 */
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); /* 自适应填充 */
+  align-items: center; /* 单元格内垂直对齐 */
+  justify-items: center; /* 单元格内水平对齐 */
+  place-items: center; /* 简写 */
+  gap: 16px 24px; /* 行间距 列间距 */
+}
+```
+
+### 20. 项目属性
+
+```css
+.item {
+  grid-column: 1 / 3;
+} /* 从列线1跨到列线3（占2列） */
+.item {
+  grid-column: span 2;
+} /* 跨 2 列 */
+.item {
+  grid-row: 1 / 3;
+} /* 跨 2 行 */
+.item {
+  grid-area: header;
+} /* 放入命名区域 */
+```
+
+### 21. Grid 模板区域
+
+```css
+.container {
+  display: grid;
+  grid-template-rows: 60px 1fr 60px;
+  grid-template-columns: 200px 1fr;
+  grid-template-areas:
+    "header  header"
+    "sidebar main"
+    "footer  footer";
+}
+.header {
+  grid-area: header;
+}
+.sidebar {
+  grid-area: sidebar;
+}
+.main {
+  grid-area: main;
+}
+.footer {
+  grid-area: footer;
+}
+```
+
+### 22. Flex vs Grid 选型
+
+| 场景                     | 推荐             |
+| ------------------------ | ---------------- |
+| 一维排列（导航/按钮组）  | Flexbox          |
+| 二维页面布局（多行多列） | Grid             |
+| 数量不定卡片网格         | Grid `auto-fill` |
+| 内容驱动宽度             | Flexbox          |
+
+> **小结**：能用 Grid 实现页面级二维布局、命名区域模板和自适应卡片网格。
+
+---
+
+## 第七阶段：响应式设计（移动适配）
+
+### 23. 媒体查询
+
+```css
+/* 移动优先 */
+@media (min-width: 768px) {
+} /* 平板 */
+@media (min-width: 1024px) {
+} /* 桌面 */
+
+/* 常用断点: 576 / 768 / 992 / 1200 */
+```
+
+### 24. 响应式单位
+
+```css
+html {
+  font-size: 16px;
+}
+@media (max-width: 768px) {
+  html {
+    font-size: 14px;
+  }
+}
+
+.text {
+  font-size: clamp(1rem, 2vw, 1.5rem);
+} /* 流体字号 */
+.hero {
+  height: 100vh;
+}
+```
+
+### 25. 容器查询
+
+```css
+.container {
+  container-type: inline-size;
+}
+@container (min-width: 400px) {
+  .card {
+    flex-direction: row;
+  }
+}
+```
+
+### 26. 响应式图片
+
+```html
+<img
+  srcset="small.jpg 480w, large.jpg 1200w"
+  sizes="(max-width: 768px) 100vw, 50vw"
+  src="fallback.jpg"
+/>
+
+<picture>
+  <source srcset="photo.webp" type="image/webp" />
+  <img src="photo.jpg" alt="photo" />
+</picture>
+```
+
+---
+
+## 第八阶段：过渡与动画（动效）
+
+### 27. transition 过渡
+
+```css
+.btn {
+  transition:
+    background 0.3s ease,
+    transform 0.2s;
+}
+
+/* timing-function: ease / linear / ease-in / ease-out / cubic-bezier() */
+```
+
+### 28. animation 关键帧动画
+
+```css
+.spinner {
+  animation: spin 1s linear infinite;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease both;
+}
+@keyframes fadeIn {
+  from {
+    transform: translateY(10px);
+    opacity: 0;
+  }
+}
+
+/* animation 属性拆解:
+   name duration timing-function delay iteration-count direction fill-mode */
+```
+
+### 29. 性能原则
+
+```txt
+✅ 只动画 transform 和 opacity → 仅触发合成（GPU 加速）
+❌ 避免动画 width/height/top/left → 触发回流（性能最差）
+```
+
+```css
+/* ❌ 整页重排 */
+.box:hover {
+  left: 10px;
+  width: 200px;
+}
+/* ✅ 仅合成 */
+.box:hover {
+  transform: scale(1.2) translateX(10px);
+}
+```
+
+---
+
+## 第九阶段：层叠与格式化上下文（进阶机制）
+
+### 30. BFC（块级格式化上下文）
+
+**触发条件**: `overflow: hidden` / `display: flow-root` / `display: flex` / `position: absolute`
+**作用**: 清除浮动、阻止 margin 重叠、自适应两栏布局
+
+```css
+.container {
+  display: flow-root;
+} /* 现代 BFC 最佳方案（无副作用） */
+```
+
+### 31. 层叠上下文与 z-index
+
+```css
+/* 创建新层叠上下文的常见方式 */
+.ctx {
+  position: relative;
+  z-index: 1;
+}
+.ctx {
+  opacity: 0.99;
+}
+.ctx {
+  transform: scale(1);
+}
+.ctx {
+  isolation: isolate;
+} /* 显式创建（最推荐） */
+```
+
+### 32. stacking order 层叠顺序
+
+```
+z-index 负值 < 块级盒子 < 浮动 < 行内 < z-index: auto/0 < z-index 正值
+（同一层叠上下文中）
+```
+
+---
+
+## 第十阶段：CSS 变量与现代特性
+
+### 33. CSS 变量
+
+```css
+:root { --primary: #3b82f6; --spacing: 16px; }
+.btn { background: var(--primary); padding: var(--spacing); }
+.btn { color: var(--color, #333); } /* 带默认值 */
+
+/* JS 动态修改主题 */
+document.documentElement.style.setProperty("--primary", "#ef4444")
+```
+
+```css
+/* 暗黑模式 */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1a1a1a;
+    --text: #eee;
+  }
+}
+```
+
+### 34. CSS 嵌套
+
+```css
+.card {
+  padding: 16px;
+  & .title {
+    font-size: 1.25rem;
+  }
+  &:hover {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  }
+  @media (min-width: 768px) {
+    & {
+      padding: 24px;
+    }
+  }
+}
+```
+
+### 35. @layer 优先级控制
+
+```css
+@layer reset, base, components, utilities; /* 越后优先级越高 */
+
+@layer utilities {
+  .mt-4 {
+    margin-top: 1rem;
+  }
+}
+/* utilities 中的样式总能覆盖 reset/base 中的同名属性 */
+```
+
+### 36. :has() 父选择器
+
+```css
+.card:has(img) {
+  border: 1px solid #eee;
+} /* 含图片的卡片 */
+.form-group:has(input:focus) {
+  border-color: blue;
+} /* 聚焦时高亮容器 */
+.label:has(+ input:required)::after {
+  content: " *";
+  color: red;
+}
+```
+
+### 37. 更多现代特性
+
+```css
+/* aspect-ratio — 宽高比 */
+.video {
+  aspect-ratio: 16 / 9;
+}
+
+/* scroll-snap — 滚动吸附 */
+.scroller {
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+}
+.scroller > * {
+  scroll-snap-align: start;
+}
+
+/* accent-color — 统一表单控件色 */
+input[type="checkbox"] {
+  accent-color: var(--primary);
+}
+
+/* content-visibility — 性能优化（跳过视口外渲染） */
+.section {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 500px;
+}
+
+/* @property — 可动画的自定义属性 */
+@property --progress {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: 0%;
+}
+
+/* color-mix — 颜色混合 */
+color-mix(in srgb, var(--primary) 20%, white)
+
+/* light-dark — 自动适配暗色主题 */
+body {
+  background: light-dark(#fff, #333);
+}
+```
+
+---
+
+## 第十一阶段：Sass/SCSS 预处理器
+
+### 38. 嵌套与父选择器
+
+```scss
+.nav {
+  background: #333;
+  &__item {
+    padding: 8px 16px;
+  } // .nav__item
+  &--active {
+    color: red;
+  } // .nav--active
+  &:hover {
+    background: #555;
+  }
+}
+```
+
+### 39. 变量与 mixin
+
+```scss
+$primary: #3b82f6;
+@mixin flex-center {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.btn {
+  background: $primary;
+  @include flex-center;
+}
+```
+
+### 40. @extend 与循环
+
+```scss
+%btn-base {
+  border-radius: 4px;
+  padding: 8px 16px;
+}
+.btn-primary {
+  @extend %btn-base;
+  background: blue;
+}
+
+@for $i from 1 through 12 {
+  .col-#{$i} {
+    width: calc($i / 12 * 100%);
+  }
+}
+```
+
+---
+
+## 第十二阶段：性能与工程化
+
+### 41. 回流（Layout）与重绘（Paint）优化
+
+| 操作              | 触发               | 开销      |
+| ----------------- | ------------------ | --------- |
+| 改几何属性        | 回流 + 重绘 + 合成 | 高        |
+| 改外观属性        | 重绘 + 合成        | 中        |
+| transform/opacity | 仅合成             | 低（GPU） |
+
+```css
+/* 创建独立合成层 */
+.slide {
+  will-change: transform;
+}
+/* ⚠️ 不要滥用（每个层消耗内存），用完移除 */
+.slide--done {
+  will-change: auto;
+}
+```
+
+### 42. 选择器性能
+
+```css
+/* ✅ 浏览器从右向左匹配，越具体越快 */
+.btn-primary {
+} /* 快 */
+#sidebar .btn {
+} /* 慢（先找所有 .btn） */
+
+/* ❌ 避免深层嵌套选择器 */
+/* .page .content .sidebar .list .item .title { } */
+```
+
+### 43. CSS 工程化方案
+
+| 方案             | 适用                                 |
+| ---------------- | ------------------------------------ |
+| **CSS Modules**  | 组件级样式隔离（`style.module.css`） |
+| **CSS-in-JS**    | React 生态（styled-components）      |
+| **Tailwind CSS** | 原子化工具类                         |
+| **UnoCSS**       | Tailwind 替代（按需生成，更快）      |
+| **Sass/SCSS**    | 变量/mixin/嵌套（传统项目）          |
+
+### 44. 移动端适配
+
+```css
+/* 1px 问题（Retina 屏） */
+.border-1px {
+  position: relative;
+  border: none;
+}
+.border-1px::after {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  transform: scaleY(0.5);
+  transform-origin: 0 0;
+  background: #ccc;
+  width: 100%;
+  height: 1px;
+  content: "";
+}
+
+/* 安全区域（iPhone 刘海屏） */
+.header {
+  padding-top: env(safe-area-inset-top);
+}
+.footer {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+```
+
+---
+
+## 汇总速查表
+
+### 选择器权重速查
+
+| 选择器       | 权重 (a,b,c,d) |
+| ------------ | -------------- |
+| `*`          | 0,0,0,0        |
+| `div`        | 0,0,0,1        |
+| `.class`     | 0,0,1,0        |
+| `#id`        | 0,1,0,0        |
+| `style=""`   | 1,0,0,0        |
+| `!important` | 最高           |
+
+### 居中方案速查
+
+| 场景          | CSS                                                           |
+| ------------- | ------------------------------------------------------------- |
+| 行内文字居中  | `text-align: center`                                          |
+| 块元素居中    | `margin: 0 auto` + `width`                                    |
+| Flex 居中     | `display: flex; justify-content: center; align-items: center` |
+| Grid 居中     | `display: grid; place-items: center`                          |
+| Absolute 居中 | `top: 50%; left: 50%; transform: translate(-50%, -50%)`       |
+
+### 隐藏元素对比
+
+| 属性                 | 占空间 | 事件 | 回流 |
+| -------------------- | ------ | ---- | ---- |
+| `display: none`      | ❌     | ❌   | ✅   |
+| `visibility: hidden` | ✅     | ❌   | ❌   |
+| `opacity: 0`         | ✅     | ✅   | ❌   |
+
+### 回流/重绘/合成性能谱
+
+```
+transform/opacity → 仅合成（最优，GPU）
+color/background → 重绘 + 合成
+width/height/left/top → 回流 + 重绘 + 合成（最差）
+```
+
+### 学习路径参照
+
+| 阶段 | 核心内容                            |
+| ---- | ----------------------------------- |
+| 1    | 盒模型、宽高、margin/padding/border |
+| 2    | 选择器、伪类、伪元素、优先级        |
+| 3    | 文本样式、背景、渐变、颜色          |
+| 4    | display、position、float、overflow  |
+| 5-6  | Flexbox、Grid、模板区域             |
+| 7    | 媒体查询、响应式单位、容器查询      |
+| 8    | transition、animation、性能原则     |
+| 9    | BFC、层叠上下文、z-index            |
+| 10   | CSS 变量、嵌套、@layer、:has()      |
+| 11   | SCSS 嵌套/变量/mixin/循环           |
+| 12   | 性能优化、工程化、移动端适配        |
+
+---
+
+## 第十三阶段：滤镜、混合与遮罩（视觉效果）
+
+### 45. filter 滤镜
+
+```css
+filter: blur(5px); /* 模糊 */
+filter: brightness(1.2); /* 亮度 */
+filter: contrast(1.5); /* 对比度 */
+filter: grayscale(1); /* 灰度 */
+filter: sepia(1); /* 复古棕褐色 */
+filter: saturate(2); /* 饱和度 */
+filter: hue-rotate(90deg); /* 色相旋转 */
+filter: drop-shadow(4px 4px 4px #000); /* 投影（比 box-shadow 更真，跟随透明区域） */
+filter: invert(1); /* 反色 */
+
+/* 多滤镜组合 */
+filter: blur(2px) brightness(0.8) contrast(1.2);
+
+/* backdrop-filter — 对元素后方区域应用滤镜 */
+.glass {
+  backdrop-filter: blur(10px);
+} /* 毛玻璃效果 */
+```
+
+### 46. mix-blend-mode 混合模式
+
+```css
+mix-blend-mode: multiply | screen | overlay | darken | lighten | color-dodge | difference;
+background-blend-mode: multiply; /* 背景图层之间的混合 */
+
+/* 常见用途 */
+.text-overlay {
+  mix-blend-mode: difference;
+  color: white;
+} /* 文字颜色随背景反转 */
+.image-tint {
+  background-color: #3b82f6;
+  background-blend-mode: multiply;
+} /* 图片着色 */
+```
+
+### 47. clip-path 裁剪
+
+```css
+clip-path: circle(50%); /* 圆形 */
+clip-path: ellipse(50% 30%); /* 椭圆 */
+clip-path: polygon(50% 0, 100% 100%, 0 100%); /* 三角形 */
+clip-path: inset(10px 20px 10px 20px round 8px); /* 矩形裁剪（支持圆角） */
+```
+
+### 48. mask 遮罩
+
+```css
+/* 用图片或渐变作为遮罩（透明处不可见） */
+mask-image: url("mask.svg");
+mask-image: linear-gradient(to bottom, black, transparent); /* 渐隐效果 */
+mask-size: cover;
+mask-position: center;
+mask-repeat: no-repeat;
+```
+
+---
+
+## 第十四阶段：排版与字体（Typography）
+
+### 49. @font-face 自定义字体
+
+```css
+@font-face {
+  font-style: normal;
+  font-weight: 400;
+  src:
+    url("myfont.woff2") format("woff2"),
+    url("myfont.woff") format("woff");
+  font-family: "MyFont";
+  font-display: swap; /* 关键：不阻塞渲染 */
+}
+
+/* font-display 选项:
+   auto     — 浏览器默认
+   block    — 3s 空白 → 降级
+   swap     — 立即用系统字体 → 加载后切换（推荐）
+   fallback — 100ms 空白 → 3s 内可能切换
+   optional — 100ms 空白 → 可能不下载
+*/
+```
+
+### 50. 可变字体 (Variable Fonts)
+
+```css
+@font-face {
+  font-weight: 100 900; /* 支持 100-900 范围 */
+  font-stretch: 75% 125%;
+  src: url("variable.woff2") format("woff2-variations");
+  font-family: "VariableFont";
+}
+
+.text {
+  font-weight: 450; /* 精确到 450（传统字体只能 400/500/600/700） */
+  font-family: "VariableFont";
+  font-variation-settings: "wght" 450; /* 等价写法 */
+}
+```
+
+### 51. 文本排版属性
+
+```css
+/* 断词与换行 */
+overflow-wrap: break-word; /* 长单词/URL 在边界处换行 */
+word-break: break-all; /* 可在任意字符间断行 */
+hyphens: auto; /* 自动加连字符（需设置 lang） */
+
+/* 文本方向 */
+writing-mode: vertical-rl; /* 竖排文字（东亚排版） */
+text-orientation: upright; /* 竖排中文字符保持直立 */
+
+/* 文本缩进与间距 */
+text-indent: 2em; /* 首行缩进 */
+text-align-last: justify; /* 最后一行对齐 */
+tab-size: 4; /* Tab 宽度 */
+```
+
+### 52. 列表样式
+
+```css
+list-style: square inside; /* 实心方块 / 标记在内部 */
+list-style-image: url("bullet.svg");
+
+/* 计数器（章节编号） */
+ol {
+  counter-reset: section;
+}
+li::before {
+  counter-increment: section;
+  content: counters(section, ".") " ";
+}
+```
+
+---
+
+## 第十五阶段：表单与交互
+
+### 53. 表单元素样式化
+
+```css
+input,
+textarea,
+select,
+button {
+  color: inherit;
+  font: inherit; /* 表单元素默认不继承字体，需要显式指定 */
+}
+
+/* focus 可见样式 */
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+/* 仅键盘导航时显示（鼠标点击不显示） */
+
+/* placeholder 样式 */
+::placeholder {
+  opacity: 1;
+  color: #999;
+  font-style: italic;
+}
+
+/* 自定义 checkbox */
+input[type="checkbox"] {
+  appearance: none; /* 移除原生样式 */
+  border: 2px solid #ccc;
+  border-radius: 4px;
+  width: 20px;
+  height: 20px;
+}
+input[type="checkbox"]:checked {
+  border-color: var(--primary);
+  background: var(--primary);
+  background-image: url("data:image/svg+xml,..."); /* 对勾图标 */
+}
+```
+
+### 54. 状态伪类进阶
+
+```css
+:focus-visible {
+} /* 需要 focus 可见指示器时（键盘导航） */
+:focus-within {
+} /* 自身或任意后代获得焦点时（表单高亮容器） */
+:user-valid {
+} /* 用户交互后校验通过的字段 */
+:user-invalid {
+} /* 用户交互后校验失败的字段 */
+:indeterminate {
+} /* 不确定状态的 checkbox */
+:placeholder-shown {
+} /* placeholder 可见时 */
+:target {
+} /* URL hash 匹配的元素 */
+:is(header, main, footer) {
+} /* 匹配列表中任意选择器 */
+:where(header, main, footer) {
+} /* 同上但优先级为 0 */
+```
+
+### 55. 打印样式
+
+```css
+@media print {
+  .no-print {
+    display: none;
+  }
+  a::after {
+    content: " (" attr(href) ")";
+  } /* 链接显示 URL */
+  body {
+    background: white;
+    color: black;
+    font-size: 12pt;
+  }
+  @page {
+    margin: 2cm;
+    size: A4;
+  }
+  @page :first {
+    margin-top: 3cm;
+  }
+  h1,
+  h2 {
+    page-break-after: avoid;
+  } /* 标题后不要分页 */
+}
+```
+
+---
+
+## 第十六阶段：CSS 函数与数学
+
+### 56. 计算函数
+
+```css
+width: calc(100% - 32px); /* 算术运算 */
+font-size: clamp(1rem, 2vw, 1.5rem); /* 限定在 1rem~1.5rem 之间 */
+width: min(100%, 600px); /* 取最小值 */
+width: max(50%, 300px); /* 取最大值 */
+margin: min(5vw, 2rem); /* 去上限 */
+font-size: round(1.4rem, 0.25rem); /* 取整到最近的 0.25rem */
+```
+
+### 57. 颜色函数
+
+```css
+color: color-mix(in srgb, red 30%, blue); /* 混合颜色 */
+color: color-mix(in oklch, var(--primary) 20%, white); /* 自动亮色变体 */
+background: light-dark(#fff, #333); /* 自动适配暗色模式 */
+```
+
+### 58. 三角函数
+
+```css
+/* sin / cos / tan / asin / acos / atan / atan2 */
+transform: rotate(atan2(var(--y), var(--x))); /* 根据坐标计算角度 */
+width: calc(sin(45deg) * 100px); /* 正弦计算 */
+```
+
+---
+
+## 第十七阶段：CSS Houdini（底层扩展）
+
+### 59. @property 可动画变量
+
+```css
+@property --gradient-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+.card {
+  --gradient-angle: 0deg;
+  transition: --gradient-angle 0.5s;
+  background: conic-gradient(from var(--gradient-angle), red, blue, red);
+}
+.card:hover {
+  --gradient-angle: 360deg;
+}
+```
+
+### 60. Paint Worklet
+
+```js
+// paint-worklet.js
+registerPaint(
+  "grid-bg",
+  class {
+    paint(ctx, size, props) {
+      for (let x = 0; x < size.width; x += 20) {
+        for (let y = 0; y < size.height; y += 20) {
+          ctx.fillStyle = (x + y) % 40 === 0 ? "#eee" : "#fff"
+          ctx.fillRect(x, y, 20, 20)
+        }
+      }
+    }
+  }
+)
+```
+
+```css
+.grid {
+  background: paint(grid-bg);
+}
+```
+
+```js
+CSS.paintWorklet.addModule("paint-worklet.js")
+```
+
+---
+
+## 第十八阶段：高级布局技巧
+
+### 61. 瀑布流 (Masonry) 布局
+
+```css
+/* 纯 CSS 瀑布流（使用 columns） */
+.masonry {
+  column-gap: 16px;
+  columns: 4 250px; /* 最少 250px 宽，最多 4 列 */
+}
+.masonry > * {
+  break-inside: avoid; /* 元素内部不跨列分断 */
+  margin-bottom: 16px;
+}
+```
+
+### 62. 弹性间距
+
+```css
+/* 使用 flex 间隙自适应 — gap 在 flex 中无需 margin 技巧 */
+.flex {
+  display: flex;
+  gap: clamp(8px, 2vw, 24px);
+}
+
+/* 每行 N 个项的均分布局 */
+.grid-n {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+}
+```
+
+### 63. 自适应文字大小
+
+```css
+/* 容器查询 + 流体字号 */
+h1 {
+  font-size: clamp(1.5rem, 4cqi, 3rem);
+} /* cqi = 容器内联尺寸 */
+```
+
+---
+
+## 第十九阶段：浏览器兼容与回退
+
+### 64. 特性查询 @supports
+
+```css
+@supports (display: grid) {
+  .layout {
+    display: grid;
+  }
+}
+@supports not (display: grid) {
+  .layout {
+    display: flex;
+    flex-wrap: wrap;
+  } /* 回退方案 */
+}
+```
+
+### 65. CSS 渐进增强
+
+```css
+/* 先写基础样式（所有浏览器可用），再写增强样式 */
+.button {
+  border-radius: 8px;
+  background: #3b82f6;
+  background: linear-gradient(to right, #3b82f6, #6366f1); /* 不支持时忽略 */
+}
+
+/* 用 @supports 或级联特性自然降级 */
+```
+
+### 66. CSS Reset / Normalize
+
+```css
+/* 最小 Reset */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+img,
+video,
+canvas {
+  display: block;
+  max-width: 100%;
+}
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+```
+
+---
+
+## 补充速查表
+
+### 所有 CSS 函数
+
+| 类别 | 函数                                                                                                   |
+| ---- | ------------------------------------------------------------------------------------------------------ |
+| 计算 | `calc()` `min()` `max()` `clamp()` `round()` `abs()`                                                   |
+| 颜色 | `rgb()` `hsl()` `oklch()` `color-mix()` `light-dark()`                                                 |
+| 三角 | `sin()` `cos()` `tan()` `asin()` `acos()` `atan2()`                                                    |
+| 渐变 | `linear-gradient()` `radial-gradient()` `conic-gradient()`                                             |
+| 滤镜 | `blur()` `brightness()` `contrast()` `grayscale()` `sepia()` `hue-rotate()` `invert()` `drop-shadow()` |
+| 变换 | `translate()` `rotate()` `scale()` `skew()` `matrix()`                                                 |
+| 形状 | `circle()` `ellipse()` `inset()` `polygon()` `path()`                                                  |
+
+### will-change 使用原则
+
+| 原则         | 说明                    |
+| ------------ | ----------------------- |
+| 提前声明     | 在动画开始前设置        |
+| 用完移除     | 动画结束后设 `auto`     |
+| 不要滥用     | 每个合成层都占 GPU 内存 |
+| 仅在卡顿时用 | 不是万能优化工具        |
+
+### 媒体查询特性速查
+
+| 特性                     | 示例                                      |
+| ------------------------ | ----------------------------------------- |
+| `width` / `height`       | `@media (min-width: 768px)`               |
+| `prefers-color-scheme`   | `@media (prefers-color-scheme: dark)`     |
+| `prefers-reduced-motion` | `@media (prefers-reduced-motion: reduce)` |
+| `prefers-contrast`       | `@media (prefers-contrast: high)`         |
+| `hover`                  | `@media (hover: hover)`                   |
+| `pointer`                | `@media (pointer: coarse)`                |
+| `resolution`             | `@media (min-resolution: 2dppx)`          |
+
+### 隐藏元素的 4 种方式
+
+```css
+/* 1. 完全消失 */
+display: none;
+
+/* 2. 不可见但占空间 */
+visibility: hidden;
+
+/* 3. 透明但可交互 */
+opacity: 0;
+
+/* 4. 移出屏幕（仍可被屏幕阅读器访问） */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+}
+```
+
+---
+
+## 第二十阶段：CSS 架构与命名规范
+
+### 67. BEM 命名法
+
+```css
+/* Block__Element--Modifier */
+.card {
+} /* 块 */
+.card__title {
+} /* 元素 */
+.card__title--large {
+} /* 修饰符 */
+.card--featured {
+} /* 块修饰符 */
+```
+
+### 68. CSS 设计令牌 (Design Tokens)
+
+```css
+:root {
+  --color-primary-500: #3b82f6;
+  --color-primary-900: #1e3a5f;
+  --space-2: 8px;
+  --space-4: 16px;
+  --space-8: 32px;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --radius-md: 8px;
+  --radius-full: 9999px;
+  --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+```
+
+### 69. 其他命名方案
+
+| 方案            | 特点                    |
+| --------------- | ----------------------- |
+| **BEM**         | 语义化、可读性强        |
+| **Tailwind**    | 原子类，无需命名        |
+| **CSS Modules** | 自动 scoped，无命名冲突 |
+
+---
+
+## 第二十一阶段：调试与工具
+
+### 70. Chrome DevTools CSS 调试
+
+```
+Elements → Styles 面板：实时编辑属性
+Computed 面板：查看最终应用的样式
+Layers 面板：查看合成层
+Rendering 面板：Paint flashing / Layout Shift / FPS
+Coverage 面板：查找未使用的 CSS
+```
+
+### 71. 常见 CSS Bug 排查
+
+| 问题           | 排查方向                |
+| -------------- | ----------------------- |
+| 样式不生效     | 检查优先级/是否被覆盖   |
+| z-index 不生效 | 是否在同一层叠上下文中  |
+| margin 不生效  | margin 塌陷/BFC 问题    |
+| 动画掉帧       | 是否触发了 layout/paint |
+
+---
+
+## 第二十二阶段：实践案例
+
+### 72. 10 个常用 CSS 实现
+
+```css
+/* 三角形 */
+.triangle {
+  border: 10px solid transparent;
+  border-bottom-color: #333;
+  width: 0;
+  height: 0;
+}
+/* 毛玻璃 */
+.glass {
+  backdrop-filter: blur(10px);
+  background: rgba(255, 255, 255, 0.2);
+}
+/* 骨架屏 */
+.skeleton {
+  animation: shimmer 1.5s infinite;
+  background: linear-gradient(90deg, #eee 25%, #f5f5f5 50%, #eee 75%);
+  background-size: 200% 100%;
+}
+@keyframes shimmer {
+  to {
+    background-position: 200% 0;
+  }
+}
+/* 吸顶 */
+.sticky {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+/* 文字渐变 */
+.text-gradient {
+  background: linear-gradient(to right, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  color: transparent;
+}
+/* 溢出省略 */
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* 多行省略 */
+.ellipsis-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+/* 1:1 方块 */
+.square {
+  aspect-ratio: 1;
+}
+/* 转圈圈 */
+.spinner {
+  animation: spin 0.6s linear infinite;
+  border: 3px solid #eee;
+  border-top-color: var(--primary);
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+/* 粘性底部 */
+.sticky-footer {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+.sticky-footer main {
+  flex: 1;
+}
+```
+
+### 73. 首屏关键 CSS 内联
+
+```html
+<style>
+  body {
+    margin: 0;
+    font-family: system-ui;
+  }
+  .hero {
+    display: flex;
+    align-items: center;
+    min-height: 100vh;
+  }
+</style>
+```
+
+---
+
+## 第二十三阶段：CSS Scroll 与 View 动画
+
+### 74. scroll-behavior 平滑滚动
+
+```css
+html {
+  scroll-behavior: smooth;
+}
+```
+
+### 75. Scroll-driven Animations（滚动驱动动画）
+
+```css
+@keyframes reveal {
+  from {
+    translate: 0 50px;
+    opacity: 0;
+  }
+  to {
+    translate: 0 0;
+    opacity: 1;
+  }
+}
+.reveal {
+  animation: reveal linear;
+  animation-timeline: view();
+  animation-range: entry 0% entry 30%;
+}
+
+/* 滚动进度条 */
+@keyframes progress {
+  to {
+    scale: 1 1;
+  }
+}
+.progress-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  transform-origin: left;
+  scale: 0 1;
+  animation: progress linear;
+  animation-timeline: scroll(root);
+  background: var(--primary);
+  width: 100%;
+  height: 4px;
+}
+```
+
+### 76. overscroll-behavior
+
+```css
+.modal {
+  overscroll-behavior: contain;
+} /* 阻止滚动链 */
+body {
+  overscroll-behavior-y: none;
+} /* 阻止下拉刷新 */
+```
+
+---
+
+## 第二十四阶段：CSS Grid 高级技巧
+
+### 77. subgrid — 继承父网格
+
+```css
+.card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+}
+.card {
+  display: grid;
+  grid-template-rows: subgrid;
+  grid-row: span 3;
+}
+```
+
+### 78. minmax + auto-fill 终极响应式
+
+```css
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+  gap: 1rem;
+}
+```
+
+---
+
+## 第二十五阶段：Accessibility 可访问性
+
+### 79. prefers-reduced-motion
+
+```css
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+```
+
+### 80. prefers-contrast
+
+```css
+@media (prefers-contrast: high) {
+  body {
+    background: white;
+    color: black;
+  }
+}
+```
+
+### 81. forced-colors
+
+```css
+@media (forced-colors: active) {
+  .border {
+    border-color: ButtonText;
+  }
+}
+```
+
+---
+
+## 第二十六阶段：高级选择器
+
+### 82. :is() 与 :where() 的区别
+
+```css
+:is(#id, .class, div) {
+} /* 优先级 = #id (0,1,0,0) */
+:where(#id, .class, div) {
+} /* 优先级 = 0 */
+.page :is(h1, h2, h3) {
+  margin-bottom: 1em;
+} /* 简写 */
+```
+
+### 83. 数量查询
+
+```css
+li:only-child {
+} /* 只有 1 个 */
+.container:has(> :nth-child(5)) {
+} /* 有 ≥5 个子元素时 */
+```
+
+### 84. attr() 显示属性值
+
+```css
+[data-tooltip]:hover::after {
+  content: attr(data-tooltip);
+}
+```
+
+---
+
+## 补充速查表
+
+### @规则速查
+
+| @规则        | 用途       | @规则        | 用途       |
+| ------------ | ---------- | ------------ | ---------- |
+| `@media`     | 媒体查询   | `@keyframes` | 动画帧     |
+| `@container` | 容器查询   | `@font-face` | 字体       |
+| `@supports`  | 特性检测   | `@layer`     | 层级控制   |
+| `@property`  | 可动画变量 | `@scope`     | 作用域限定 |
+
+### :has() 常用场景
+
+```css
+.card:has(img) {
+} /* 含图片的卡片 */
+body:has(dialog[open]) {
+  overflow: hidden;
+} /* 弹窗时禁止滚动 */
+.form:has(:user-invalid) {
+} /* 有校验失败字段 */
+```
+
+### 滚动相关属性
+
+| 属性                     | 说明             |
+| ------------------------ | ---------------- |
+| `scroll-behavior`        | 平滑滚动         |
+| `scroll-snap-type/align` | 吸附行为         |
+| `overscroll-behavior`    | 过滚动           |
+| `animation-timeline`     | 动画绑定滚动     |
+| `scroll-timeline`        | 自定义滚动时间线 |

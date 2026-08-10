@@ -1,0 +1,493 @@
+# String 常用方法
+
+> **字符串不可变**：所有字符串方法都返回新字符串，**不会修改原字符串**。
+> **属性**: `length` — 字符串长度（字符数）。
+
+---
+
+## 查找与检索
+
+### charAt() — 获取指定位置字符
+
+```txt
+语法: str.charAt(index)
+参数: index — 索引位置，默认 0；超出范围返回空字符串 ""
+返回: 指定位置的字符
+```
+
+```js
+let str = "hello"
+str.charAt(0) // "h"
+str.charAt(4) // "o"
+str.charAt(10) // ""
+str[0] // "h" (ES5 支持方括号访问，越界返回 undefined)
+```
+
+> `str[0]` 与 `charAt(0)` 的区别：越界时方括号返回 `undefined`，`charAt` 返回 `""`。
+
+### charCodeAt() — 获取字符 Unicode 值
+
+```txt
+语法: str.charCodeAt(index)
+参数: index — 索引位置，默认 0；超出范围返回 NaN
+返回: 0 ~ 65535 之间的整数（UTF-16 码元）
+```
+
+```js
+let str = "hello"
+str.charCodeAt(0) // 104 ("h")
+str.charCodeAt(10) // NaN
+```
+
+> 对于超过 `0xFFFF` 的字符（如 emoji），`charCodeAt` 只能获取代理对的一半，应使用 `codePointAt()` (ES2015)。
+
+### codePointAt() — 获取完整码点 (ES2015)
+
+```txt
+语法: str.codePointAt(index)
+参数: index — 索引位置
+返回: 完整 Unicode 码点值（可超过 0xFFFF）；越界返回 undefined
+```
+
+```js
+let emoji = "𠮷" // 需要两个 UTF-16 码元表示
+emoji.charCodeAt(0) // 55362 (高位代理)
+emoji.codePointAt(0) // 134071 (完整码点)
+```
+
+### indexOf() — 查找子串首次出现位置
+
+```txt
+语法: str.indexOf(searchValue, fromIndex)
+参数:
+  searchValue — 要查找的子串
+  fromIndex   — 可选，起始查找位置，默认 0；支持负数（视为 0）
+返回: 首次出现的索引，未找到返回 -1
+```
+
+```js
+let str = "hello world"
+str.indexOf("o") // 4
+str.indexOf("o", 5) // 7
+str.indexOf("x") // -1
+str.indexOf("") // 0 (空字符串在任何位置都"存在")
+
+// 实用: 判断是否包含
+if (str.indexOf("world") !== -1) { ... }
+```
+
+### lastIndexOf() — 查找子串最后出现位置
+
+```txt
+语法: str.lastIndexOf(searchValue, fromIndex)
+参数:
+  searchValue — 要查找的子串
+  fromIndex   — 可选，从此位置开始向前查找，默认 str.length；支持负数（视为 0）
+返回: 最后出现的索引，未找到返回 -1
+```
+
+```js
+let str = "hello world hello"
+str.lastIndexOf("hello") // 12
+str.lastIndexOf("hello", 10) // 0 (从索引 10 往前找)
+str.lastIndexOf("x") // -1
+```
+
+### search() — 正则查找
+
+```txt
+语法: str.search(regexp)
+参数: regexp — 正则表达式对象（传入非正则会被 new RegExp() 转换）
+返回: 首次匹配的索引，未找到返回 -1
+```
+
+与 `indexOf` 的区别：`search` 支持正则，但**只返回首次匹配位置**，无法指定起始位置。
+
+```js
+let str = "hello123"
+str.search(/[0-9]/) // 5
+str.search(/x/) // -1
+```
+
+### match() — 正则匹配
+
+```txt
+语法: str.match(regexp)
+参数: regexp — 正则表达式
+返回:
+  - 非全局匹配 (无 g): 数组 [完整匹配, 捕获组1, 捕获组2, ...]，含 index 和 input 属性；无匹配返回 null
+  - 全局匹配 (有 g): 所有匹配项组成的数组；无匹配返回 null
+```
+
+```js
+let str = "hello 2024 world 2025"
+
+// 非全局
+str.match(/[0-9]+/) // ["2024", index: 6, input: "hello 2024 world 2025", groups: undefined]
+
+// 全局
+str.match(/[0-9]+/g) // ["2024", "2025"]
+
+// 带捕获组
+str.match(/[0-9]+/) // 同上，数组第一位是完整匹配
+
+// 无匹配
+str.match(/x/) // null
+```
+
+### matchAll() — 完整匹配迭代器 (ES2020)
+
+```txt
+语法: str.matchAll(regexp)
+参数: regexp — 必须带 g 标志的正则，否则抛出 TypeError
+返回: 迭代器，每个元素是包含 index 和捕获组的匹配数组
+```
+
+```js
+let str = "a1 b2 c3"
+let matches = [...str.matchAll(/([a-z])(\d)/g)]
+// [
+//   ["a1", "a", "1", index: 0, ...],
+//   ["b2", "b", "2", index: 3, ...],
+//   ["c3", "c", "3", index: 6, ...]
+// ]
+```
+
+---
+
+## 截取与拆分
+
+### slice() — 提取子串
+
+```txt
+语法: str.slice(beginIndex, endIndex)
+参数:
+  beginIndex — 起始索引（含），默认 0；支持负数（-1 表示最后一个字符）
+  endIndex   — 结束索引（不含），默认 str.length；支持负数
+返回: 提取的新字符串
+```
+
+```js
+let str = "hello world"
+str.slice(0, 5) // "hello"
+str.slice(6) // "world"
+str.slice(-5) // "world"
+str.slice(-5, -1) // "worl"
+str.slice(3, 1) // "" (begin > end 返回空串)
+```
+
+### substring() — 提取子串
+
+```txt
+语法: str.substring(indexStart, indexEnd)
+参数:
+  indexStart — 起始索引
+  indexEnd   — 结束索引（不含），默认 str.length
+返回: 提取的新字符串
+```
+
+与 `slice` 的区别：
+
+- **不支持负数**（负数会被视为 `0`）
+- **自动交换** `indexStart > indexEnd` 时的参数顺序
+
+```js
+let str = "hello world"
+str.substring(0, 5) // "hello"
+str.substring(5, 0) // "hello" (自动交换)
+str.substring(-5) // "hello world" (-5 被当作 0)
+str.slice(-5) // "world" (slice 支持负数)
+```
+
+### substr() — 提取指定长度子串 ⚠️ 已废弃
+
+```txt
+语法: str.substr(start, length)
+参数:
+  start  — 起始索引，支持负数（-1 表示最后一个字符）
+  length — 要提取的字符数，默认到末尾
+返回: 提取的新字符串
+```
+
+> 虽然已从 Web 标准废弃，但面试和遗留代码中仍常见。优先使用 `slice()`。
+
+```js
+let str = "hello world"
+str.substr(6, 5) // "world"
+str.substr(-5) // "world"
+str.substr(0, 5) // "hello"
+```
+
+### split() — 拆分为数组
+
+```txt
+语法: str.split(separator, limit)
+参数:
+  separator — 分隔符（字符串或正则），默认 undefined（返回整体为一项的数组）
+  limit     — 可选，限制返回数组的最大长度
+返回: 拆分后的数组
+```
+
+```js
+let str = "a,b,c"
+str.split(",") // ["a", "b", "c"]
+str.split(",", 2) // ["a", "b"]
+str.split("") // ["a", ",", "b", ",", "c"] (空字符串分隔：逐字符拆分)
+str.split() // ["a,b,c"]
+"hello".split("") // ["h", "e", "l", "l", "o"]
+
+// 正则分隔
+"a1b2c3".split(/[0-9]/) // ["a", "b", "c", ""]
+```
+
+---
+
+## 替换与转换
+
+### replace() — 替换
+
+```txt
+语法: str.replace(searchValue, replaceValue)
+参数:
+  searchValue  — 字符串或正则
+    - 字符串: 只替换第一个匹配
+    - 正则无 g: 只替换第一个
+    - 正则有 g: 替换所有匹配
+  replaceValue — 替换内容（字符串或回调函数）
+    - 字符串中可用特殊变量: $&(完整匹配) $1-$9(捕获组) $`(匹配前) $'(匹配后)
+    - 回调函数参数: (match, p1, p2, ..., offset, string)
+返回: 替换后的新字符串
+```
+
+```js
+let str = "hello hello"
+str.replace("hello", "hi") // "hi hello" (只替换第一个)
+str.replace(/hello/g, "hi") // "hi hi" (全局替换)
+
+// 回调函数
+"a-b-c".replace(/-(.)/g, (match, p1) => p1.toUpperCase()) // "aBbC"
+
+// 特殊变量
+"abc123".replace(/(\d+)/, "[$&]") // "abc[123]"
+"abc123".replace(/(\d+)/, "[$`]") // "abc[abc]" ($` 是匹配前的部分)
+```
+
+### replaceAll() — 全部替换 (ES2021)
+
+```txt
+语法: str.replaceAll(searchValue, replaceValue)
+参数:
+  searchValue  — 字符串或带 g 标志的正则（不带 g 的正则会抛出 TypeError）
+  replaceValue — 替换内容（字符串或回调函数）
+返回: 替换后的新字符串
+```
+
+```js
+let str = "hello hello"
+str.replaceAll("hello", "hi") // "hi hi"
+str.replaceAll(/hello/g, "hi") // "hi hi"
+```
+
+### toLowerCase() / toUpperCase() — 大小写转换
+
+```txt
+语法: str.toLowerCase()
+      str.toUpperCase()
+参数: 无
+返回: 大小写转换后的新字符串
+```
+
+```js
+"HELLO".toLowerCase() // "hello"
+"hello".toUpperCase() // "HELLO"
+```
+
+### trim() / trimStart() / trimEnd() — 去除空白
+
+```txt
+语法: str.trim()       — 去除两端空白
+      str.trimStart()  — 去除开头空白 (ES2019, 别名 trimLeft)
+      str.trimEnd()    — 去除末尾空白 (ES2019, 别名 trimRight)
+参数: 无
+返回: 去除空白后的新字符串
+```
+
+空白字符包括：空格、Tab、换行符（`\n`）、回车符（`\r`）、不间断空格等。
+
+```js
+let str = "  hello world  "
+str.trim() // "hello world"
+str.trimStart() // "hello world  "
+str.trimEnd() // "  hello world"
+```
+
+### padStart() / padEnd() — 填充到指定长度 (ES2017)
+
+```txt
+语法: str.padStart(targetLength, padString)
+      str.padEnd(targetLength, padString)
+参数:
+  targetLength — 目标长度；小于等于原长度时返回原字符串
+  padString    — 可选，填充字符串，默认 " "（空格）；过长时会截断
+返回: 填充后的新字符串
+```
+
+```js
+"5".padStart(3, "0") // "005"
+"hello".padEnd(10, ".") // "hello....."
+"abc".padStart(2, "x") // "abc" (目标长度 ≤ 原长度)
+"abc".padStart(5, "12345") // "12abc" (填充串被截断)
+```
+
+### repeat() — 重复 (ES2015)
+
+```txt
+语法: str.repeat(count)
+参数: count — 重复次数（正整数）；0 返回空串；负数或 Infinity 抛出 RangeError
+返回: 重复 count 次的新字符串
+```
+
+```js
+"ha".repeat(3) // "hahaha"
+"x".repeat(0) // ""
+"*".repeat(5) // "*****"
+```
+
+### concat() — 拼接
+
+```txt
+语法: str.concat(string1, ..., stringN)
+参数: stringN — 一个或多个要拼接的字符串
+返回: 拼接后的新字符串
+```
+
+功能与 `+` 运算符完全相同，实际开发中**推荐使用 `+` 或模板字符串**。
+
+```js
+let str = "hello"
+str.concat(" ", "world") // "hello world"
+"hello" +
+  " " +
+  "world" // "hello world"
+  `${str} world` // "hello world" (推荐)
+```
+
+---
+
+## 判断与比较
+
+### includes() — 是否包含 (ES2015)
+
+```txt
+语法: str.includes(searchString, position)
+参数:
+  searchString — 要搜索的子串
+  position     — 可选，起始搜索位置，默认 0
+返回: true / false
+```
+
+比 `indexOf !== -1` 更语义化。
+
+```js
+let str = "hello world"
+str.includes("world") // true
+str.includes("hello", 1) // false (从索引 1 开始)
+str.includes("x") // false
+```
+
+### startsWith() — 是否以某子串开头 (ES2015)
+
+```txt
+语法: str.startsWith(searchString, position)
+参数:
+  searchString — 要匹配的前缀
+  position     — 可选，在此位置检查，默认 0
+返回: true / false
+```
+
+```js
+let str = "hello world"
+str.startsWith("hello") // true
+str.startsWith("world") // false
+str.startsWith("world", 6) // true (从索引 6 开始)
+```
+
+### endsWith() — 是否以某子串结尾 (ES2015)
+
+```txt
+语法: str.endsWith(searchString, length)
+参数:
+  searchString — 要匹配的后缀
+  length       — 可选，将原字符串截断到此长度后检查，默认 str.length
+返回: true / false
+```
+
+```js
+let str = "hello world"
+str.endsWith("world") // true
+str.endsWith("hello") // false
+str.endsWith("hello", 5) // true (取前 5 个字符 "hello")
+```
+
+### localeCompare() — 本地化比较
+
+```txt
+语法: str.localeCompare(compareString, locales, options)
+参数:
+  compareString — 要比较的字符串
+  locales       — 可选，语言标签（如 "zh-CN"）
+  options       — 可选，比较选项（如 sensitivity, numeric）
+返回: -1 / 0 / 1
+```
+
+考虑语言环境的字符串排序，适合中文拼音排序等场景。
+
+```js
+"a".localeCompare("b") // -1
+"b".localeCompare("a") // 1
+"a".localeCompare("a") // 0
+
+// 中文拼音排序
+;["张三", "李四", "王五"].sort((a, b) => a.localeCompare(b, "zh-CN"))
+// ["李四", "王五", "张三"] (按拼音: li -> wang -> zhang)
+
+// 数字自然排序
+;["a10", "a2", "a1"].sort((a, b) => a.localeCompare(b, undefined, { numeric: true }))
+// ["a1", "a2", "a10"]
+```
+
+---
+
+## 汇总速查表
+
+| 方法            | 分类 | 参数                                  | 返回值           | 说明                   |
+| --------------- | ---- | ------------------------------------- | ---------------- | ---------------------- |
+| `charAt`        | 查找 | `index`                               | 字符             | 获取指定位置字符       |
+| `charCodeAt`    | 查找 | `index`                               | Unicode 值       | 获取字符 Unicode       |
+| `codePointAt`   | 查找 | `index`                               | 完整码点         | ES2015，正确处理 emoji |
+| `indexOf`       | 查找 | `searchValue, fromIndex`              | 索引 / -1        | 首次出现位置           |
+| `lastIndexOf`   | 查找 | `searchValue, fromIndex`              | 索引 / -1        | 最后出现位置           |
+| `search`        | 查找 | `regexp`                              | 索引 / -1        | 正则查找               |
+| `match`         | 查找 | `regexp`                              | 数组 / null      | 正则匹配               |
+| `matchAll`      | 查找 | `regexp` (必须带 g)                   | 迭代器           | ES2020，完整匹配       |
+| `slice`         | 截取 | `beginIndex, endIndex` （支持负数）   | 新字符串         | 提取子串（推荐）       |
+| `substring`     | 截取 | `indexStart, indexEnd` （不支持负数） | 新字符串         | 提取子串               |
+| `substr`        | 截取 | `start, length` （⚠️ 已废弃）         | 新字符串         | 提取指定长度子串       |
+| `split`         | 截取 | `separator, limit`                    | 数组             | 拆分为数组             |
+| `replace`       | 替换 | `searchValue, replaceValue`           | 新字符串         | 替换匹配（支持正则）   |
+| `replaceAll`    | 替换 | `searchValue, replaceValue`           | 新字符串         | ES2021，全部替换       |
+| `toLowerCase`   | 替换 | 无                                    | 新字符串         | 转小写                 |
+| `toUpperCase`   | 替换 | 无                                    | 新字符串         | 转大写                 |
+| `trim`          | 替换 | 无                                    | 新字符串         | 去除两端空白           |
+| `trimStart`     | 替换 | 无                                    | 新字符串         | ES2019，去除开头空白   |
+| `trimEnd`       | 替换 | 无                                    | 新字符串         | ES2019，去除末尾空白   |
+| `padStart`      | 替换 | `targetLength, padString`             | 新字符串         | ES2017，开头填充       |
+| `padEnd`        | 替换 | `targetLength, padString`             | 新字符串         | ES2017，末尾填充       |
+| `repeat`        | 替换 | `count`                               | 新字符串         | ES2015，重复           |
+| `concat`        | 替换 | `string1, ..., stringN`               | 新字符串         | 拼接（推荐用 `+`）     |
+| `includes`      | 判断 | `searchString, position`              | `true` / `false` | ES2015，是否包含       |
+| `startsWith`    | 判断 | `searchString, position`              | `true` / `false` | ES2015，是否以…开头    |
+| `endsWith`      | 判断 | `searchString, length`                | `true` / `false` | ES2015，是否以…结尾    |
+| `localeCompare` | 判断 | `compareString, locales, options`     | -1 / 0 / 1       | 本地化比较             |
+| `length`        | 属性 | —                                     | 数值             | 字符串长度             |
+| `str[index]`    | 属性 | —                                     | 字符 / undefined | ES5，方括号访问字符    |

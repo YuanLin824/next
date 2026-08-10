@@ -1,0 +1,442 @@
+# Generator (生成器) & Decorator (装饰器)
+
+---
+
+## 一、Generator 生成器
+
+### 概述
+
+Generator（生成器）是 ES2015 引入的一种特殊函数，可以**暂停执行**和**恢复执行**。通过 `function*` 声明，返回一个遵循 Iterator 协议的生成器对象。
+
+### 基本语法
+
+```js
+function* generatorName() {
+  yield value1
+  yield value2
+  // ...
+  return finalValue
+}
+
+let gen = generatorName()
+```
+
+### yield 关键字
+
+`yield` 用于暂停函数执行并返回一个值给外部：
+
+```js
+function* simpleGenerator() {
+  console.log("开始")
+  yield 1
+  console.log("恢复")
+  yield 2
+  console.log("结束")
+  return 3
+}
+
+let gen = simpleGenerator()
+gen.next() // { value: 1, done: false }  ← 输出 "开始"
+gen.next() // { value: 2, done: false }  ← 输出 "恢复"
+gen.next() // { value: 3, done: true }   ← 输出 "结束"
+gen.next() // { value: undefined, done: true }
+```
+
+### next() 双向通信 — 向生成器传值
+
+`next(arg)` 的参数会成为**上一个 `yield` 表达式的返回值**：
+
+```js
+function* twoWay() {
+  let a = yield "first yield"
+  console.log("收到:", a)
+  let b = yield "second yield"
+  console.log("收到:", b)
+  return "done"
+}
+
+let gen = twoWay()
+console.log(gen.next().value) // "first yield"
+console.log(gen.next("A").value) // "second yield" ← 输出 "收到: A"
+console.log(gen.next("B").value) // "done" ← 输出 "收到: B"
+```
+
+**注意**：第一次 `next()` 的参数会被忽略，因为没有上一个 `yield` 来接收它。
+
+### return() — 提前终止
+
+```js
+function* gen() {
+  yield 1
+  yield 2
+  yield 3
+}
+
+let g = gen()
+g.next() // { value: 1, done: false }
+g.return("提前结束") // { value: "提前结束", done: true }
+g.next() // { value: undefined, done: true }
+```
+
+### throw() — 向生成器抛异常
+
+```js
+function* gen() {
+  try {
+    yield 1
+  } catch (e) {
+    console.log("捕获:", e) // "捕获: 出错了"
+  }
+  yield 2
+}
+
+let g = gen()
+g.next() // { value: 1, done: false }
+g.throw("出错了") // { value: 2, done: false }
+```
+
+### yield\* — 委托给另一个生成器
+
+`yield*` 将执行委托给另一个可迭代对象（生成器、数组、字符串等）：
+
+```js
+function* sub() {
+  yield 1
+  yield 2
+}
+
+function* main() {
+  yield "A"
+  yield* sub() // 委托给 sub
+  yield* [3, 4, 5] // 委托给数组（任何可迭代对象）
+  yield "B"
+}
+
+;[...main()] // ["A", 1, 2, 3, 4, 5, "B"]
+```
+
+### 应用场景
+
+#### 1. 惰性求值 / 无限序列
+
+```js
+// 无限斐波那契序列
+function* fibonacci() {
+  let [prev, curr] = [0, 1]
+  while (true) {
+    yield curr
+    ;[prev, curr] = [curr, prev + curr]
+  }
+}
+
+let fib = fibonacci()
+fib.next().value // 1
+fib.next().value // 1
+fib.next().value // 2
+fib.next().value // 3
+fib.next().value // 5
+```
+
+#### 2. 自定义迭代器
+
+```js
+let range = {
+  from: 1,
+  to: 5,
+  *[Symbol.iterator]() {
+    for (let i = this.from; i <= this.to; i++) {
+      yield i
+    }
+  },
+}
+
+;[...range] // [1, 2, 3, 4, 5]
+```
+
+#### 3. 异步流程控制（async/await 的前身）
+
+```js
+// 简易 async/await 模拟
+function asyncToGenerator(generatorFn) {
+  // 实际开发中应使用 https://github.com/tj/co
+  return function () {
+    let gen = generatorFn.apply(this, arguments)
+    return new Promise((resolve, reject) => {
+      function step(key, arg) {
+        let result
+        try {
+          result = gen[key](arg)
+        } catch (e) {
+          return reject(e)
+        }
+        let { value, done } = result
+        if (done) return resolve(value)
+        Promise.resolve(value).then(
+          (val) => step("next", val),
+          (err) => step("throw", err)
+        )
+      }
+      step("next")
+    })
+  }
+}
+```
+
+#### 4. 树遍历
+
+```js
+function* traverse(node) {
+  yield node.value
+  for (let child of node.children) {
+    yield* traverse(child)
+  }
+}
+
+let tree = {
+  value: 1,
+  children: [
+    { value: 2, children: [] },
+    { value: 3, children: [{ value: 4, children: [] }] },
+  ],
+}
+
+;[...traverse(tree)] // [1, 2, 3, 4]
+```
+
+---
+
+## 二、Decorator 装饰器
+
+> ⚠️ **重要**：JavaScript 装饰器目前是 TC39 **Stage 3** 提案，尚未正式纳入 ECMAScript 标准。当前生产环境需要通过 **TypeScript** 或 **Babel** 转译使用。TypeScript 的 `experimentalDecorators` 与新版 TC39 提案语法**有较大差异**，以下分别说明。
+
+---
+
+### TypeScript 遗留装饰器（最常用）
+
+需在 `tsconfig.json` 中启用：
+
+```json
+{
+  "compilerOptions": {
+    "experimentalDecorators": true
+  }
+}
+```
+
+#### 类装饰器
+
+接收目标类的构造函数，可返回一个新类替换原类。
+
+```ts
+// 参数: 目标类的构造函数
+function sealed(constructor: Function) {
+  Object.seal(constructor)
+  Object.seal(constructor.prototype)
+}
+
+@sealed
+class Greeter {
+  greeting: string
+  constructor(message: string) {
+    this.greeting = message
+  }
+}
+```
+
+#### 方法装饰器
+
+```ts
+// 参数: target(原型), propertyKey(方法名), descriptor(属性描述符)
+function log(target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+  let original = descriptor.value
+  descriptor.value = function (...args: any[]) {
+    console.log(`调用 ${propertyKey}，参数:`, args)
+    let result = original.apply(this, args)
+    console.log(`返回:`, result)
+    return result
+  }
+}
+
+class Calculator {
+  @log
+  add(a: number, b: number) {
+    return a + b
+  }
+}
+```
+
+#### 属性装饰器
+
+```ts
+// 参数: target(原型), propertyKey(属性名)
+function readonly(target: any, propertyKey: string) {
+  Object.defineProperty(target, propertyKey, {
+    writable: false,
+  })
+}
+
+class Person {
+  @readonly
+  name = "Alice"
+}
+```
+
+#### 装饰器工厂（可传参）
+
+返回装饰器函数的高阶函数：
+
+```ts
+function delay(ms: number) {
+  return function (target: any, propertyKey: string, descriptor: PropertyDescriptor) {
+    let original = descriptor.value
+    descriptor.value = function (...args: any[]) {
+      return new Promise((resolve) => {
+        setTimeout(() => resolve(original.apply(this, args)), ms)
+      })
+    }
+  }
+}
+
+class Service {
+  @delay(1000)
+  fetchData() {
+    return { data: "ok" }
+  }
+}
+```
+
+#### 参数装饰器
+
+```ts
+function required(target: any, propertyKey: string, parameterIndex: number) {
+  console.log(`${propertyKey} 的第 ${parameterIndex} 个参数必填`)
+}
+
+class User {
+  greet(@required name: string) {
+    return `Hello, ${name}`
+  }
+}
+```
+
+#### TypeScript 装饰器签名速查
+
+| 装饰器类型       | 参数                                      |
+| ---------------- | ----------------------------------------- |
+| 类               | `constructor`                             |
+| 方法             | `target`, `propertyKey`, `descriptor`     |
+| 属性             | `target`, `propertyKey`                   |
+| 参数             | `target`, `propertyKey`, `parameterIndex` |
+| 访问器 (get/set) | `target`, `propertyKey`, `descriptor`     |
+
+---
+
+### TC39 Stage 3 装饰器（新提案）
+
+与 TypeScript 遗留版本**不兼容**，语法更严格，需要理解其中 `context` 对象。
+
+```js
+// 新提案类装饰器
+function logged(value, { kind, name }) {
+  if (kind === "class") {
+    return class extends value {
+      constructor(...args) {
+        super(...args)
+        console.log(`构造 ${name} 实例，参数:`, args)
+      }
+    }
+  }
+}
+
+// 新提案方法装饰器
+function log(value, { kind, name }) {
+  if (kind === "method") {
+    return function (...args) {
+      console.log(`调用 ${name}`)
+      return value.call(this, ...args)
+    }
+  }
+}
+
+@logged
+class Person {
+  @log
+  greet(name) {
+    return `Hello, ${name}`
+  }
+}
+```
+
+> 由于新提案仍在变化中，生产环境建议继续使用 TypeScript 的 `experimentalDecorators`。
+
+---
+
+## 汇总速查表
+
+### Generator
+
+| 语法                  | 说明                                                       |
+| --------------------- | ---------------------------------------------------------- |
+| `function* name() {}` | 声明生成器函数                                             |
+| `yield value`         | 暂停执行，向外返回 `value`                                 |
+| `yield* iterable`     | 委托给另一个可迭代对象                                     |
+| `gen.next(arg)`       | 恢复执行，`arg` 传给上一个 `yield`；返回 `{ value, done }` |
+| `gen.return(value)`   | 提前终止，返回 `{ value, done: true }`                     |
+| `gen.throw(err)`      | 向生成器内抛出异常                                         |
+
+### Generator 应用
+
+| 场景         | 说明                                 |
+| ------------ | ------------------------------------ |
+| 自定义迭代器 | `*[Symbol.iterator]() { yield ... }` |
+| 惰性求值     | 按需计算，支持无限序列               |
+| 异步控制     | async/await 的前身（配合 `co` 库）   |
+| 树/图遍历    | `yield* traverse(child)`             |
+
+### Decorator
+
+| 类型       | 说明                 | 应用场景               |
+| ---------- | -------------------- | ---------------------- |
+| 类装饰器   | 修改/替换类          | 日志、冻结、注册       |
+| 方法装饰器 | 修改方法描述符       | 日志、节流、防抖、缓存 |
+| 属性装饰器 | 修改属性行为         | 只读、校验、依赖注入   |
+| 参数装饰器 | 标记参数元数据       | 依赖注入、参数校验     |
+| 装饰器工厂 | 返回装饰器的高阶函数 | 可配置的装饰器         |
+
+### Decorator 常用举例
+
+```ts
+// @debounce — 防抖
+function debounce(ms: number) {
+  return function (target, key, descriptor) {
+    let timer,
+      fn = descriptor.value
+    descriptor.value = function (...args) {
+      clearTimeout(timer)
+      timer = setTimeout(() => fn.apply(this, args), ms)
+    }
+  }
+}
+
+// @memoize — 缓存
+function memoize(target, key, descriptor) {
+  let fn = descriptor.value,
+    cache = new Map()
+  descriptor.value = function (...args) {
+    let key = JSON.stringify(args)
+    if (!cache.has(key)) cache.set(key, fn.apply(this, args))
+    return cache.get(key)
+  }
+}
+
+// @deprecated — 废弃警告
+function deprecated(msg: string) {
+  return function (target, key, descriptor) {
+    let fn = descriptor.value
+    descriptor.value = function (...args) {
+      console.warn(`${key} 已废弃: ${msg}`)
+      return fn.apply(this, args)
+    }
+  }
+}
+```

@@ -1,0 +1,439 @@
+# JavaScript 数据类型
+
+---
+
+## 概述
+
+JS 根据数据**存储位置**分为两大类：
+
+| 类型                     | 存储位置         | 复制行为                                       |
+| ------------------------ | ---------------- | ---------------------------------------------- |
+| 简单数据类型（原始类型） | 栈               | 复制时创建一份**新数据**，互不影响             |
+| 复杂数据类型（引用类型） | 堆（栈中存地址） | 复制时复制的是**指向堆的地址**，指向同一份数据 |
+
+---
+
+## 简单数据类型（Primitive Types）
+
+| 类型        | 说明                                       | ES 版本 |
+| ----------- | ------------------------------------------ | ------- |
+| `string`    | 字符串                                     | ES1     |
+| `number`    | 数值（整数和浮点数，均为 IEEE 754 双精度） | ES1     |
+| `boolean`   | 布尔值 `true` / `false`                    | ES1     |
+| `null`      | 空值，表示"没有对象"                       | ES1     |
+| `undefined` | 未定义，表示"没有值"                       | ES1     |
+| `symbol`    | 唯一且不可变的值，用于对象属性键           | ES2015  |
+| `bigint`    | 任意精度整数，超出 `Number` 安全范围时使用 | ES2020  |
+
+### 各类型详解
+
+#### string — 字符串
+
+```js
+let single = "hello"
+let double = "world"
+let template = `hello ${single}` // 模板字符串 (ES2015)
+
+// 转义字符
+// \n 换行, \t 制表, \\ 反斜杠, \' 单引号, \" 双引号
+
+// 不可变: 字符串一旦创建不可修改
+let str = "hello"
+str[0] = "H" // 无效（非严格模式静默失败）
+console.log(str) // "hello"
+```
+
+#### number — 数值
+
+```js
+let int = 42
+let float = 3.14
+let negative = -1
+let infinity = Infinity
+let negInfinity = -Infinity
+let notANumber = NaN
+
+// 特殊值
+NaN === NaN // false (唯一不等于自身的值)
+Infinity > 9999999 // true
+typeof NaN // "number" (NaN 也是 number 类型！)
+
+// 安全整数范围
+Number.MAX_SAFE_INTEGER // 9007199254740991 (2^53 - 1)
+Number.MIN_SAFE_INTEGER // -9007199254740991
+
+// 浮点精度问题
+0.1 + 0.2 === 0.3 // false
+0.1 + 0.2 // 0.30000000000000004
+```
+
+#### boolean — 布尔值
+
+```js
+let isTrue = true
+let isFalse = false
+
+// 转换规则 — 以下 8 个为 falsy，其余全为 truthy
+Boolean(false) // false
+Boolean(0) // false
+Boolean(-0) // false
+Boolean(0n) // false
+Boolean("") // false
+Boolean(null) // false
+Boolean(undefined) // false
+Boolean(NaN) // false
+
+// 这些是 truthy（易错）
+Boolean("false") // true
+Boolean("0") // true
+Boolean([]) // true
+Boolean({}) // true
+Boolean(function () {}) // true
+```
+
+#### null — 空值
+
+```js
+let empty = null
+
+// 表示"故意没有值"，通常由开发者主动赋值
+typeof null // "object" — 历史遗留 bug
+// 正确判断
+null === null // true
+variable === null // 判断是否为 null
+```
+
+#### undefined — 未定义
+
+```js
+let notAssigned
+console.log(notAssigned) // undefined
+
+// 出现的场景
+let obj = {}
+obj.nonExistent // undefined — 访问不存在的属性
+
+function fn() {} // 无 return 语句
+fn() // undefined
+
+function fn2(x) {} // 未传参
+fn2() // x = undefined
+```
+
+#### symbol — 唯一标识符 (ES2015)
+
+```js
+let sym1 = Symbol("id")
+let sym2 = Symbol("id")
+sym1 === sym2 // false — 即使描述相同
+
+// 全局注册
+let gsym1 = Symbol.for("app.key")
+let gsym2 = Symbol.for("app.key")
+gsym1 === gsym2 // true
+
+// 用途：对象唯一属性键，避免冲突
+let obj = {
+  [sym1]: "value",
+}
+Object.keys(obj) // [] (Symbol 属性被隐藏)
+```
+
+#### bigint — 大整数 (ES2020)
+
+```js
+let big = 9007199254740993n // 字面量 n 后缀
+let big2 = BigInt("9007199254740993")
+
+// 超出安全范围时保证精度
+9007199254740993 === 9007199254740994 // true（丢失精度）
+9007199254740993n === 9007199254740994n // false
+
+// 注意：不能与 Number 混合运算
+// big + 1   // TypeError
+big + 1n // OK
+Number(big) + 1 // OK（但可能丢失精度）
+```
+
+---
+
+## 复杂数据类型（Reference Types）
+
+`object` 是所有引用类型的基类，包括：
+
+| 子类型                                | 说明          |
+| ------------------------------------- | ------------- |
+| `Object`                              | 普通对象 `{}` |
+| `Array`                               | 数组 `[]`     |
+| `Function`                            | 函数          |
+| `Date`                                | 日期时间      |
+| `RegExp`                              | 正则表达式    |
+| `Map` / `Set` / `WeakMap` / `WeakSet` | 集合类型      |
+| `Error` / `TypeError` 等              | 异常对象      |
+| `Promise`                             | 异步对象      |
+
+```js
+let obj = { name: "Alice" }
+let arr = [1, 2, 3]
+let fn = function () {}
+
+let obj2 = obj
+obj2.name = "Bob"
+obj.name // "Bob" — 引用类型共享同一份数据
+```
+
+---
+
+## 类型判断
+
+### typeof — 基础判断
+
+```txt
+语法: typeof operand
+      typeof(operand)
+返回: 表示类型的字符串
+```
+
+```js
+typeof 42 // "number"
+typeof "hello" // "string"
+typeof true // "boolean"
+typeof undefined // "undefined"
+typeof Symbol() // "symbol"
+typeof 9007199254740993n // "bigint"
+
+typeof {} // "object"
+typeof [] // "object" ← 无法区分数组和对象
+typeof null // "object" ← 历史 bug
+typeof function () {} // "function"
+typeof NaN // "number"
+```
+
+**typeof 的局限性**：
+
+- `typeof null` → `"object"`（无法正确处理 null）
+- `typeof []` → `"object"`（无法区分数组和对象）
+- `typeof /regex/` → `"object"`（无法区分正则和对象）
+
+### instanceof — 原型链检测
+
+```txt
+语法: object instanceof Constructor
+返回: true / false
+```
+
+检测 `Constructor.prototype` 是否在 `object` 的原型链上。
+
+```js
+[] instanceof Array // true
+[] instanceof Object // true
+{} instanceof Object // true
+let date = new Date()
+date instanceof Date // true
+date instanceof Object // true
+
+// 基础类型返回 false（没走包装对象）
+"hello" instanceof String // false
+42 instanceof Number // false
+
+// 自定义
+function Person() {}
+let p = new Person()
+p instanceof Person // true
+```
+
+**instanceof 的局限性**：
+
+- 跨 iframe/realm 失效（不同执行环境的 `Array` 构造函数不同）
+- 基础类型无法判断
+
+### 语义化类型判断
+
+```js
+// 数组
+Array.isArray([]) // true
+Array.isArray({}) // false
+
+// NaN
+Number.isNaN(NaN) // true
+Number.isNaN("abc") // false (ES2015, 不做类型转换)
+
+// 有限数
+Number.isFinite(42) // true
+Number.isFinite(Infinity) // false
+```
+
+### Object.prototype.toString.call() — 万能方法
+
+```txt
+语法: Object.prototype.toString.call(value)
+返回: "[object Type]" 格式的字符串
+```
+
+```js
+Object.prototype.toString.call(42) // "[object Number]"
+Object.prototype.toString.call("hello") // "[object String]"
+Object.prototype.toString.call(true) // "[object Boolean]"
+Object.prototype.toString.call(null) // "[object Null]"
+Object.prototype.toString.call(undefined) // "[object Undefined]"
+Object.prototype.toString.call([]) // "[object Array]"
+Object.prototype.toString.call({}) // "[object Object]"
+Object.prototype.toString.call(function () {}) // "[object Function]"
+Object.prototype.toString.call(new Date()) // "[object Date]"
+Object.prototype.toString.call(/regex/) // "[object RegExp]"
+Object.prototype.toString.call(new Map()) // "[object Map]"
+Object.prototype.toString.call(new Set()) // "[object Set]"
+Object.prototype.toString.call(Symbol()) // "[object Symbol]"
+Object.prototype.toString.call(Promise.resolve()) // "[object Promise]"
+
+// 封装通用类型判断
+function getType(value) {
+  let type = typeof value
+  if (type !== "object") return type
+  return Object.prototype.toString.call(value).slice(8, -1).toLowerCase()
+}
+
+getType([]) // "array"
+getType(null) // "null"
+getType(new Map()) // "map"
+```
+
+### 类型判断方法对比
+
+| 方法                             | 适用场景                   | 不足                            |
+| -------------------------------- | -------------------------- | ------------------------------- |
+| `typeof`                         | 基础类型（除 null）        | `null`→`"object"`，无法区分数组 |
+| `instanceof`                     | 自定义类和内置类型         | 跨 realm 失效，基础类型不支持   |
+| `Array.isArray`                  | 判断数组，跨 realm 安全    | 仅限数组                        |
+| `Number.isNaN`                   | 判断 NaN                   | 仅限 NaN                        |
+| `Object.prototype.toString.call` | **万能**，所有类型精确判断 | 稍冗长                          |
+
+---
+
+## 类型转换
+
+### 显式转换
+
+```js
+// 转字符串
+String(42) // "42"
+;(42).toString() // "42"
+"" + 42 // "42" (隐式，但常用)
+
+// 转数值
+Number("42") // 42
+parseInt("42px") // 42
+parseFloat("3.14") + // 3.14
+  "42" // 42 (一元 +)
+
+// 转布尔值
+Boolean(42) // true
+Boolean("") // false
+!!42 // true (双非)
+
+// 转 BigInt
+BigInt(42) // 42n
+```
+
+### 隐式转换规则
+
+| 场景       | 触发运算符                       | 转换方向                                 |
+| ---------- | -------------------------------- | ---------------------------------------- |
+| 算术运算   | `+`（有字符串时）、`-`、`*`、`/` | 非数字 → 数字；`+` 有字符串 → 字符串拼接 |
+| 比较运算   | `==`、`>`、`<` 等                | 优先转数字                               |
+| 逻辑上下文 | `if`、`!`、`&&`、`\|\|`          | → 布尔值                                 |
+
+#### `+` 运算符
+
+```js
+"hello" + 42 // "hello42" — 有字符串时拼接
+true + 1 // 2 — 都转为数字
+1 + null // 1 (null → 0)
+1 + undefined // NaN (undefined → NaN)
+```
+
+#### `==` 宽松比较
+
+```js
+// null 和 undefined
+null == undefined // true
+null == 0 // false (null 只等于 undefined 和自己)
+
+// 字符串和数字
+"42" == 42 // true ("42" → 42)
+
+// 布尔值转数字
+true == 1 // true
+;(false == (0)[10]) == // 对象转原始值 // true
+  10 // true ([10].toString() → "10" → 10)
+```
+
+### ToPrimitive 转换流程
+
+当对象需要转为原始类型时：
+
+```
+1. 有 [Symbol.toPrimitive](hint)
+   → 调用它，返回原始值
+2. hint === "string"
+   → 先 toString()，结果非原始值再 valueOf()
+3. hint === "number" 或 "default"
+   → 先 valueOf()，结果非原始值再 toString()
+```
+
+```js
+// 经典面试题
+console.log([] + []) // "" (数组转空字符串再拼接)
+console.log([] + {}) // "[object Object]"
+console.log({} + []) // 0 ({} 被当作空代码块，+[] → 0)
+console.log({} + {}) // "[object Object][object Object]"
+
+// 剖析: a == 1 && a == 2 && a == 3 如何为 true？
+let a = {
+  value: 1,
+  [Symbol.toPrimitive]() {
+    return this.value++
+  },
+}
+a == 1 && a == 2 && a == 3 // true
+```
+
+---
+
+## 汇总速查表
+
+### 7 种原始类型
+
+| 类型        | typeof 返回值 | 示例                    |
+| ----------- | ------------- | ----------------------- |
+| `string`    | `"string"`    | `"hello"`               |
+| `number`    | `"number"`    | `42`, `NaN`, `Infinity` |
+| `boolean`   | `"boolean"`   | `true`, `false`         |
+| `null`      | `"object"` ⚠️ | `null`                  |
+| `undefined` | `"undefined"` | `undefined`             |
+| `symbol`    | `"symbol"`    | `Symbol("id")`          |
+| `bigint`    | `"bigint"`    | `42n`                   |
+
+### 类型判断方法
+
+| 方法                             | 用法                         | 最佳场景                   |
+| -------------------------------- | ---------------------------- | -------------------------- |
+| `typeof`                         | `typeof val`                 | 基础类型（记住 null 的坑） |
+| `instanceof`                     | `val instanceof Constructor` | 自定义类实例               |
+| `Array.isArray`                  | `Array.isArray(val)`         | 判断数组                   |
+| `Number.isNaN`                   | `Number.isNaN(val)`          | 判断 NaN                   |
+| `Object.prototype.toString.call` | 见上方                       | **万能判断**               |
+
+### 类型转换速查
+
+| 输入             | `Number(x)` | `String(x)`          | `Boolean(x)` |
+| ---------------- | ----------- | -------------------- | ------------ |
+| `undefined`      | `NaN`       | `"undefined"`        | `false`      |
+| `null`           | `0`         | `"null"`             | `false`      |
+| `true` / `false` | `1` / `0`   | `"true"` / `"false"` | —            |
+| `""`             | `0`         | `""`                 | `false`      |
+| `"123"`          | `123`       | `"123"`              | `true`       |
+| `"123a"`         | `NaN`       | `"123a"`             | `true`       |
+| `0`              | `0`         | `"0"`                | `false`      |
+| `[]`             | `0`         | `""`                 | `true`       |
+| `{}`             | `NaN`       | `"[object Object]"`  | `true`       |

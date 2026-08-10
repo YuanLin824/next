@@ -1,0 +1,409 @@
+# Symbol
+
+> ES2015 引入。`Symbol` 是第七种原始数据类型，表示**唯一且不可变**的值。主要用于对象属性的唯一标识，避免命名冲突。
+
+---
+
+## 为什么需要 Symbol
+
+在 ES5 中，对象属性名只能是字符串，容易发生命名冲突：
+
+```js
+// ❌ ES5: 两个库都用了 "id" 属性名，互相覆盖
+lib1.user.id = 1
+lib2.user.id = 2 // 冲突！
+
+// ✅ ES6: Symbol 保证唯一
+let id1 = Symbol("id")
+let id2 = Symbol("id")
+id1 === id2 // false — 即使描述相同也不相等
+```
+
+---
+
+## 创建 Symbol
+
+### Symbol(description)
+
+```txt
+语法: Symbol(description)
+参数: description — 可选，描述字符串（仅用于调试，不影响唯一性）
+返回: 唯一的 Symbol 值
+```
+
+```js
+let sym1 = Symbol()
+let sym2 = Symbol("my symbol")
+let sym3 = Symbol("my symbol")
+
+sym2 === sym3 // false — 描述相同，但 Symbol 不同
+sym2.description // "my symbol" (ES2019)
+
+// typeof 验证
+typeof sym1 // "symbol"
+```
+
+> **注意**：`Symbol` 不是构造函数，不能使用 `new`（会报 `TypeError`）。
+
+### Symbol.for(key) — 全局注册表
+
+```txt
+语法: Symbol.for(key)
+参数: key — 字符串键
+返回: 全局注册表中 key 对应的 Symbol；不存在则创建并注册
+
+Symbol.keyFor(sym) — 查找 key（仅对全局注册的 Symbol 有效）
+```
+
+```js
+// Symbol.for 创建全局共享的 Symbol
+let sym1 = Symbol.for("app.id")
+let sym2 = Symbol.for("app.id")
+sym1 === sym2 // true — 全局注册表中同一个
+
+// Symbol.keyFor — 查询全局 Symbol 的 key
+Symbol.keyFor(sym1) // "app.id"
+
+// 普通 Symbol 没有 key
+let sym3 = Symbol("app.id")
+Symbol.keyFor(sym3) // undefined
+```
+
+### Symbol.for vs Symbol
+
+| 创建方式            | 唯一性      | 全局共享 | 可查找 key           |
+| ------------------- | ----------- | -------- | -------------------- |
+| `Symbol("desc")`    | 每次不同    | ❌       | ❌                   |
+| `Symbol.for("key")` | 同 key 相同 | ✅       | ✅ `Symbol.keyFor()` |
+
+---
+
+## Symbol 作为对象属性
+
+### 基本使用
+
+```js
+let sym = Symbol("id")
+
+let obj = {
+  name: "Alice",
+  [sym]: 123, // 用计算属性名语法
+}
+
+// 或者
+obj[sym] = 123
+
+// 访问
+obj[sym] // 123
+obj.sym // undefined (不是字符串属性)
+```
+
+### Symbol 属性在遍历中的行为
+
+```js
+let sym = Symbol("hidden")
+let obj = {
+  name: "Alice",
+  [sym]: "secret value",
+  [Symbol("internal")]: 42,
+}
+
+// ❌ 以下方法都无法获取 Symbol 属性
+for (let key in obj) console.log(key) // "name" (不含 Symbol)
+Object.keys(obj) // ["name"]
+Object.getOwnPropertyNames(obj) // ["name"]
+JSON.stringify(obj) // '{"name":"Alice"}'
+
+// ✅ 只能通过以下方式获取 Symbol 属性
+Object.getOwnPropertySymbols(obj) // [Symbol(hidden), Symbol(internal)]
+Reflect.ownKeys(obj) // ["name", Symbol(hidden), Symbol(internal)]
+```
+
+### 获取 Symbol 属性的方法总结
+
+| 方法                           | 获取字符串键           | 获取 Symbol 键 |
+| ------------------------------ | ---------------------- | -------------- |
+| `for...in`                     | ✅                     | ❌             |
+| `Object.keys`                  | ✅（自身可枚举）       | ❌             |
+| `Object.getOwnPropertyNames`   | ✅（自身全部）         | ❌             |
+| `JSON.stringify`               | ✅（自身可枚举字符串） | ❌             |
+| `Object.getOwnPropertySymbols` | ❌                     | ✅             |
+| `Reflect.ownKeys`              | ✅                     | ✅             |
+
+---
+
+## 内置 Symbol (Well-Known Symbols)
+
+ES2015 定义了 11 个内置 Symbol，用于改变语言的默认行为。
+
+### Symbol.iterator — 自定义迭代器
+
+```js
+let range = {
+  from: 1,
+  to: 5,
+  [Symbol.iterator]() {
+    return {
+      current: this.from,
+      last: this.to,
+      next() {
+        if (this.current <= this.last) {
+          return { done: false, value: this.current++ }
+        }
+        return { done: true }
+      },
+    }
+  },
+}
+
+for (let n of range)
+  console.log(n) // 1 2 3 4 5
+;[...range] // [1, 2, 3, 4, 5]
+```
+
+### Symbol.toPrimitive — 自定义类型转换
+
+```js
+let user = {
+  name: "Alice",
+  age: 18,
+  [Symbol.toPrimitive](hint) {
+    // hint: "string" | "number" | "default"
+    switch (hint) {
+      case "string":
+        return this.name
+      case "number":
+        return this.age
+      default:
+        return `${this.name}, ${this.age}岁`
+    }
+  },
+}
+
+String(user) // "Alice"     (hint: "string")
+Number(user) + // 18           (hint: "number")
+  user // 18                   (hint: "number")
+"" + user // "Alice, 18岁"   (hint: "default")
+```
+
+### Symbol.toStringTag — 自定义 Object.prototype.toString 结果
+
+```js
+class MyClass {
+  get [Symbol.toStringTag]() {
+    return "MyClass"
+  }
+}
+
+Object.prototype.toString.call(new MyClass()) // "[object MyClass]"
+
+// 内置类型也是通过此 Symbol 实现的
+Object.prototype.toString.call([]) // "[object Array]"
+Object.prototype.toString.call(new Map()) // "[object Map]"
+```
+
+### Symbol.hasInstance — 自定义 instanceof 行为
+
+```js
+class EvenNumbers {
+  static [Symbol.hasInstance](instance) {
+    return instance % 2 === 0
+  }
+}
+
+2 instanceof EvenNumbers // true
+3 instanceof EvenNumbers // false
+```
+
+### Symbol.species — 自定义派生对象的构造函数
+
+```js
+class MyArray extends Array {
+  static get [Symbol.species]() {
+    return Array
+  }
+}
+
+let arr = new MyArray(1, 2, 3)
+let mapped = arr.map((x) => x * 2)
+
+mapped instanceof MyArray // false
+mapped instanceof Array // true
+```
+
+### Symbol.isConcatSpreadable — 自定义 concat 时的展开行为
+
+```js
+let arrLike = {
+  0: "a",
+  1: "b",
+  length: 2,
+  [Symbol.isConcatSpreadable]: true,
+}
+
+;[1, 2].concat(arrLike) // [1, 2, "a", "b"] (被展开)
+
+let arr = [1, 2]
+arr[Symbol.isConcatSpreadable] = false
+;[3, 4].concat(arr) // [3, 4, [1, 2]] (不被展开)
+```
+
+### Symbol.match / replace / search / split — 自定义字符串方法行为
+
+```js
+class ReverseMatcher {
+  [Symbol.match](str) {
+    return str.split("").reverse().join("")
+  }
+}
+
+"hello".match(new ReverseMatcher()) // "olleh"
+```
+
+### Symbol.unscopables — 排除 with 环境中的属性
+
+```js
+let obj = {
+  foo: 1,
+  bar: 2,
+  [Symbol.unscopables]: { bar: true }, // bar 从 with 作用域中排除
+}
+
+with (obj) {
+  console.log(foo) // 1
+  // console.log(bar) // ReferenceError (bar 被排除)
+}
+```
+
+### Symbol.asyncIterator — 异步迭代器
+
+```js
+let asyncRange = {
+  from: 1,
+  to: 3,
+  [Symbol.asyncIterator]() {
+    return {
+      current: this.from,
+      last: this.to,
+      async next() {
+        await new Promise((r) => setTimeout(r, 1000))
+        if (this.current <= this.last) {
+          return { done: false, value: this.current++ }
+        }
+        return { done: true }
+      },
+    }
+  },
+}
+
+// 使用 for await...of
+for await (let n of asyncRange) {
+  console.log(n) // 1 (等 1s) → 2 (等 1s) → 3
+}
+```
+
+---
+
+## 应用场景
+
+### 1. 防止对象属性名冲突
+
+```js
+// 两个库各用各的 Symbol，互不影响
+let lib1 = { [Symbol("id")]: 1 }
+let lib2 = { [Symbol("id")]: 2 }
+```
+
+### 2. 模拟"私有"属性
+
+```js
+let _age = Symbol("age")
+
+class Person {
+  constructor(name, age) {
+    this.name = name
+    this[_age] = age
+  }
+  getAge() {
+    return this[_age]
+  }
+}
+
+let p = new Person("Alice", 18)
+p.name // "Alice"
+p.age // undefined
+p.getAge() // 18
+// Object.keys(p) 也不会暴露 Symbol("age")
+```
+
+> 注意：`Reflect.ownKeys(p)` 仍能发现，不是真正的私有（ES2022 的 `#` 才是）。
+
+### 3. 定义常量枚举
+
+```js
+let Color = {
+  RED: Symbol("red"),
+  GREEN: Symbol("green"),
+  BLUE: Symbol("blue"),
+}
+
+function getColorName(color) {
+  switch (color) {
+    case Color.RED:
+      return "红色"
+    case Color.GREEN:
+      return "绿色"
+    case Color.BLUE:
+      return "蓝色"
+    default:
+      return "未知"
+  }
+}
+
+getColorName(Color.RED) // "红色"
+// 不需要关心值到底是什么，保证唯一就行
+```
+
+### 4. 元编程钩子
+
+用内置 Symbol 重写语言的默认行为（见上节）
+
+---
+
+## 汇总速查表
+
+### 创建与查找
+
+| 方法                 | 说明                   | 是否全局 |
+| -------------------- | ---------------------- | -------- |
+| `Symbol(desc)`       | 创建唯一 Symbol        | ❌ 局部  |
+| `Symbol.for(key)`    | 从全局注册表创建/获取  | ✅ 全局  |
+| `Symbol.keyFor(sym)` | 获取全局 Symbol 的 key | 仅全局   |
+
+### Symbol 属性获取
+
+| 方法                           | 获取到 Symbol 属性 |
+| ------------------------------ | ------------------ |
+| `for...in`                     | ❌                 |
+| `Object.keys`                  | ❌                 |
+| `Object.getOwnPropertyNames`   | ❌                 |
+| `JSON.stringify`               | ❌                 |
+| `Object.getOwnPropertySymbols` | ✅                 |
+| `Reflect.ownKeys`              | ✅                 |
+
+### 内置 Symbol 速查
+
+| Symbol                      | 拦截/控制                          | 示例                  |
+| --------------------------- | ---------------------------------- | --------------------- |
+| `Symbol.iterator`           | `for...of`、展开运算符             | 自定义迭代器          |
+| `Symbol.asyncIterator`      | `for await...of`                   | 异步迭代器            |
+| `Symbol.toPrimitive`        | 类型转换 `String()`/`Number()`/`+` | 自定义类型转换        |
+| `Symbol.toStringTag`        | `Object.prototype.toString.call()` | 自定义 `[object Xxx]` |
+| `Symbol.hasInstance`        | `instanceof`                       | 自定义 instanceof     |
+| `Symbol.species`            | 派生对象（`map`/`filter` 等）      | 控制返回类型          |
+| `Symbol.isConcatSpreadable` | `Array.prototype.concat`           | 控制是否展开          |
+| `Symbol.match`              | `String.prototype.match`           | 自定义匹配            |
+| `Symbol.replace`            | `String.prototype.replace`         | 自定义替换            |
+| `Symbol.search`             | `String.prototype.search`          | 自定义搜索            |
+| `Symbol.split`              | `String.prototype.split`           | 自定义分割            |
+| `Symbol.unscopables`        | `with` 语句                        | 排除属性              |

@@ -1,0 +1,795 @@
+# Function 函数 — 方法、闭包、高阶函数、柯里化、递归
+
+---
+
+## 函数定义方式
+
+```js
+// 1. 函数声明（会提升）
+function add(a, b) {
+  return a + b
+}
+
+// 2. 函数表达式（不会提升）
+let add = function (a, b) {
+  return a + b
+}
+
+// 3. new Function()（不推荐，性能差且有安全风险）
+let add = new Function("a", "b", "return a + b")
+
+// 4. 箭头函数 (ES2015) — 无自己的 this / arguments / prototype
+let add = (a, b) => a + b
+```
+
+---
+
+## 函数参数
+
+### 形参与实参
+
+```txt
+形参 (Parameter):  函数定义时声明的变量名
+实参 (Argument):   函数调用时传入的实际值
+```
+
+```js
+function greet(name, greeting) {
+  // name 和 greeting 是形参
+  return `${greeting}, ${name}`
+}
+greet("Alice", "Hello") // "Alice" 和 "Hello" 是实参
+```
+
+### 参数默认值 (ES2015)
+
+```txt
+语法: function fn(param = defaultValue, ...) { ... }
+```
+
+当对应实参为 `undefined` 时使用默认值。传入 `null`、`0`、`""`、`false` 不会触发默认值。
+
+```js
+function greet(name = "Guest", greeting = "Hi") {
+  return `${greeting}, ${name}`
+}
+
+greet() // "Hi, Guest" (两个都用默认值)
+greet("Alice") // "Hi, Alice" (name 传入，greeting 用默认值)
+greet(undefined, "Hello") // "Hello, Guest" (undefined 触发默认)
+greet(null, "Hello") // "Hello, null" (null 不触发默认)
+
+// 默认值表达式可以引用前面的参数
+function fullName(first, last = first.toUpperCase()) {
+  return `${first} ${last}`
+}
+fullName("alice") // "alice ALICE"
+
+// 默认值可以调用函数
+function getDefault() {
+  return 100
+}
+function fn(x = getDefault()) {
+  return x
+}
+fn() // 100 (只在需要时计算)
+```
+
+### 剩余参数 (ES2015)
+
+```txt
+语法: function fn(param1, param2, ...restParam) { ... }
+```
+
+将剩余的所有实参收集到一个**真正的数组**中。必须是参数列表的**最后一个**。
+
+```js
+function sum(multiplier, ...numbers) {
+  return numbers.reduce((acc, n) => acc + n, 0) * multiplier
+}
+sum(2, 1, 2, 3) // 12 = (1+2+3) * 2
+
+// 对比 arguments
+function oldStyle() {
+  console.log(arguments) // 类数组对象
+  console.log(Array.isArray(arguments)) // false
+}
+function newStyle(...args) {
+  console.log(Array.isArray(args)) // true
+  args.push("new") // 可以直接用数组方法
+}
+```
+
+### 参数解构
+
+```js
+// 对象解构作为参数
+function createUser({ name, age = 18, role = "user" }) {
+  return { name, age, role }
+}
+createUser({ name: "Alice", age: 25 }) // { name: "Alice", age: 25, role: "user" }
+createUser({ name: "Bob" }) // { name: "Bob", age: 18, role: "user" }
+
+// 为整个参数设置默认值（防止不传参报错）
+function createUser({ name, age = 18 } = {}) {
+  return { name, age }
+}
+createUser() // { name: undefined, age: 18 }
+
+// 数组解构
+function headAndTail([head, ...tail]) {
+  return { head, tail }
+}
+headAndTail([1, 2, 3, 4]) // { head: 1, tail: [2, 3, 4] }
+```
+
+### length 属性
+
+函数名 `.length` 返回**定义的形参个数**（不含默认值参数和剩余参数）。
+
+```js
+function fn1(a, b) {} // fn1.length = 2
+function fn2(a, b = 2) {} // fn2.length = 1 (有默认值的参数不算)
+function fn3(a, ...rest) {} // fn3.length = 1 (剩余参数不算)
+function fn4(a, b, c) {} // fn4.length = 3
+// 常用于柯里化中判断参数是否足够
+```
+
+### 参数传递方式
+
+```js
+// 原始类型 — 按值传递（不改变外部变量）
+function changePrimitive(val) {
+  val = "new"
+}
+let str = "old"
+changePrimitive(str)
+console.log(str) // "old" — 未改变
+
+// 引用类型 — 按共享传递（修改属性影响外部，重新赋值不影响）
+function changeProperty(obj) {
+  obj.name = "Bob"
+}
+let user = { name: "Alice" }
+changeProperty(user)
+console.log(user.name) // "Bob" — 被修改
+
+function reassignObject(obj) {
+  obj = { name: "Charlie" }
+}
+reassignObject(user)
+console.log(user.name) // "Bob" — 未改变（重新赋值不影响外部引用）
+```
+
+---
+
+## Function 实例方法
+
+### call() — 调用函数并指定 this
+
+```txt
+语法: func.call(thisArg, arg1, arg2, ..., argN)
+参数:
+  thisArg — 函数执行时的 this 值
+    - 非严格模式: null / undefined 会被替换为全局对象
+    - 严格模式: 传入什么就是什么
+  argN    — 逐个传入的参数
+返回: 函数的返回值
+```
+
+```js
+function greet(greeting, punctuation) {
+  return `${greeting}, ${this.name}${punctuation}`
+}
+
+let person = { name: "Alice" }
+greet.call(person, "Hello", "!") // "Hello, Alice!"
+
+// 借用方法
+let arrLike = { 0: "a", 1: "b", 2: "c", length: 3 }
+Array.prototype.slice.call(arrLike) // ["a", "b", "c"]
+Array.prototype.slice.call(arrLike, 1) // ["b", "c"]
+
+// 借用 Object.prototype.toString 做类型检测
+Object.prototype.toString.call([]) // "[object Array]"
+Object.prototype.toString.call(null) // "[object Null]"
+```
+
+### apply() — 调用函数并指定 this（参数为数组）
+
+```txt
+语法: func.apply(thisArg, argsArray)
+参数:
+  thisArg   — 函数执行时的 this 值（同 call）
+  argsArray — 参数数组（或类数组对象）
+返回: 函数的返回值
+```
+
+`apply` 与 `call` 唯一的区别：`call` 逐个传参，`apply` 以数组传参。
+
+```js
+function sum(a, b, c) {
+  return a + b + c
+}
+
+let nums = [1, 2, 3]
+sum.apply(null, nums) // 6
+sum.call(null, ...nums) // 6 (ES2015 展开运算符等价写法)
+
+// 求数组最大值
+Math.max.apply(null, [3, 1, 4, 1, 5]) // 5
+Math.max(...[3, 1, 4, 1, 5]) // 5 (推荐)
+```
+
+### bind() — 创建绑定 this 的新函数
+
+```txt
+语法: func.bind(thisArg, arg1, arg2, ..., argN)
+参数:
+  thisArg — 新函数的 this 值
+  argN    — 预绑定的参数（偏函数应用）
+返回: 一个新函数，其 this 被永久绑定为 thisArg
+```
+
+**不会立即执行**，返回绑定了 `this` 的新函数。`bind` 绑定的 `this` 不可被再次覆盖（`call`/`apply` 也不行）。
+
+```js
+let person = { name: "Alice" }
+
+function greet(greeting) {
+  return `${greeting}, ${this.name}`
+}
+
+let greetAlice = greet.bind(person)
+greetAlice("Hello") // "Hello, Alice"
+
+// bind 的 this 无法被再次覆盖
+let another = { name: "Bob" }
+greetAlice.call(another, "Hi") // "Hi, Alice" (仍是 Alice！)
+
+// 偏函数：预绑部分参数
+function multiply(a, b) {
+  return a * b
+}
+let double = multiply.bind(null, 2)
+double(5) // 10
+double(3) // 6
+```
+
+### call / apply / bind 对比
+
+| 方法    | 执行时机   | 传参方式    | 返回值     | 能否被再次覆盖 this |
+| ------- | ---------- | ----------- | ---------- | ------------------- |
+| `call`  | 立即执行   | 逐个传入    | 函数返回值 | —                   |
+| `apply` | 立即执行   | 数组/类数组 | 函数返回值 | —                   |
+| `bind`  | 返回新函数 | 逐个传入    | 新函数     | ❌ 永久绑定         |
+
+---
+
+## this 指向规则
+
+### 1. 默认绑定
+
+非严格模式下，独立函数调用 `this` 指向全局对象（浏览器 `window`，Node.js `global`）；严格模式下指向 `undefined`。
+
+```js
+function fn() {
+  console.log(this)
+}
+fn() // window (非严格) / undefined (严格)
+```
+
+### 2. 隐式绑定
+
+作为对象方法调用时，`this` 指向**调用该方法的对象**（`.` 前面的对象）。
+
+```js
+let obj = {
+  name: "Alice",
+  greet() {
+    console.log(this.name)
+  },
+}
+obj.greet() // "Alice" (this -> obj)
+
+// 隐式丢失：方法赋值后独立调用
+let fn = obj.greet
+fn() // undefined (this -> window/undefined)
+```
+
+### 3. 显式绑定
+
+通过 `call` / `apply` / `bind` 显式指定 `this`。
+
+### 4. new 绑定
+
+使用 `new` 调用构造函数时，`this` 指向新创建的实例对象。
+
+```js
+function Person(name) {
+  this.name = name
+}
+let p = new Person("Alice")
+p.name // "Alice"
+```
+
+### 5. 箭头函数 (ES2015)
+
+箭头函数**没有自己的 `this`**，`this` 由定义时外层作用域决定，且**不可被 `call`/`apply`/`bind` 改变**。
+
+```js
+let obj = {
+  name: "Alice",
+  greet() {
+    setTimeout(() => {
+      console.log(this.name) // this 指向 obj（外层作用域）
+    }, 100)
+  },
+}
+obj.greet() // "Alice"
+```
+
+### 优先级: new > bind > call/apply > 隐式 > 默认
+
+---
+
+## 闭包 (Closure)
+
+> **闭包**：函数能够记住并访问其**词法作用域**，即使该函数在其词法作用域之外执行。
+
+### 原理
+
+JS 采用词法作用域（静态作用域），函数创建时会保存对其外部作用域的引用。当内部函数被返回到外部作用域之外执行时，仍能访问外部函数的变量，这些被引用的变量**不会被垃圾回收**。
+
+### 经典示例
+
+```js
+function createCounter() {
+  let count = 0 // 私有变量
+  return function () {
+    count++
+    return count
+  }
+}
+
+let counter = createCounter()
+counter() // 1
+counter() // 2
+counter() // 3
+// count 变量被闭包"捕获"，外部无法直接访问
+```
+
+### 经典面试题：循环中的闭包
+
+```js
+// ❌ 错误：所有回调共享同一个 i
+for (var i = 0; i < 5; i++) {
+  setTimeout(() => console.log(i), i * 100) // 5 5 5 5 5
+}
+
+// ✅ 方案一: let 块级作用域
+for (let i = 0; i < 5; i++) {
+  setTimeout(() => console.log(i), i * 100) // 0 1 2 3 4
+}
+
+// ✅ 方案二: 闭包 + IIFE
+for (var i = 0; i < 5; i++) {
+  ;(function (j) {
+    setTimeout(() => console.log(j), j * 100) // 0 1 2 3 4
+  })(i)
+}
+
+// ✅ 方案三: setTimeout 第三个参数
+for (var i = 0; i < 5; i++) {
+  setTimeout(console.log, i * 100, i)
+}
+```
+
+### 应用场景
+
+```js
+// 1. 数据私有化 / 模块模式
+let module = (function () {
+  let privateVar = "secret"
+  return {
+    get() {
+      return privateVar
+    },
+    set(val) {
+      privateVar = val
+    },
+  }
+})()
+
+// 2. 防抖 / 节流中的 timer 变量
+function debounce(fn, delay) {
+  let timer = null
+  return function (...args) {
+    clearTimeout(timer)
+    timer = setTimeout(() => fn.apply(this, args), delay)
+  }
+}
+
+// 3. 函数工厂
+function makeMultiplier(factor) {
+  return function (num) {
+    return num * factor
+  }
+}
+
+// 4. 单次执行
+function once(fn) {
+  let called = false
+  return function (...args) {
+    if (!called) {
+      called = true
+      return fn.apply(this, args)
+    }
+  }
+}
+```
+
+---
+
+## 高阶函数 (Higher-Order Function)
+
+> **高阶函数**：接收函数作为参数，或返回一个函数作为结果的函数。
+
+### 接受函数作为参数
+
+```js
+// Array 的遍历方法都是高阶函数
+;[1, 2, 3].map((x) => x * 2)
+;[1, 2, 3].filter((x) => x > 1)
+;[1, 2, 3].reduce((acc, cur) => acc + cur, 0)
+
+// 回调模式
+function fetchData(callback) {
+  setTimeout(() => callback({ data: "ok" }), 1000)
+}
+```
+
+### 返回函数
+
+```js
+// 偏函数
+function partial(fn, ...presetArgs) {
+  return function (...laterArgs) {
+    return fn(...presetArgs, ...laterArgs)
+  }
+}
+
+// 类型检测工具
+function isType(type) {
+  return function (obj) {
+    return Object.prototype.toString.call(obj) === `[object ${type}]`
+  }
+}
+let isArray = isType("Array")
+isArray([]) // true
+```
+
+---
+
+## 函数柯里化 (Currying)
+
+> **柯里化**：把一个接收多个参数的函数，转换成一系列每次只接收**一个参数**的嵌套函数。
+
+### 含义
+
+```js
+// 普通函数
+function add(a, b, c) {
+  return a + b + c
+}
+
+// 柯里化后
+function curriedAdd(a) {
+  return function (b) {
+    return function (c) {
+      return a + b + c
+    }
+  }
+}
+
+curriedAdd(1)(2)(3) // 6
+```
+
+### 通用柯里化实现
+
+```js
+function curry(fn) {
+  return function curried(...args) {
+    if (args.length >= fn.length) {
+      return fn.apply(this, args)
+    }
+    return function (...nextArgs) {
+      return curried.apply(this, args.concat(nextArgs))
+    }
+  }
+}
+
+// 使用
+function sum(a, b, c) {
+  return a + b + c
+}
+let curriedSum = curry(sum)
+
+curriedSum(1)(2)(3) // 6
+curriedSum(1, 2)(3) // 6
+curriedSum(1)(2, 3) // 6
+curriedSum(1, 2, 3) // 6
+```
+
+### 应用
+
+```js
+// 参数复用
+let curriedLog = curry((date, level, message) => {
+  console.log(`[${date.getHours()}:${date.getMinutes()}] [${level}] ${message}`)
+})
+
+let logNow = curriedLog(new Date())
+let infoNow = logNow("INFO")
+let errorNow = logNow("ERROR")
+
+infoNow("用户登录") // [14:35] [INFO] 用户登录
+infoNow("数据加载完成") // [14:35] [INFO] 数据加载完成
+
+// 函数组合
+let curriedReplace = curry((pattern, replacement, str) => str.replace(pattern, replacement))
+let replaceSpaces = curriedReplace(/\s+/g)
+let replaceSpacesWithDash = replaceSpaces("-")
+replaceSpacesWithDash("hello world foo") // "hello-world-foo"
+```
+
+---
+
+## 递归 (Recursion)
+
+> **递归**：函数调用自身来解决问题。核心要素是**基准条件**（终止条件）和**递归条件**（向基准条件靠近）。
+
+### 经典示例
+
+```js
+// 斐波那契
+function fibonacci(n) {
+  if (n <= 2) return 1
+  return fibonacci(n - 1) + fibonacci(n - 2)
+}
+fibonacci(6) // 8
+
+// 阶乘
+function factorial(n) {
+  if (n <= 1) return 1
+  return n * factorial(n - 1)
+}
+factorial(5) // 120
+
+// 数组扁平化
+function flatten(arr) {
+  let result = []
+  arr.forEach((item) => {
+    if (Array.isArray(item)) {
+      result = result.concat(flatten(item))
+    } else {
+      result.push(item)
+    }
+  })
+  return result
+}
+flatten([1, [2, [3, 4], 5]]) // [1, 2, 3, 4, 5]
+
+// 深拷贝
+function deepClone(obj, map = new WeakMap()) {
+  if (typeof obj !== "object" || obj === null) return obj
+  if (map.has(obj)) return map.get(obj) // 循环引用
+
+  let clone = Array.isArray(obj) ? [] : {}
+  map.set(obj, clone)
+
+  for (let key of Object.keys(obj)) {
+    clone[key] = deepClone(obj[key], map)
+  }
+  return clone
+}
+```
+
+---
+
+## 尾递归 (Tail Recursion)
+
+> **尾递归**：函数的最后一步操作是**调用自身**，返回的是函数调用的结果，没有额外计算。
+
+### 尾递归 vs 普通递归
+
+```js
+// ❌ 普通递归（不是尾递归）—— 调用后还有乘法运算
+function factorial(n) {
+  if (n <= 1) return 1
+  return n * factorial(n - 1) // 最后一步是乘法，不是函数调用
+}
+
+// ✅ 尾递归 —— 调用自身是最后一步
+function factorialTail(n, acc = 1) {
+  if (n <= 1) return acc
+  return factorialTail(n - 1, n * acc) // 最后一步就是函数调用
+}
+factorialTail(5) // 120
+```
+
+### 更多示例
+
+```js
+// ❌ 普通递归 fibonacci
+function fibonacci(n) {
+  if (n <= 2) return 1
+  return fibonacci(n - 1) + fibonacci(n - 2) // 最后一步是加法
+}
+
+// ✅ 尾递归 fibonacci
+function fibonacciTail(n, a = 1, b = 1) {
+  if (n <= 2) return b
+  return fibonacciTail(n - 1, b, a + b)
+}
+fibonacciTail(6) // 8
+
+// 尾递归求数组和
+function sumTail(arr, index = 0, acc = 0) {
+  if (index >= arr.length) return acc
+  return sumTail(arr, index + 1, acc + arr[index])
+}
+sumTail([1, 2, 3, 4]) // 10
+```
+
+### 尾递归优化的意义
+
+普通递归每层调用都会在调用栈上保留一个栈帧，调用层数过深会导致**栈溢出**（`RangeError: Maximum call stack size exceeded`）。
+
+尾递归优化（TCO）：尾递归函数的调用栈帧可以被**复用**（因为外层函数的结果就是内层函数的返回值，外层调用帧不再需要），从而优化为循环，避免栈溢出。
+
+> ⚠️ **注意**：尾递归优化是 ES2015 规范的一部分，但截至 2024 年，**只有 Safari/JavaScriptCore 引擎实现了 TCO**，V8（Chrome/Node）和 SpiderMonkey（Firefox）均未实现。因此在实际开发中，深递归仍应考虑**改用循环迭代**以避免栈溢出。
+
+```js
+// 安全方案：用迭代代替递归
+function fibonacciSafe(n) {
+  if (n <= 2) return 1
+  let prev = 1,
+    curr = 1
+  for (let i = 3; i <= n; i++) {
+    ;[prev, curr] = [curr, prev + curr]
+  }
+  return curr
+}
+
+// 安全方案：蹦床函数 (Trampoline) 模拟尾递归
+function trampoline(fn) {
+  return function (...args) {
+    let result = fn.apply(this, args)
+    while (typeof result === "function") {
+      result = result()
+    }
+    return result
+  }
+}
+```
+
+---
+
+## IIFE (立即执行函数)
+
+```txt
+语法: (function () { ... })() 或 (function () { ... }())
+立即执行，创建独立作用域，避免变量污染全局。
+```
+
+ES5 时代广泛用于模块化和隔离作用域。ES2015 有了块级作用域 `let`/`const` 和模块系统后，IIFE 的使用场景减少。
+
+```js
+// 经典 IIFE
+;(function () {
+  var privateVar = "I am private"
+  console.log(privateVar)
+})()
+// privateVar 在外部不可访问
+
+// 传参
+;(function (global) {
+  // global 指向 window/global
+  var local = "safe"
+})(this)
+
+// 返回值
+var module = (function () {
+  var count = 0
+  return {
+    increment() {
+      return ++count
+    },
+    decrement() {
+      return --count
+    },
+  }
+})()
+module.increment() // 1
+module.increment() // 2
+```
+
+---
+
+## 函数提升 (Hoisting)
+
+```txt
+函数声明: 整体提升到作用域顶部（值和定义一起）
+函数表达式: 只有变量声明提升，赋值不提升（表现为 undefined）
+```
+
+```js
+// 函数声明: 可在声明前调用
+sayHi() // "Hi!"
+function sayHi() {
+  console.log("Hi!")
+}
+
+// 函数表达式: 不可在赋值前调用
+sayHello() // TypeError: sayHello is not a function
+var sayHello = function () {
+  console.log("Hello!")
+}
+// var sayHello 提升为 undefined，执行时还不是函数
+```
+
+---
+
+## arguments 对象
+
+类数组对象，包含函数调用时传入的**所有实参**。箭头函数没有 `arguments`。
+
+```js
+function sum() {
+  let total = 0
+  for (let i = 0; i < arguments.length; i++) {
+    total += arguments[i]
+  }
+  return total
+}
+sum(1, 2, 3) // 6
+sum(1, 2, 3, 4, 5) // 15
+
+// 转为数组
+Array.prototype.slice.call(arguments) // ES5
+Array.from(arguments) // ES2015
+;[...arguments] // ES2015
+
+// 剩余参数 (ES2015) 替代 arguments（推荐）
+function sum(...args) {
+  return args.reduce((acc, cur) => acc + cur, 0)
+}
+```
+
+---
+
+## 汇总速查表
+
+### Function 实例方法
+
+| 方法    | 参数                       | 返回值     | 执行时机   | 说明              |
+| ------- | -------------------------- | ---------- | ---------- | ----------------- |
+| `call`  | `thisArg, arg1, ..., argN` | 函数返回值 | 立即执行   | 逐个传参指定 this |
+| `apply` | `thisArg, argsArray`       | 函数返回值 | 立即执行   | 数组传参指定 this |
+| `bind`  | `thisArg, arg1, ..., argN` | 新函数     | 返回新函数 | 永久绑定 this     |
+
+### 核心概念
+
+| 概念       | 一句话总结                                              | 关键词               |
+| ---------- | ------------------------------------------------------- | -------------------- |
+| 参数默认值 | 形参 = 默认值，仅 undefined 触发                        | ES2015               |
+| 剩余参数   | `...args` 收集剩余实参为真数组                          | ES2015               |
+| 闭包       | 函数 + 其词法作用域，即使函数在作用域外执行仍能访问变量 | 私有变量、模块化     |
+| 高阶函数   | 接收/返回函数的函数                                     | map/filter/reduce    |
+| 柯里化     | 多参数函数转换为一系列单参数函数                        | 参数复用、函数组合   |
+| 递归       | 函数调用自身，需基准条件                                | 分治、深拷贝、扁平化 |
+| 尾递归     | 最后一步是调用自身，可复用调用栈帧                      | TCO（仅 Safari）     |
+| IIFE       | 定义后立即执行的函数，创建隔离作用域                    | 模块化、避免污染     |
+| 函数提升   | 函数声明整体提升，函数表达式只提升变量                  | 声明前可调用         |
+| arguments  | 类数组，包含所有实参，箭头函数没有                      | 可变参数             |

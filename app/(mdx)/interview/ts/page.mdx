@@ -1,0 +1,1198 @@
+# TypeScript 面试题
+
+---
+
+## 一、基础类型
+
+### Q1: TypeScript 和 JavaScript 的关系是什么？为什么要用 TypeScript？
+
+| 维度     | JavaScript             | TypeScript                 |
+| -------- | ---------------------- | -------------------------- |
+| 类型系统 | 动态类型（运行时检查） | 静态类型（编译时检查）     |
+| IDE 支持 | 弱（靠 JSDoc）         | 强（智能提示/重构/跳转）   |
+| 错误发现 | 运行时                 | **编译时**（提前暴露 bug） |
+| 大型项目 | 维护困难               | 强类型约束 → 降低维护成本  |
+| 编译     | 不需要                 | 需要（tsc → JS）           |
+
+**核心价值**：在代码运行**之前**发现错误、更好的 IDE 体验（自动补全/跳转定义）、代码即文档。
+
+### Q2: TypeScript 的基本类型有哪些？
+
+```ts
+// 原始类型
+let str: string = "hello"
+let num: number = 42
+let bool: boolean = true
+let undef: undefined = undefined
+let nul: null = null
+let sym: symbol = Symbol("id")
+let big: bigint = 9007199254740993n
+
+// 特殊类型
+let anything: any = "anything" // 绕过类型检查
+let notSure: unknown = 42 // 安全版的 any
+let nothing: void = undefined // 函数无返回值
+let never1: never // 永远不会有值（抛异常/死循环）
+
+// 数组
+let arr1: number[] = [1, 2, 3]
+let arr2: Array<string> = ["a", "b"]
+
+// 元组 — 固定长度 + 每项类型独立
+let tuple: [string, number] = ["Alice", 18]
+
+// 枚举
+enum Color {
+  Red,
+  Green,
+  Blue,
+} // 数字枚举 0,1,2
+enum Status {
+  Active = "active",
+  Inactive = "inactive",
+} // 字符串枚举
+
+// 对象
+let obj: { name: string; age?: number } = { name: "Alice" }
+```
+
+### Q3: any / unknown / never 的区别？
+
+| 类型      | 可赋值给其他类型       | 可访问属性       | 使用场景                        |
+| --------- | ---------------------- | ---------------- | ------------------------------- |
+| `any`     | ✅（跳过所有检查）     | ✅（无提示）     | 临时/迁移/动态内容              |
+| `unknown` | ❌（需类型断言后）     | ❌（必须先收窄） | 未知类型的安全处理              |
+| `never`   | ✅（可赋值给任何类型） | —                | 函数永无返回值（抛异常/死循环） |
+
+```ts
+// unknown 必须收窄类型
+function handle(val: unknown) {
+  if (typeof val === "string") {
+    console.log(val.toUpperCase()) // ✅ 类型收窄后可用
+  }
+  if (val instanceof Date) {
+    console.log(val.toISOString()) // ✅
+  }
+}
+
+// never — 用于穷举检查
+type Shape = { kind: "circle"; radius: number } | { kind: "square"; side: number }
+function area(s: Shape) {
+  switch (s.kind) {
+    case "circle":
+      return Math.PI * s.radius ** 2
+    case "square":
+      return s.side ** 2
+    default:
+      const _exhaustive: never = s // 确保所有分支已覆盖
+      return _exhaustive
+  }
+}
+```
+
+---
+
+## 二、接口与类型别名
+
+### Q4: interface 和 type 有什么区别？
+
+| 维度         | `interface`     | `type`                            |
+| ------------ | --------------- | --------------------------------- |
+| 声明合并     | ✅ 同名自动合并 | ❌ 报错                           |
+| 扩展方式     | `extends`       | `&` 交叉类型                      |
+| 原始类型别名 | ❌              | ✅ `type Name = string`           |
+| 联合类型     | ❌              | ✅ `type Status = "on" \| "off"`  |
+| 元组         | ❌              | ✅ `type Pair = [number, number]` |
+| 函数类型     | ✅              | ✅                                |
+| 类实现       | ✅ `implements` | ✅ `implements`                   |
+
+```ts
+// interface — 可合并（适合扩展）
+interface User {
+  name: string
+}
+interface User {
+  age: number // 自动合并
+}
+const u: User = { name: "Alice", age: 18 }
+
+// type — 适合联合/交叉/工具类型
+type Result<T> = { success: true; data: T } | { success: false; error: string }
+type StringOrNum = string | number
+type Partial<T> = { [K in keyof T]?: T[K] }
+```
+
+> **推荐**：优先用 `interface`（可扩展、可合并）；需要联合/元组/映射类型时用 `type`。
+
+### Q5: 索引签名和 Record 怎么用？
+
+```ts
+// 索引签名 — 动态属性名
+interface StringMap {
+  [key: string]: string
+}
+const dict: StringMap = { name: "Alice", city: "Beijing" }
+
+// Record — 更语义化
+type Users = Record<string, { name: string; age: number }>
+type PageKeys = "home" | "about" | "contact"
+type Nav = Record<PageKeys, { title: string }>
+// { home: {title}, about: {title}, contact: {title} }
+```
+
+---
+
+## 三、泛型
+
+### Q6: 泛型是什么？怎么用？
+
+> 泛型 = **类型的变量**：定义时不指定具体类型，使用时再确定。
+
+```ts
+// 泛型函数
+function identity<T>(arg: T): T {
+  return arg
+}
+identity<string>("hello")
+identity(42) // 类型推导
+
+// 泛型接口
+interface ApiResponse<T> {
+  code: number
+  data: T
+}
+const res: ApiResponse<User[]> = { code: 0, data: [{ name: "Alice" }] }
+
+// 泛型约束 — extends 限制类型范围
+function getLength<T extends { length: number }>(arg: T): number {
+  return arg.length // T 必须有 length 属性
+}
+getLength("hello") // ✅ string 有 length
+getLength([1, 2, 3]) // ✅ array 有 length
+// getLength(42)        // ❌ number 没有 length
+
+// 多个泛型参数
+function pair<T, U>(a: T, b: U): [T, U] {
+  return [a, b]
+}
+pair("name", 18) // [string, number]
+```
+
+### Q7: 泛型工具类型有哪些？怎么实现？
+
+| 工具类型         | 作用                      |
+| ---------------- | ------------------------- |
+| `Partial<T>`     | 所有属性变可选            |
+| `Required<T>`    | 所有属性变必填            |
+| `Readonly<T>`    | 所有属性变只读            |
+| `Pick<T, K>`     | 从 T 中选取 K 属性        |
+| `Omit<T, K>`     | 从 T 中排除 K 属性        |
+| `Record<K, V>`   | 键为 K，值为 V            |
+| `Exclude<T, U>`  | 从 T 中排除 U 的子类型    |
+| `Extract<T, U>`  | 从 T 中提取 U 的子类型    |
+| `NonNullable<T>` | 排除 null/undefined       |
+| `ReturnType<T>`  | 获取函数返回值类型        |
+| `Parameters<T>`  | 获取函数参数元组类型      |
+| `Awaited<T>`     | 解 Promise/async 包裹类型 |
+
+```ts
+// 手写常用工具类型
+type MyPartial<T> = { [K in keyof T]?: T[K] }
+type MyRequired<T> = { [K in keyof T]-?: T[K] } // -? 去掉可选
+type MyReadonly<T> = { readonly [K in keyof T]: T[K] }
+type MyPick<T, K extends keyof T> = { [P in K]: T[P] }
+type MyOmit<T, K extends keyof T> = Pick<T, Exclude<keyof T, K>>
+type MyRecord<K extends keyof any, V> = { [P in K]: V }
+type MyExclude<T, U> = T extends U ? never : T
+type MyExtract<T, U> = T extends U ? T : never
+type MyReturnType<T extends (...args: any[]) => any> = T extends (...args: any[]) => infer R
+  ? R
+  : never
+type MyParameters<T extends (...args: any[]) => any> = T extends (...args: infer P) => any
+  ? P
+  : never
+type MyAwaited<T> = T extends Promise<infer U> ? MyAwaited<U> : T
+```
+
+---
+
+## 四、条件类型与 infer
+
+### Q8: 条件类型和 infer 怎么用？
+
+```ts
+// 条件类型 — T extends U ? X : Y
+type IsString<T> = T extends string ? true : false
+type A = IsString<"hello"> // true
+type B = IsString<42> // false
+
+// 分发条件类型（联合类型会分发）
+type ToArray<T> = T extends any ? T[] : never
+type C = ToArray<string | number> // string[] | number[]（而不是 (string|number)[]）
+
+// infer — 在条件类型中提取类型
+type ReturnType<T> = T extends (...args: any[]) => infer R ? R : never
+type Fn = (x: number) => string
+type R = ReturnType<Fn> // string
+
+type FirstItem<T> = T extends [infer F, ...any[]] ? F : never
+type F = FirstItem<[string, number, boolean]> // string
+
+type PromiseType<T> = T extends Promise<infer U> ? PromiseType<U> : T
+type PT = PromiseType<Promise<Promise<number>>> // number
+```
+
+---
+
+## 五、高级类型操作
+
+### Q9: 联合类型和交叉类型的区别？
+
+```ts
+// 联合类型 (|) — "或"，满足其一即可
+type Status = "loading" | "success" | "error"
+type StringOrNum = string | number
+
+// 交叉类型 (&) — "且"，同时满足
+type Named = { name: string }
+type Aged = { age: number }
+type Person = Named & Aged // { name: string; age: number }
+
+// 对象交叉 — 属性合并
+type A = { x: number; y: number }
+type B = { y: string; z: boolean }
+type AB = A & B // { x: number; y: never; z: boolean } — y 冲突变为 never
+```
+
+### Q10: keyof 和 typeof 怎么用？
+
+```ts
+// keyof — 获取对象类型的所有键
+interface User {
+  name: string
+  age: number
+  email: string
+}
+type UserKey = keyof User // "name" | "age" | "email"
+
+// typeof — 获取值的类型
+const config = { apiUrl: "https://api.example.com", timeout: 3000 }
+type Config = typeof config // { apiUrl: string; timeout: number }
+
+// 组合使用
+function getProperty<T, K extends keyof T>(obj: T, key: K): T[K] {
+  return obj[key]
+}
+getProperty({ name: "Alice", age: 18 }, "name") // ✅ 类型安全
+```
+
+### Q11: 索引访问类型和模板字面量类型？
+
+```ts
+// 索引访问
+type User = { name: string; age: number; tags: string[] }
+type NameType = User["name"] // string
+type TagsItem = User["tags"][number] // string（数组元素类型）
+
+// 模板字面量类型 (TS 4.1+)
+type EventName = "click" | "focus" | "blur"
+type HandlerName = `on${Capitalize<EventName>}` // "onClick" | "onFocus" | "onBlur"
+type GetterName = `get${Capitalize<string>}` // `get${string}`
+
+// 字符串操作类型
+type Greeting = "hello world"
+type Shout = Uppercase<Greeting> // "HELLO WORLD"
+type Title = Capitalize<Greeting> // "Hello world"
+```
+
+---
+
+## 六、模块与命名空间
+
+### Q12: TypeScript 中的 namespace 和 module 有什么区别？
+
+```ts
+// namespace — 内部模块（全局作用域组织代码）
+namespace Utils {
+  export function formatDate(d: Date) {
+    return d.toISOString()
+  }
+}
+Utils.formatDate(new Date())
+
+// module (ES Module) — 外部模块（文件级作用域）
+// utils.ts
+export function formatDate(d: Date) {
+  return d.toISOString()
+}
+// index.ts
+import { formatDate } from "./utils"
+```
+
+> 现代项目优先用 **ES Module**，`namespace` 主要用于声明文件（`.d.ts`）。
+
+### Q13: declare 和 .d.ts 的作用？
+
+```ts
+// declare — 声明类型，不产生 JS 代码
+declare const VERSION: string
+declare function getData(url: string): Promise<any>
+declare module "*.css" {
+  const content: string
+  export default content
+}
+
+// 环境声明文件（global.d.ts）
+declare global {
+  interface Window {
+    __CUSTOM__: string
+  }
+}
+```
+
+---
+
+## 七、类与面向对象
+
+### Q14: TypeScript 中类的修饰符有哪些？
+
+| 修饰符      | 含义                                    |
+| ----------- | --------------------------------------- |
+| `public`    | 任意访问（默认）                        |
+| `protected` | 自身 + 子类可访问                       |
+| `private`   | 仅自身可访问                            |
+| `readonly`  | 只读（只能在声明或 constructor 中赋值） |
+| `static`    | 静态属性/方法                           |
+| `abstract`  | 抽象类/方法（不能 new，子类必须实现）   |
+| `#`         | JS 原生私有字段（编译后保留）           |
+
+```ts
+class Animal {
+  public name: string
+  protected age: number
+  private secret: string
+  readonly id: number
+
+  constructor(name: string, age: number) {
+    this.name = name
+    this.age = age
+    this.id = Math.random()
+  }
+
+  static create(name: string) {
+    return new Animal(name, 0)
+  }
+
+  // 参数属性简写
+  // constructor(public name: string, protected age: number) {}
+}
+
+class Dog extends Animal {
+  bark() {
+    console.log(this.name) // ✅ public
+    console.log(this.age) // ✅ protected
+    // console.log(this.secret) // ❌ private
+  }
+}
+```
+
+### Q15: abstract 类和 interface 什么时候用？
+
+| 维度       | `abstract` 类       | `interface`                |
+| ---------- | ------------------- | -------------------------- |
+| 能否实现   | `extends`（单继承） | `implements`（可实现多个） |
+| 运行时存在 | ✅                  | ❌ 编译后消失              |
+| 包含实现   | ✅                  | ❌ 只定义签名              |
+| 用途       | 共享实现 + 约束行为 | 只约束行为/契约            |
+
+```ts
+// abstract — 有共享实现时
+abstract class BaseService {
+  protected abstract baseUrl: string // 子类必须定义
+  async request<T>(path: string): Promise<T> {
+    return fetch(`${this.baseUrl}${path}`).then((r) => r.json())
+  }
+}
+
+// interface — 只约束结构时
+interface Logger {
+  log(msg: string): void
+  error(msg: string): void
+}
+
+class ConsoleLogger implements Logger {
+  /* ... */
+}
+class FileLogger implements Logger {
+  /* ... */
+}
+```
+
+---
+
+## 八、类型体操
+
+### Q16: 如何实现 DeepReadonly / DeepPartial？
+
+```ts
+// DeepReadonly — 递归只读
+type DeepReadonly<T> = {
+  readonly [K in keyof T]: T[K] extends object
+    ? T[K] extends Function
+      ? T[K]
+      : DeepReadonly<T[K]>
+    : T[K]
+}
+
+// DeepPartial — 递归可选
+type DeepPartial<T> = {
+  [K in keyof T]?: T[K] extends object ? DeepPartial<T[K]> : T[K]
+}
+
+// 使用
+interface User {
+  name: string
+  address: { city: string; zip: number }
+}
+type ReadonlyUser = DeepReadonly<User>
+// { readonly name: string; readonly address: { readonly city: string; readonly zip: number } }
+```
+
+### Q17: 如何将联合类型转为交叉类型？
+
+```ts
+// Union → Intersection（利用函数参数逆变）
+type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void
+  ? I
+  : never
+
+type A = { a: string }
+type B = { b: number }
+type AB = UnionToIntersection<A | B> // { a: string; b: number }
+```
+
+### Q18: 如何实现一个类型安全的 EventEmitter？
+
+```ts
+type EventMap = {
+  click: { x: number; y: number }
+  change: { value: string }
+  submit: { data: FormData }
+}
+
+class TypedEventEmitter<T extends Record<string, any>> {
+  private handlers = new Map<string, Set<Function>>()
+
+  on<K extends keyof T>(event: K, handler: (args: T[K]) => void) {
+    if (!this.handlers.has(event as string)) this.handlers.set(event as string, new Set())
+    this.handlers.get(event as string)!.add(handler)
+  }
+
+  emit<K extends keyof T>(event: K, args: T[K]) {
+    this.handlers.get(event as string)?.forEach((h) => h(args))
+  }
+}
+
+// 使用 — 完全类型安全
+const emitter = new TypedEventEmitter<EventMap>()
+emitter.on("click", (args) => console.log(args.x, args.y)) // args 类型自动推导
+emitter.on("change", (args) => args.value.toUpperCase())
+```
+
+---
+
+## 九、工程化配置
+
+### Q19: tsconfig.json 核心配置项有哪些？
+
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020", // 编译目标
+    "module": "ESNext", // 模块系统
+    "moduleResolution": "bundler", // 模块解析策略 (node/bundler)
+    "strict": true, // 严格模式（开启所有严格检查）
+    "esModuleInterop": true, // 兼容 CJS 导入
+    "skipLibCheck": true, // 跳过 .d.ts 检查（加速编译）
+    "forceConsistentCasingInFileNames": true,
+    "outDir": "./dist", // 输出目录
+    "rootDir": "./src", // 源码目录
+    "baseUrl": ".", // 路径解析基准
+    "paths": { "@/*": ["src/*"] }, // 路径别名
+    "declaration": true, // 生成 .d.ts
+    "sourceMap": true, // 生成 sourceMap
+    "jsx": "react-jsx", // JSX 模式
+    "lib": ["ES2020", "DOM"], // 类型库
+    "types": ["node", "jest"] // 引入的类型定义包的列表（自动导入 @types/*）
+  },
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  "exclude": ["node_modules", "dist"]
+}
+```
+
+| 严格模式子选项        | 说明                                  |
+| --------------------- | ------------------------------------- |
+| `strictNullChecks`    | `null`/`undefined` 不能赋值给其他类型 |
+| `strictFunctionTypes` | 函数参数逆变检查                      |
+| `noImplicitAny`       | 禁止隐式 `any`                        |
+| `noImplicitReturns`   | 函数所有分支必须有返回值              |
+| `noUnusedLocals`      | 未使用的局部变量报错                  |
+| `noUnusedParameters`  | 未使用的参数报错                      |
+
+### Q20: 如何在 TypeScript 项目中配置路径别名？
+
+```json
+// tsconfig.json
+{ "compilerOptions": { "baseUrl": ".", "paths": { "@/*": ["src/*"] } } }
+
+// vite.config.ts / webpack 也需要同步配置别名
+```
+
+---
+
+## 十、声明与类型收窄
+
+### Q21: 类型收窄 (Type Narrowing) 有哪些方式？
+
+```ts
+// 1. typeof — 原始类型收窄
+function padLeft(value: string | number) {
+  if (typeof value === "number") return " ".repeat(value)
+  return value.trim()
+}
+
+// 2. instanceof — 类实例
+function formatDate(d: Date | string) {
+  if (d instanceof Date) return d.toISOString()
+  return new Date(d).toISOString()
+}
+
+// 3. in — 属性存在检查
+type Fish = { swim: () => void }
+type Bird = { fly: () => void }
+function move(animal: Fish | Bird) {
+  if ("swim" in animal) animal.swim()
+  else animal.fly()
+}
+
+// 4. 字面量类型 / 可辨识联合
+type Shape = { kind: "circle"; radius: number } | { kind: "square"; side: number }
+function area(s: Shape) {
+  if (s.kind === "circle") return Math.PI * s.radius ** 2 // 类型自动收窄
+  return s.side ** 2
+}
+
+// 5. 自定义类型守卫 — is 关键字
+function isString(val: unknown): val is string {
+  return typeof val === "string"
+}
+if (isString(x)) x.toUpperCase() // 收窄为 string
+
+// 6. 断言函数 (TS 3.7+)
+function assert(condition: any, msg?: string): asserts condition {
+  if (!condition) throw new Error(msg)
+}
+assert(value !== null)
+value // 收窄为非 null
+
+// 7. satisfies (TS 4.9+) — 检查类型但不改变推导
+const config = { width: 800, height: 600 } satisfies Record<string, number>
+// 保持原始类型，同时确保符合 Record<string, number>
+```
+
+### Q22: 类型断言 as 和非空断言 ! 的使用？
+
+```ts
+// as — 类型断言：你知道比 TypeScript 更多时使用
+const el = document.getElementById("app") as HTMLDivElement
+const data = response as User
+
+// ! — 非空断言：告诉 TS 值不是 null/undefined
+const name = user!.name // 断言 user 非 null
+const el = document.querySelector(".box")! // 断言元素一定存在
+
+// ⚠️ 两者都是绕过类型检查，应谨慎使用
+// ✅ 优先用类型收窄替代
+if (user) {
+  user.name
+} // 优于 user!.name
+```
+
+---
+
+## 十一、与框架集成
+
+### Q23: Vue 3 + TypeScript 的类型技巧？
+
+```vue
+<script setup lang="ts">
+// Props 泛型
+interface Props {
+  msg: string
+  count?: number
+}
+const props = withDefaults(defineProps<Props>(), { count: 0 })
+
+// Emit 泛型
+const emit = defineEmits<{ (e: "update", id: number): void; (e: "delete"): void }>()
+
+// 模板 Ref
+const inputRef = ref<HTMLInputElement | null>(null)
+onMounted(() => inputRef.value?.focus())
+
+// 组件 Ref 类型
+import Comp from "./Comp.vue"
+const comp = ref<InstanceType<typeof Comp>>()
+</script>
+```
+
+### Q24: React + TypeScript 的类型技巧？
+
+```tsx
+// Props 类型
+interface ButtonProps {
+  children: React.ReactNode
+  variant: "primary" | "secondary"
+  size?: "sm" | "md" | "lg"
+  onClick?: React.MouseEventHandler<HTMLButtonElement>
+}
+function Button({ children, variant, size = "md", onClick }: ButtonProps) {
+  return (
+    <button className={`btn-${variant} btn-${size}`} onClick={onClick}>
+      {children}
+    </button>
+  )
+}
+
+// useState 泛型推导
+const [user, setUser] = useState<User | null>(null)
+
+// useRef 类型
+const inputRef = useRef<HTMLInputElement>(null)
+
+// 事件类型
+const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  console.log(e.target.value)
+}
+
+// 组件 Props 继承 HTML 属性
+interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
+  label: string
+}
+
+// forwardRef 泛型
+const Input = forwardRef<HTMLInputElement, InputProps>(({ label, ...rest }, ref) => (
+  <label>
+    {label}
+    <input ref={ref} {...rest} />
+  </label>
+))
+```
+
+---
+
+## 十二、常见面试题
+
+### Q25: implements 和 extends 的区别？
+
+- `extends`：继承（类继承类、接口继承接口）
+- `implements`：实现（类实现接口，必须满足接口约束）
+
+```ts
+interface Animal {
+  name: string
+  makeSound(): void
+}
+class Dog implements Animal {
+  name = "Dog"
+  makeSound() {
+    console.log("Woof")
+  }
+} // 实现接口
+class Puppy extends Dog {
+  /* 继承父类 */
+}
+interface Pet extends Animal {
+  owner: string
+} // 接口继承接口
+```
+
+### Q26: 可选链和空值合并的类型怎样推导？
+
+```ts
+const obj: { user?: { name: string } } = {}
+const name = obj.user?.name // string | undefined
+const displayName = obj.user?.name ?? "Guest" // string（排除了 undefined）
+```
+
+### Q27: const 断言 (as const) 有什么用？
+
+```ts
+// 普通写法 — 类型被拓宽
+const config = { api: "https://api.example.com", timeout: 3000 }
+// { api: string; timeout: number }
+
+// as const — 字面量类型（最窄）
+const config = { api: "https://api.example.com", timeout: 3000 } as const
+// { readonly api: "https://api.example.com"; readonly timeout: 3000 }
+
+// 用途：枚举替代、对象只读
+const COLORS = ["red", "green", "blue"] as const
+type Color = (typeof COLORS)[number] // "red" | "green" | "blue"
+```
+
+### Q28: 为什么 type 不能同名声明合并，而 interface 可以？
+
+```ts
+// interface — 同名自动合并（设计意图：支持声明扩展）
+interface User {
+  name: string
+}
+interface User {
+  age: number
+} // ✅ 自动合并
+
+// type — 同名报错（type 是类型别名，不能重复声明）
+type User = { name: string }
+// type User = { age: number }    // ❌ 报错
+```
+
+### Q29: 如何理解 TypeScript 的结构类型系统 (Structural Typing)？
+
+```ts
+// TypeScript 是结构类型（鸭子类型），不是名义类型
+interface Point2D {
+  x: number
+  y: number
+}
+interface Point3D {
+  x: number
+  y: number
+  z: number
+}
+
+function printPoint(p: Point2D) {
+  console.log(p.x, p.y)
+}
+
+const p3: Point3D = { x: 1, y: 2, z: 3 }
+printPoint(p3) // ✅ Point3D 包含 Point2D 的所有属性 → 兼容
+```
+
+### Q30: 如何给第三方库添加类型声明？
+
+```ts
+// 方案 1: 安装社区类型
+// npm install -D @types/lodash
+
+// 方案 2: declare module（.d.ts 文件中）
+declare module "my-untyped-lib" {
+  export function doStuff(x: string): number
+  export const VERSION: string
+}
+
+// 方案 3: 扩展已有类型
+declare module "vue" {
+  interface ComponentCustomProperties {
+    $translate: (key: string) => string
+  }
+}
+```
+
+---
+
+## 汇总速查表
+
+### 类型系统速查
+
+| 概念     | 语法                  | 说明               |
+| -------- | --------------------- | ------------------ |
+| 接口     | `interface X { ... }` | 对象结构，可合并   |
+| 类型别名 | `type X = ...`        | 联合/交叉/原始别名 |
+| 泛型     | `<T>`                 | 类型参数           |
+| 联合     | `A \| B`              | 或                 |
+| 交叉     | `A & B`               | 且                 |
+| 可选     | `prop?: T`            | 可选属性           |
+| 只读     | `readonly prop: T`    | 不可修改           |
+| 枚举     | `enum X { ... }`      | 命名常量集合       |
+
+### 常用工具类型速查
+
+| 工具类型         | 作用                |
+| ---------------- | ------------------- |
+| `Partial<T>`     | 全部可选            |
+| `Required<T>`    | 全部必填            |
+| `Readonly<T>`    | 全部只读            |
+| `Pick<T, K>`     | 选取                |
+| `Omit<T, K>`     | 排除                |
+| `Record<K, V>`   | 映射为对象          |
+| `Exclude<T, U>`  | 从联合排除          |
+| `Extract<T, U>`  | 从联合提取          |
+| `ReturnType<T>`  | 函数返回值          |
+| `Parameters<T>`  | 函数参数            |
+| `Awaited<T>`     | 解 Promise          |
+| `NonNullable<T>` | 排除 null/undefined |
+
+### tsconfig 常用配置
+
+| 配置              | 说明             |
+| ----------------- | ---------------- |
+| `strict: true`    | 开启所有严格模式 |
+| `target`          | 编译目标 ES 版本 |
+| `module`          | 模块系统         |
+| `outDir`          | 输出目录         |
+| `rootDir`         | 源码目录         |
+| `paths`           | 路径别名         |
+| `declaration`     | 生成 .d.ts       |
+| `esModuleInterop` | CJS 导入兼容     |
+| `skipLibCheck`    | 跳过库检查       |
+
+---
+
+## 十三、函数与重载
+
+### Q31: TypeScript 如何实现函数重载？
+
+```ts
+// 重载签名（只有签名，没有实现体）
+function makeDate(year: number, month: number, day: number): Date
+function makeDate(timestamp: number): Date
+function makeDate(iso: string): Date
+// 实现签名（兼容所有重载）
+function makeDate(a: number | string, month?: number, day?: number): Date {
+  if (typeof a === "string") return new Date(a)
+  if (month !== undefined && day !== undefined) return new Date(a, month, day)
+  return new Date(a)
+}
+
+makeDate(2024, 1, 1) // ✅
+makeDate(1704067200000) // ✅
+makeDate("2024-01-01") // ✅
+// makeDate(2024)       // ❌ 没有匹配的重载
+```
+
+### Q32: 函数的参数和返回值的协变与逆变？
+
+```ts
+// 参数类型 — 逆变（Contravariant）：父类参数可赋值给子类参数
+// 返回值类型 — 协变（Covariant）：子类返回值可赋值给父类返回值
+class Animal {
+  name = ""
+}
+class Dog extends Animal {
+  breed = ""
+}
+
+// ✅ 合法：参数逆变 + 返回值协变
+type Handler = (dog: Dog) => Animal
+const handler: Handler = (animal: Animal): Dog => new Dog()
+```
+
+---
+
+## 十四、枚举 vs 联合类型
+
+### Q33: enum 和 const enum 的区别？为什么不推荐用 enum？
+
+```ts
+// 普通 enum — 生成对象（有运行时代码）
+enum Color {
+  Red,
+  Green,
+  Blue,
+}
+// 编译后: var Color; (function(Color) { ... })(Color || (Color = {}))
+
+// const enum — 编译时内联（无运行时代码，不能反向映射）
+const enum Direction {
+  Up,
+  Down,
+  Left,
+  Right,
+}
+let dir: Direction[] = [Direction.Up, Direction.Down]
+// 编译后: let dir = [0, 1]
+
+// 字符串 enum（可读性更好）
+enum Status {
+  Active = "active",
+  Inactive = "inactive",
+}
+```
+
+```ts
+// ✅ 推荐：用字面量联合 + as const 替代数字 enum（Tree Shaking 友好）
+const STATUS = { Active: "active", Inactive: "inactive" } as const
+type Status = (typeof STATUS)[keyof typeof STATUS] // "active" | "inactive"
+
+// 对比 enum
+// enum Status { Active = "active", Inactive = "inactive" } // 不能 Tree Shaking
+```
+
+| 方式        | 运行时存在 | Tree Shaking | 反向映射 | 推荐度     |
+| ----------- | ---------- | ------------ | -------- | ---------- |
+| 数字 enum   | ✅         | ❌           | ✅       | ⭐         |
+| 字符串 enum | ✅         | ❌           | ❌       | ⭐⭐       |
+| const enum  | ❌ (内联)  | ❌           | ❌       | ⭐⭐⭐     |
+| 字面量联合  | ❌         | ✅           | ❌       | ⭐⭐⭐⭐⭐ |
+
+---
+
+## 十五、映射类型与模板字面量类型
+
+### Q34: 映射类型能做什么？实战举例？
+
+```ts
+// 1. 给所有属性加 getter
+type Getters<T> = { [K in keyof T as `get${Capitalize<string & K>}`]: () => T[K] }
+interface User {
+  name: string
+  age: number
+}
+type UserGetters = Getters<User>
+// { getName: () => string; getAge: () => number }
+
+// 2. 过滤特定类型
+type PickByType<T, V> = { [K in keyof T as T[K] extends V ? K : never]: T[K] }
+interface Mixed {
+  name: string
+  age: number
+  active: boolean
+}
+type StringProps = PickByType<Mixed, string> // { name: string }
+
+// 3. 只读/可选变必填/必填变可选
+type Mutable<T> = { -readonly [P in keyof T]: T[P] }
+type Required<T> = { [P in keyof T]-?: T[P] }
+
+// 4. 函数参数名映射
+type EventHandlers<T extends Record<string, any>> = {
+  [K in keyof T as `on${Capitalize<string & K>}`]: (e: T[K]) => void
+}
+type Handlers = EventHandlers<{ click: MouseEvent; keydown: KeyboardEvent }>
+// { onClick: (e: MouseEvent) => void; onKeydown: (e: KeyboardEvent) => void }
+```
+
+### Q35: 模板字面量类型的实用场景？
+
+```ts
+// 1. 路由参数类型安全
+type Route = `/user/${string}` | `/post/${number}` | `/home`
+function navigate(path: Route) {}
+navigate("/user/alice") // ✅
+navigate("/post/123") // ✅
+// navigate("/invalid")    // ❌
+
+// 2. CSS 单位约束
+type CSSValue = `${number}${"px" | "rem" | "%" | "vh"}`
+const width: CSSValue = "100px"
+const height: CSSValue = "50vh"
+
+// 3. 事件名映射
+type EventName = "click" | "change" | "submit"
+type Handler = `on${Capitalize<EventName>}` // "onClick" | "onChange" | "onSubmit"
+
+// 4. 链式 Key 路径
+type NestedKey = "user.name" | "user.address.city" | "settings.theme"
+type Split<T extends string> = T extends `${infer A}.${infer B}` ? A | Split<B> : T
+type Keys = Split<NestedKey> // "user" | "name" | "address" | "city" | "settings" | "theme"
+```
+
+---
+
+## 十六、实战技巧
+
+### Q36: 遇到类型推导不出来怎么办？
+
+```ts
+// 问题: API 返回数据无类型
+const res = await fetch("/api/users").then((r) => r.json()) // any
+
+// ✅ 方案 1: 显式标注
+const res: ApiResponse<User[]> = await fetch("/api/users").then((r) => r.json())
+
+// ✅ 方案 2: 泛型封装
+async function request<T>(url: string): Promise<T> {
+  return fetch(url).then((r) => r.json())
+}
+const users = await request<User[]>("/api/users") // 自动推导
+
+// ✅ 方案 3: as 断言 + satisfies 约束（保留字面量类型）
+const options = {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+} as const satisfies RequestInit
+
+// ✅ 方案 4: 类型收窄
+const data: unknown = await fetch("/api").then((r) => r.json())
+if (data && typeof data === "object" && "users" in data) {
+  // data 收窄为 object & { users: unknown }
+}
+```
+
+### Q37: 怎么处理 any 类型泛滥的遗留代码？
+
+```ts
+// 1. 逐步迁移：noImplicitAny: false → 新文件 strict: true
+// tsconfig.json 中 exclude 旧文件
+
+// 2. 用 unknown + 类型守卫替代 any
+declare const oldCode: any
+const data = oldCode as unknown
+if (isUser(data)) {
+  /* data 是 User */
+}
+
+// 3. 渐进式声明（declare module）
+declare module "legacy-util" {
+  export function process(input: unknown): unknown
+}
+
+// 4. 类型收窄来消除 any
+function safeJSONParse<T>(json: string, guard: (v: unknown) => v is T): T | null {
+  try {
+    const parsed = JSON.parse(json)
+    return guard(parsed) ? parsed : null
+  } catch {
+    return null
+  }
+}
+```
+
+### Q38: 如何设计类型安全的 API 客户端？
+
+```ts
+// 类型安全的 fetch 封装
+interface ApiRoutes {
+  "/api/users": { list: User[]; total: number }
+  "/api/users/[id]": User
+  "/api/posts": Post[]
+}
+
+type ExtractParams<T extends string> = T extends `${string}[${infer Param}]${infer Rest}`
+  ? { [K in Param]: string } & ExtractParams<Rest>
+  : {}
+
+async function apiGet<T extends string>(
+  path: T,
+  ...params: keyof ExtractParams<T> extends never ? [] : [ExtractParams<T>]
+): Promise<T extends keyof ApiRoutes ? ApiRoutes[T] : unknown> {
+  let url: string = path
+  if (params[0]) {
+    for (const [key, val] of Object.entries(params[0])) {
+      url = url.replace(`[${key}]`, val as string)
+    }
+  }
+  return fetch(url).then((r) => r.json())
+}
+
+// 使用
+const users = await apiGet("/api/users") // { list: User[]; total: number }
+const user = await apiGet("/api/users/[id]", { id: "123" }) // User
+```
+
+---
+
+## 十七、声明文件
+
+### Q39: 如何编写高质量的 .d.ts 声明文件？
+
+```ts
+// my-lib.d.ts
+// 1. 全局声明
+declare const VERSION: string
+declare function init(config: Config): void
+
+// 2. 模块声明
+declare module "my-lib" {
+  export interface Config {
+    apiKey: string
+    timeout?: number
+  }
+  export function init(config: Config): void
+  export { default as App } from "./components/App"
+}
+
+// 3. 扩展已有模块
+declare module "vue" {
+  interface ComponentCustomProperties {
+    $translate: (key: string) => string
+  }
+}
+
+// 4. 扩展 Window
+declare global {
+  interface Window {
+    __CUSTOM__: string
+  }
+}
+
+// 5. 非 JS 资源声明
+declare module "*.css" {
+  const content: string
+  export default content
+}
+declare module "*.png" {
+  const src: string
+  export default src
+}
+
+// 6. 类型只导出（不产生 JS）
+export type { Config, Options }
+```
+
+### Q40: global.d.ts 和 tsconfig types 的关系？
+
+```json
+// tsconfig.json
+{
+  "compilerOptions": {
+    "types": ["node", "jest"] // 仅加载 @types/node 和 @types/jest
+    // "typeRoots": ["./types"]  // 自定义类型目录
+  }
+}
+
+// global.d.ts — 放在 src 或 types 目录中，自动全局生效
+// 用于声明 Window 扩展、非 JS 模块、全局变量
+```
+
+---
+
+## 补充速查表
+
+### 类型操作符速查
+
+| 操作符      | 说明                   | 示例                         |
+| ----------- | ---------------------- | ---------------------------- |
+| `typeof`    | 值 → 类型              | `type T = typeof obj`        |
+| `keyof`     | 对象 → 键联合          | `type K = keyof User`        |
+| `in`        | 遍历联合类型           | `[P in K]: T[P]`             |
+| `extends`   | 条件/约束              | `T extends U ? X : Y`        |
+| `infer`     | 类型推断               | `T extends Promise<infer U>` |
+| `as` (映射) | 重映射键               | `[K in keyof T as NewK]`     |
+| `is`        | 类型守卫               | `val is string`              |
+| `asserts`   | 断言函数               | `asserts condition`          |
+| `satisfies` | 类型检查（不改变推导） | `expr satisfies Type`        |
+
+### 类型层级（从宽到窄）
+
+```
+unknown
+  ├── object / {} / Object
+  │     ├── 具体对象类型（User / Array / Function）
+  ├── undefined
+  ├── void
+  ├── null
+  ├── never   ← 最窄，可赋值给任何类型
+  ├── any     ← 绕过所有检查
+```
+
+### 函数类型速查
+
+| 语法                       | 说明          |
+| -------------------------- | ------------- |
+| `(x: number) => string`    | 普通函数类型  |
+| `{ (x: number): string }`  | 调用签名      |
+| `{ new (x: number): Foo }` | 构造签名      |
+| `<T>(x: T) => T`           | 泛型函数      |
+| `this: Type, x: number`    | this 参数类型 |

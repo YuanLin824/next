@@ -1,0 +1,418 @@
+# JavaScript 继承
+
+---
+
+## 前置：原型链
+
+在理解继承之前，需要先理解原型链：
+
+```js
+function Person(name) {
+  this.name = name
+}
+Person.prototype.sayHi = function () {
+  console.log("Hi, " + this.name)
+}
+
+let alice = new Person("Alice")
+// alice.__proto__ === Person.prototype
+// Person.prototype.__proto__ === Object.prototype
+// Object.prototype.__proto__ === null
+
+// 原型链查找：alice.sayHi → Person.prototype.sayHi → 找到，执行
+alice.sayHi() // "Hi, Alice"
+```
+
+| 概念        | 说明                                                     |
+| ----------- | -------------------------------------------------------- |
+| `prototype` | 函数的原型对象（构造函数才有）                           |
+| `__proto__` | 实例的内部 `[[Prototype]]`，指向其构造函数的 `prototype` |
+| 原型链      | 通过 `__proto__` 串起的查找链路，终点是 `null`           |
+
+---
+
+## 继承的六种方式
+
+### 1. 原型链继承
+
+**原理**：子构造函数的 `prototype` 指向父类的实例。
+
+```js
+function Parent() {
+  this.names = ["Alice", "Bob"]
+  this.shared = "parent"
+}
+
+Parent.prototype.getNames = function () {
+  return this.names
+}
+
+function Child() {}
+
+// 关键：Child.prototype 指向 Parent 实例
+Child.prototype = new Parent()
+Child.prototype.constructor = Child // 修复 constructor
+
+let c1 = new Child()
+let c2 = new Child()
+c1.names.push("Charlie")
+console.log(c2.names) // ["Alice", "Bob", "Charlie"] ← 引用类型共享！
+console.log(c2.shared) // "parent"
+```
+
+| 优点           | 缺点                               |
+| -------------- | ---------------------------------- |
+| 父类方法可复用 | 父类**引用类型**属性被所有实例共享 |
+| —              | 子类实例化时不能向父类构造函数传参 |
+
+---
+
+### 2. 构造函数继承（借用构造函数）
+
+**原理**：在子构造函数中用 `call` / `apply` 调用父构造函数。
+
+```js
+function Parent(name) {
+  this.name = name
+  this.colors = ["red", "blue"]
+}
+
+Parent.prototype.sayHi = function () {
+  console.log("Hi")
+}
+
+function Child(name, age) {
+  // 关键：在子类中调用父类构造函数
+  Parent.call(this, name)
+  this.age = age
+}
+
+let c1 = new Child("Alice", 18)
+let c2 = new Child("Bob", 20)
+c1.colors.push("green")
+console.log(c1.colors) // ["red", "blue", "green"]
+console.log(c2.colors) // ["red", "blue"] ← 不共享！
+console.log(c1.name) // "Alice"
+console.log(c1.sayHi) // undefined ← 无法继承父类原型上的方法
+```
+
+| 优点           | 缺点                                           |
+| -------------- | ---------------------------------------------- |
+| 引用类型不共享 | 无法继承父类原型上的方法                       |
+| 可向父类传参   | 方法都在构造函数中定义，每次创建实例都重新创建 |
+
+---
+
+### 3. 组合继承（原型链 + 构造函数）
+
+**原理**：用原型链继承原型方法，用构造函数继承实例属性。**ES5 最常用的继承方式**。
+
+```js
+function Parent(name) {
+  this.name = name
+  this.colors = ["red"]
+}
+
+Parent.prototype.sayHi = function () {
+  console.log("Hi, " + this.name)
+}
+
+function Child(name, age) {
+  // 第二次调用 Parent
+  Parent.call(this, name)
+  this.age = age
+}
+
+// 第一次调用 Parent
+Child.prototype = new Parent()
+Child.prototype.constructor = Child
+
+Child.prototype.sayAge = function () {
+  console.log(this.age)
+}
+
+let c1 = new Child("Alice", 18)
+let c2 = new Child("Bob", 20)
+
+c1.colors.push("green")
+console.log(c1.colors) // ["red", "green"]
+console.log(c2.colors) // ["red"] ← 不共享
+c1.sayHi() // "Hi, Alice" ← 可继承方法
+c1.sayAge() // 18
+```
+
+| 优点                 | 缺点                           |
+| -------------------- | ------------------------------ |
+| 属性和方法都正确继承 | 父构造函数被调用了**两次**     |
+| 引用类型不共享       | `Child.prototype` 上有冗余属性 |
+
+---
+
+### 4. 原型式继承
+
+**原理**：`Object.create()` 的 polyfill，基于已有对象创建新对象。
+
+```js
+function createObject(obj) {
+  function F() {}
+  F.prototype = obj
+  return new F()
+}
+
+let parent = {
+  name: "parent",
+  friends: ["Alice", "Bob"],
+}
+
+let child1 = createObject(parent)
+let child2 = createObject(parent)
+
+child1.friends.push("Charlie")
+console.log(child2.friends) // ["Alice", "Bob", "Charlie"] ← 共享！
+```
+
+`Object.create(proto, propertiesObject)` (ES5) 是规范化的原型式继承：
+
+```js
+let child = Object.create(parent, {
+  name: { value: "child", writable: true, enumerable: true },
+})
+```
+
+| 优点                 | 缺点               |
+| -------------------- | ------------------ |
+| 简单，不需要构造函数 | 引用类型属性会共享 |
+| 适合不需要"类"的场景 | —                  |
+
+---
+
+### 5. 寄生式继承
+
+**原理**：在原型式继承的基础上，给新对象增加方法。
+
+```js
+function createAnother(original) {
+  let clone = Object.create(original)
+  clone.sayHi = function () {
+    console.log("Hi")
+  }
+  return clone
+}
+
+let parent = { name: "parent" }
+let child = createAnother(parent)
+child.sayHi() // "Hi"
+```
+
+| 优点                   | 缺点                             |
+| ---------------------- | -------------------------------- |
+| 可以给返回对象附加方法 | 和构造函数继承一样，方法不能复用 |
+
+---
+
+### 6. 寄生组合式继承（最优方案）
+
+**原理**：用 `Object.create()` 代替"调一次父构造函数"，避免组合继承的两次调用问题。**ES5 下最优的继承方式**。
+
+```js
+function Parent(name) {
+  this.name = name
+  this.colors = ["red"]
+}
+
+Parent.prototype.sayHi = function () {
+  console.log("Hi, " + this.name)
+}
+
+function Child(name, age) {
+  Parent.call(this, name) // 只调用一次 Parent
+  this.age = age
+}
+
+// 关键：用 Object.create 创建 Parent.prototype 的副本
+Child.prototype = Object.create(Parent.prototype)
+Child.prototype.constructor = Child
+
+// 封装
+function inherits(Child, Parent) {
+  Child.prototype = Object.create(Parent.prototype)
+  Child.prototype.constructor = Child
+}
+
+let c1 = new Child("Alice", 18)
+c1.sayHi() // "Hi, Alice"
+console.log(c1 instanceof Child) // true
+console.log(c1 instanceof Parent) // true
+```
+
+| 优点                          | 缺点                     |
+| ----------------------------- | ------------------------ |
+| 父构造函数只调用一次          | 实现相对复杂（但可封装） |
+| 引用类型不共享                | —                        |
+| 原型链完整，`instanceof` 正确 | —                        |
+
+### 六种方式对比
+
+| 继承方式       | 父构造函数调用次数 | 引用类型共享 | 父原型方法继承 | 传参 | 推荐度     |
+| -------------- | ------------------ | ------------ | -------------- | ---- | ---------- |
+| 原型链继承     | 1 次               | ❌ 共享      | ✅             | ❌   | ⭐         |
+| 构造函数继承   | 1 次               | ✅ 不共享    | ❌             | ✅   | ⭐⭐       |
+| 组合继承       | **2 次**           | ✅ 不共享    | ✅             | ✅   | ⭐⭐⭐     |
+| 原型式继承     | 0 次               | ❌ 共享      | ✅（原型）     | ❌   | ⭐         |
+| 寄生式继承     | 0 次               | ❌ 共享      | ✅             | ❌   | ⭐         |
+| **寄生组合式** | **1 次**           | ✅ 不共享    | ✅             | ✅   | ⭐⭐⭐⭐⭐ |
+
+---
+
+## ES6 Class 继承
+
+ES2015 引入的 `class` 语法糖，底层仍是原型链机制。
+
+### 基本语法
+
+```js
+class Parent {
+  constructor(name) {
+    this.name = name
+  }
+
+  sayHi() {
+    console.log("Hi, " + this.name)
+  }
+
+  // 静态方法
+  static isHuman() {
+    return true
+  }
+}
+
+class Child extends Parent {
+  constructor(name, age) {
+    // 调用 super() 之前不能使用 this
+    super(name) // 等价于 Parent.call(this, name)
+    this.age = age
+  }
+
+  sayHi() {
+    super.sayHi() // 调用父类方法
+    console.log("I'm " + this.age + " years old")
+  }
+
+  // 静态方法可继承
+}
+```
+
+### Babel 编译结果（核心逻辑）
+
+ES6 `class extends` 编译成 ES5 后，本质就是**寄生组合式继承**：
+
+```js
+// 简化版 Babel 编译
+function _inherits(Child, Parent) {
+  Child.prototype = Object.create(Parent.prototype)
+  Child.prototype.constructor = Child
+  Child.__proto__ = Parent // ES6 class 多这一步（静态属性继承）
+}
+
+function _createSuper(Derived) {
+  return function () {
+    let result = Parent.apply(this, arguments)
+    return result
+  }
+}
+```
+
+### ES5 vs ES6 继承差异
+
+| 维度         | ES5 (寄生组合)                           | ES6 Class                        |
+| ------------ | ---------------------------------------- | -------------------------------- |
+| `__proto__`  | `Child.__proto__ === Function.prototype` | `Child.__proto__ === Parent`     |
+| 语法         | 手动操作原型链                           | `class` / `extends` / `super`    |
+| 提升         | 构造函数会提升                           | class **不会提升**（TDZ）        |
+| `arguments`  | 可用                                     | class 内部方法和构造函数中不可用 |
+| `new.target` | 非严格模式 undefined                     | 指向构造函数                     |
+
+---
+
+## 多继承 / Mixin
+
+JS 不支持多继承，但可通过 `mixin` 模式将多个对象的属性混入原型：
+
+```js
+// 通用 Mixin 函数
+function mixin(...mixins) {
+  class Mix {}
+  for (let m of mixins) {
+    copyProperties(Mix.prototype, m)
+    copyProperties(Mix.prototype, Reflect.getPrototypeOf(m))
+  }
+  return Mix
+}
+
+function copyProperties(target, source) {
+  for (let key of Reflect.ownKeys(source)) {
+    if (["constructor", "prototype", "name"].includes(key)) continue
+    let desc = Object.getOwnPropertyDescriptor(source, key)
+    Object.defineProperty(target, key, desc)
+  }
+}
+
+// 使用
+let Serializable = {
+  serialize() {
+    return JSON.stringify(this)
+  },
+}
+
+let Timestamped = {
+  getTimestamp() {
+    return Date.now()
+  },
+}
+
+class MyClass extends mixin(Serializable, Timestamped) {
+  constructor(data) {
+    super()
+    this.data = data
+  }
+}
+```
+
+---
+
+## 汇总速查表
+
+### 核心方法
+
+| 方法                                | 作用                        | 参数           | 返回值           |
+| ----------------------------------- | --------------------------- | -------------- | ---------------- |
+| `Object.create(proto)`              | 创建以 `proto` 为原型的对象 | `proto`        | 新对象           |
+| `Object.setPrototypeOf(obj, proto)` | 设置 `obj` 的原型           | `obj`, `proto` | `obj`            |
+| `Object.getPrototypeOf(obj)`        | 获取 `obj` 的原型           | `obj`          | 原型对象         |
+| `obj instanceof Constructor`        | 检测原型链                  | `—`            | `true` / `false` |
+| `obj.isPrototypeOf(obj2)`           | 检测是否在原型链上          | `obj2`         | `true` / `false` |
+
+### 实现继承的关键步骤（寄生组合式）
+
+```js
+// 1. 子构造函数中调用父构造函数
+function Child(...args) {
+  Parent.call(this, ...args)
+}
+
+// 2. 子原型指向父原型的副本
+Child.prototype = Object.create(Parent.prototype)
+
+// 3. 修复 constructor
+Child.prototype.constructor = Child
+
+// 4. (可选) 设置静态属性继承
+Object.setPrototypeOf(Child, Parent)
+
+// ES6 class 等价写法
+class Child extends Parent {
+  constructor(...args) {
+    super(...args)
+  }
+}
+```

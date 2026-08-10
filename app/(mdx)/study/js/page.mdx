@@ -1,0 +1,2982 @@
+# JavaScript 学习指南
+
+> 难度递进式 JavaScript 学习文档，从语法基础到高级原理。
+
+---
+
+## 第一阶段：语法基础（入门）
+
+### 1. 变量声明
+
+```js
+// var — 函数作用域，可重复声明，有提升
+var name = "Alice"
+var name = "Bob" // ✅ 可以重复声明
+
+// let — 块作用域，不可重复声明
+let age = 18
+// let age = 20 // ❌ 报错
+
+// const — 常量，声明时必须赋值，不可重新赋值
+const PI = 3.14
+// PI = 3.15 // ❌ 报错
+
+// 解构赋值
+const [a, b] = [1, 2] // a=1, b=2
+const { name, age } = user // name=user.name
+const [first, ...rest] = [1, 2, 3] // rest=[2,3]
+```
+
+### 2. 数据类型
+
+JS 有 7 种原始类型 + 1 种引用类型：
+
+```js
+// 原始类型（栈存储，按值传递）
+let str = "hello" // string
+let num = 42 // number
+let bool = true // boolean
+let nothing = null // null — 空值
+let notDefined // undefined — 未定义
+let sym = Symbol("id") // symbol — 唯一标识
+let big = 9007199254740993n // bigint — 大整数
+
+// 引用类型（堆存储，按引用传递）
+let obj = { name: "Alice" }
+let arr = [1, 2, 3]
+let fn = function () {}
+```
+
+### 3. 运算符
+
+```js
+// 算术: + - * / % ** ++ --
+// 比较: > < >= <= == != === !==
+// 逻辑: && || ! ??
+// 赋值: = += -= *= /=
+// 三元: condition ? a : b
+
+// 需要注意的
+0.1 + 0.2 // 0.30000000000000004 — 浮点精度
+"5" + 3 // "53" — 字符串拼接优先
+"5" - 3 // 2 — 减法转数字
+0 == false // true — 宽松相等会类型转换
+0 === false // false — 严格相等
+```
+
+### 4. 条件与循环
+
+```js
+// 条件
+if (age >= 18) {
+  /* 成年 */
+} else if (age >= 12) {
+  /* 青少年 */
+} else {
+  /* 儿童 */
+}
+
+// switch
+switch (color) {
+  case "red":
+    break
+  case "blue":
+    break
+  default:
+    break
+}
+
+// 循环
+for (let i = 0; i < 10; i++) {}
+while (condition) {}
+do {} while (condition)
+
+// 遍历数组
+for (const item of arr) {
+}
+arr.forEach((item, i) => {})
+
+// 遍历对象
+for (const key in obj) {
+}
+Object.keys(obj).forEach((key) => {})
+```
+
+> **小结**：学完第一阶段，能写基本的变量、运算、条件、循环。
+
+---
+
+## 第二阶段：函数与作用域（基础进阶）
+
+### 5. 函数定义
+
+```js
+// 函数声明（有提升）
+function add(a, b) {
+  return a + b
+}
+
+// 函数表达式（无提升）
+const multiply = function (a, b) {
+  return a * b
+}
+
+// 箭头函数
+const divide = (a, b) => a / b
+
+// 参数默认值
+function greet(name = "Guest") {
+  return `Hi, ${name}`
+}
+greet() // "Hi, Guest"
+
+// 剩余参数
+function sum(...nums) {
+  return nums.reduce((a, b) => a + b, 0)
+}
+sum(1, 2, 3) // 6
+```
+
+### 6. 作用域与闭包
+
+```js
+// 块级作用域
+{
+  let x = 1
+  const y = 2
+  var z = 3
+}
+// x, y 不可访问，z 可访问（var 穿透块）
+
+// 闭包 — 函数记住其词法作用域
+function createCounter() {
+  let count = 0
+  return function () {
+    return ++count
+  }
+}
+const counter = createCounter()
+counter() // 1
+counter() // 2
+// count 被闭包"捕获"，外部无法访问
+```
+
+### 7. this 指向
+
+```js
+// 5 条规则，优先级从高到低：
+
+// 1. new 绑定
+function Person(name) {
+  this.name = name
+}
+const p = new Person("Alice")
+
+// 2. 显式绑定 — call / apply / bind
+fn.call(thisArg, arg1, arg2)
+fn.apply(thisArg, [arg1, arg2])
+const bound = fn.bind(thisArg) // 返回新函数
+
+// 3. 隐式绑定 — 对象方法调用
+obj.method() // this = obj
+
+// 4. 默认绑定 — 严格模式 undefined，否则 window
+fn() // this = window / undefined
+
+// 5. 箭头函数 — 定义时外层作用域
+const obj = {
+  name: "Alice",
+  greet() {
+    setTimeout(() => console.log(this.name), 100)
+  },
+}
+obj.greet() // "Alice" — 箭头函数继承外层 this
+```
+
+> **小结**：理解闭包原理和 this 的 5 条规则，是 JS 进阶的基础。
+
+---
+
+## 第三阶段：对象与原型（核心机制）
+
+### 8. 对象操作
+
+```js
+// 创建
+const obj = { name: "Alice", age: 18 }
+const obj2 = new Object()
+const obj3 = Object.create(proto)
+
+// 属性访问
+obj.name // "Alice"
+obj["name"] // "Alice"（动态属性名）
+
+// 遍历
+Object.keys(obj) // ["name", "age"] — 自身可枚举
+Object.values(obj) // ["Alice", 18]
+Object.entries(obj) // [["name","Alice"], ["age",18]]
+
+// 判断
+"name" in obj // true（含原型链）
+obj.hasOwnProperty("name") // true（仅自身）
+```
+
+### 9. 原型链 — JS 继承的核心
+
+```js
+function Person(name) {
+  this.name = name
+}
+Person.prototype.sayHi = function () {
+  console.log("Hi, " + this.name)
+}
+
+const alice = new Person("Alice")
+alice.sayHi() // "Hi, Alice"
+
+// 原型链:
+// alice.__proto__ === Person.prototype
+// Person.prototype.__proto__ === Object.prototype
+// Object.prototype.__proto__ === null
+
+// 属性查找: alice.name → 自身有 → 返回
+// alice.toString() → 自身无 → Person.prototype 找 → Object.prototype 找 → 找到
+```
+
+### 10. 继承的实现
+
+```js
+// 寄生组合式继承（ES5 最优方案）
+function Parent(name) {
+  this.name = name
+  this.colors = ["red"]
+}
+Parent.prototype.sayHi = function () {
+  console.log(this.name)
+}
+
+function Child(name, age) {
+  Parent.call(this, name) // 继承属性
+  this.age = age
+}
+Child.prototype = Object.create(Parent.prototype) // 继承方法
+Child.prototype.constructor = Child
+
+// ES6 Class（语法糖，本质同上）
+class Parent {
+  constructor(name) {
+    this.name = name
+  }
+  sayHi() {
+    console.log(this.name)
+  }
+}
+class Child extends Parent {
+  constructor(name, age) {
+    super(name)
+    this.age = age
+  }
+}
+```
+
+> **小结**：理解原型链是理解 JS 一切对象行为的基础。
+
+---
+
+## 第四阶段：数组与字符串（内置 API 精通）
+
+### 11. Array 方法分类
+
+```js
+// 增
+arr.push(4, 5) // 末尾添加，返回新 length
+arr.unshift(0) // 开头添加
+arr.concat(arr2, 5) // 合并，返回新数组
+
+// 删
+arr.pop() // 末尾删除，返回被删元素
+arr.shift() // 开头删除
+arr.splice(1, 2) // 从索引1删2个，返回被删数组
+
+// 改
+arr.splice(1, 1, "new") // 替换
+arr.reverse() // 反转
+arr.sort((a, b) => a - b) // 排序
+
+// 查
+arr.indexOf("x") // 首次索引 / -1
+arr.includes("x") // true/false
+arr.find((item) => item > 5) // 第一个匹配
+arr.findIndex((item) => item > 5)
+
+// 遍历（不修改原数组）
+arr.forEach((item, i) => {})
+arr.map((item) => item * 2) // 新数组
+arr.filter((item) => item > 5) // 过滤
+arr.reduce((acc, cur) => acc + cur, 0) // 累加
+arr.every((item) => item > 0) // 全满足？
+arr.some((item) => item > 5) // 有满足？
+```
+
+### 12. String 方法
+
+```js
+// 查找
+str.indexOf("world") // 首次索引
+str.includes("world") // true/false
+str.startsWith("hello") // 以...开头
+str.search(/regex/) // 正则搜索
+
+// 截取
+str.slice(0, 5) // 提取子串（支持负数）
+str.substring(0, 5) // 提取子串（不支持负数）
+str.split(",") // 拆分为数组
+
+// 替换
+str.replace("a", "b") // 替换第一个
+str.replaceAll("a", "b") // 全部替换
+str.toUpperCase() // 转大写
+str.trim() // 去首尾空格
+```
+
+> **小结**：掌握 Array 的增删改查分类和 String 的常用方法。
+
+---
+
+## 第五阶段：异步编程（核心技能）
+
+### 13. Promise
+
+```js
+// 创建 Promise
+const promise = new Promise((resolve, reject) => {
+  setTimeout(() => resolve("成功"), 1000)
+})
+
+// 链式调用
+fetch("/api/data")
+  .then((res) => res.json())
+  .then((data) => console.log(data))
+  .catch((err) => console.error(err))
+  .finally(() => console.log("结束"))
+
+// 静态方法
+Promise.all([p1, p2]) // 全部成功 → 结果数组
+Promise.allSettled([p1, p2]) // 全部结束 → 带状态的结果
+Promise.race([p1, p2]) // 竞速 — 第一个 settled
+Promise.any([p1, p2]) // 任一成功（ES2021）
+Promise.resolve(value) // 快速创建已成功 Promise
+Promise.reject(error) // 快速创建已失败 Promise
+```
+
+### 14. async / await — 更优雅的异步写法
+
+```js
+// async 函数 — 自动返回 Promise
+async function loadUser(id) {
+  try {
+    const res = await fetch(`/api/user/${id}`)
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const user = await res.json()
+    return user
+  } catch (err) {
+    console.error("加载用户失败:", err)
+    throw err
+  }
+}
+
+// 串行 vs 并行
+// 串行（一个等一个）— 总耗时 = sum
+const user = await fetchUser()
+const posts = await fetchPosts()
+
+// 并行（同时执行）— 总耗时 = max
+const [user, posts] = await Promise.all([fetchUser(), fetchPosts()])
+```
+
+### 15. 事件循环 — 理解 JS 的异步本质
+
+```
+执行一个宏任务（script/setTimeout）→ 清空所有微任务（Promise.then）→ 渲染 → 下一个宏任务
+```
+
+```js
+console.log("1") // 同步
+setTimeout(() => console.log("2"), 0) // 宏任务
+Promise.resolve().then(() => console.log("3")) // 微任务
+console.log("4")
+// 输出: 1 4 3 2
+```
+
+> **小结**：Promise 是异步的核心；async/await 是语法糖；事件循环决定了执行顺序。
+
+---
+
+## 第六阶段：DOM 与浏览器（实战能力）
+
+### 16. DOM 操作
+
+```js
+// 查询
+const el = document.querySelector(".class")
+const list = document.querySelectorAll("li")
+
+// 创建与插入
+const div = document.createElement("div")
+parent.appendChild(div)
+parent.insertBefore(newNode, referenceNode)
+el.remove() // 删除自身
+
+// 内容
+el.textContent = "安全文本" // 不解析 HTML（推荐）
+el.innerHTML = "<b>HTML</b>" // 注意 XSS 风险
+
+// 属性
+el.getAttribute("data-id")
+el.setAttribute("data-id", "123")
+el.dataset.userId // data-user-id → userId
+
+// class
+el.classList.add("active")
+el.classList.remove("active")
+el.classList.toggle("dark")
+el.classList.contains("active")
+
+// 样式
+el.style.color = "red"
+const styles = getComputedStyle(el)
+
+// 尺寸与位置
+el.getBoundingClientRect() // { top, left, width, height }
+el.offsetWidth / el.offsetHeight
+window.innerWidth / window.innerHeight
+```
+
+### 17. 事件处理
+
+```js
+// 绑定
+el.addEventListener("click", handler)
+el.removeEventListener("click", handler)
+
+// 事件对象
+el.addEventListener("click", (e) => {
+  console.log(e.target) // 触发事件的源头元素
+  console.log(e.currentTarget) // 绑定事件的元素（this）
+  e.preventDefault() // 阻止默认行为
+  e.stopPropagation() // 阻止冒泡
+})
+
+// 事件代理 — 父元素统一处理
+parent.addEventListener("click", (e) => {
+  if (e.target.matches("button")) {
+    console.log("按钮被点击:", e.target.textContent)
+  }
+})
+```
+
+### 18. 本地存储
+
+```js
+// localStorage — 持久化（不手动删除永远在）
+localStorage.setItem("token", "abc123")
+const token = localStorage.getItem("token")
+localStorage.removeItem("token")
+
+// sessionStorage — 标签页关闭即清除
+sessionStorage.setItem("draft", JSON.stringify(data))
+
+// IndexedDB — 大量结构化数据（异步）
+const request = indexedDB.open("MyDB", 1)
+request.onsuccess = (e) => {
+  const db = e.target.result
+}
+```
+
+> **小结**：DOM 操作 + 事件处理 + 存储，构成前端开发的三大基础能力。
+
+---
+
+## 第七阶段：ES6+ 核心特性（现代 JS）
+
+### 19. 模板字符串与展开运算符
+
+```js
+// 模板字符串
+const msg = `Hello, ${name}. You are ${age} years old.`
+
+// 展开运算符
+const merged = { ...obj1, ...obj2 } // 对象合并
+const copy = [...arr] // 数组浅拷贝
+Math.max(...nums) // 展开为函数参数
+```
+
+### 20. 可选链与空值合并
+
+```js
+const city = user?.address?.city // 可选链 — 遇 null/undefined 短路
+const name = user?.name ?? "匿名" // 空值合并 — 仅 null/undefined 回退
+const value = input || "默认" // || 对所有 falsy 回退（含 0, ""）
+```
+
+### 21. Set / Map
+
+```js
+// Set — 去重
+const set = new Set([1, 2, 2, 3]) // {1, 2, 3}
+set.add(4)
+set.has(2)
+set.delete(3)
+set.size
+const unique = [...new Set(arr)] // 数组去重
+
+// Map — 任意类型键
+const map = new Map()
+map.set(objKey, "value")
+map.get(objKey)
+// 对比 Object: Map 键可以是任意类型、有序、可直接迭代
+
+// WeakMap / WeakSet — 弱引用（不影响 GC）
+const wm = new WeakMap()
+wm.set(obj, "data") // obj 没有其他引用时会被回收
+```
+
+### 22. Proxy — 拦截对象操作
+
+```js
+const proxy = new Proxy(target, {
+  get(obj, prop) {
+    console.log(`读取 ${String(prop)}`)
+    return obj[prop] ?? `属性 ${String(prop)} 不存在`
+  },
+  set(obj, prop, val) {
+    if (prop === "age" && val < 0) throw new Error("年龄不能为负")
+    obj[prop] = val
+    return true
+  },
+})
+```
+
+### 23. Generator — 可暂停的函数
+
+```js
+function* gen() {
+  yield 1
+  yield 2
+  yield 3
+}
+const g = gen()
+g.next() // { value: 1, done: false }
+g.next() // { value: 2, done: false }
+for (const val of gen()) {
+} // 可迭代
+```
+
+> **小结**：ES6+ 让 JS 更简洁、更安全、更强大。
+
+---
+
+## 第八阶段：手写核心原理（面试必备）
+
+### 24. call / apply / bind
+
+```js
+// call
+Function.prototype.myCall = function (ctx, ...args) {
+  ctx = ctx || window
+  const fn = Symbol()
+  ctx[fn] = this
+  const result = ctx[fn](...args)
+  delete ctx[fn]
+  return result
+}
+
+// bind
+Function.prototype.myBind = function (ctx, ...args1) {
+  const self = this
+  return function (...args2) {
+    return self.apply(ctx, [...args1, ...args2])
+  }
+}
+```
+
+### 25. 深拷贝
+
+```js
+function deepClone(obj, map = new WeakMap()) {
+  if (typeof obj !== "object" || obj === null) return obj
+  if (map.has(obj)) return map.get(obj) // 循环引用
+
+  const clone = Array.isArray(obj) ? [] : {}
+  map.set(obj, clone)
+
+  for (const key of Object.keys(obj)) {
+    clone[key] = deepClone(obj[key], map)
+  }
+  // 补充 Symbol 键
+  for (const sym of Object.getOwnPropertySymbols(obj)) {
+    clone[sym] = deepClone(obj[sym], map)
+  }
+  return clone
+}
+```
+
+### 26. 防抖与节流
+
+```js
+// 防抖 — 连续触发只执行最后一次
+function debounce(fn, delay = 300) {
+  let timer
+  return function (...args) {
+    clearTimeout(timer)
+    timer = setTimeout(() => fn.apply(this, args), delay)
+  }
+}
+
+// 节流 — 固定时间间隔执行一次
+function throttle(fn, interval = 100) {
+  let last = 0
+  return function (...args) {
+    const now = Date.now()
+    if (now - last >= interval) {
+      last = now
+      fn.apply(this, args)
+    }
+  }
+}
+```
+
+### 27. Promise 简易实现
+
+```js
+class MyPromise {
+  constructor(executor) {
+    this.state = "pending"
+    this.value = undefined
+    this.callbacks = []
+
+    const resolve = (val) => {
+      this.state = "fulfilled"
+      this.value = val
+      this.callbacks.forEach((cb) => cb.onFulfilled(val))
+    }
+    const reject = (err) => {
+      this.state = "rejected"
+      this.value = err
+      this.callbacks.forEach((cb) => cb.onRejected(err))
+    }
+
+    try {
+      executor(resolve, reject)
+    } catch (e) {
+      reject(e)
+    }
+  }
+
+  then(onFulfilled, onRejected) {
+    return new MyPromise((resolve, reject) => {
+      const handler = () => {
+        const cb = this.state === "fulfilled" ? onFulfilled : onRejected
+        if (typeof cb !== "function") {
+          ;(this.state === "fulfilled" ? resolve : reject)(this.value)
+          return
+        }
+        try {
+          const result = cb(this.value)
+          result instanceof MyPromise ? result.then(resolve, reject) : resolve(result)
+        } catch (e) {
+          reject(e)
+        }
+      }
+      this.state !== "pending"
+        ? setTimeout(handler)
+        : this.callbacks.push({ onFulfilled: () => handler(), onRejected: () => handler() })
+    })
+  }
+
+  catch(onRejected) {
+    return this.then(null, onRejected)
+  }
+
+  static resolve(val) {
+    return new MyPromise((r) => r(val))
+  }
+  static reject(err) {
+    return new MyPromise((_, r) => r(err))
+  }
+  static all(promises) {
+    return new MyPromise((resolve, reject) => {
+      const results = []
+      let count = 0
+      promises.forEach((p, i) =>
+        MyPromise.resolve(p).then((v) => {
+          results[i] = v
+          count++
+          if (count === promises.length) resolve(results)
+        }, reject)
+      )
+    })
+  }
+}
+```
+
+> **小结**：手写原理是理解 JS 最深入的方式，面试高频考点。
+
+---
+
+## 第九阶段：正则表达式（文本处理利器）
+
+### 28. 元字符与量词
+
+```js
+// 字符类
+\d — 数字    \D — 非数字    \w — 单词字符    \s — 空白
+.  — 任意字符（除换行）
+
+// 量词
+*   — 0 次或多次    +   — 1 次或多次    ?   — 0 或 1 次
+{n} — n 次          {n,} — 至少 n 次    {n,m} — n~m 次
+
+// 锚点
+^   — 开头    $ — 结尾    \b — 单词边界
+
+// 贪婪 vs 非贪婪: 默认贪婪（尽可能多），量词后加 ? 变非贪婪
+
+// 常用正则
+/^[\w.-]+@[\w-]+(\.[\w-]+)+$/              // 邮箱
+/^1[3-9]\d{9}$/                             // 手机号
+/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/    // 密码强度
+str.replace(/^\s+|\s+$/g, "")               // trim
+"camelCase".replace(/([A-Z])/g, "_$1").toLowerCase() // 驼峰转下划线
+```
+
+### 29. 捕获组与断言
+
+```js
+// 捕获组
+"2024-07-16".match(/(\d{4})-(\d{2})-(\d{2})/)  // ["2024-07-16", "2024", "07", "16"]
+// 非捕获组 (?:x) — 匹配但不捕获
+// 命名捕获组 (?<name>x) — match.groups.name
+
+// 反向引用
+/(\w+)\s+\1/.test("hello hello")  // true
+
+// 零宽断言
+x(?=y)   // x 后面紧跟 y（正先行）
+x(?!y)   // x 后面不是 y（负先行）
+(?<=y)x  // x 前面是 y（正后行，ES2018）
+// 金额千分位: "12345678".replace(/\B(?=(\d{3})+$)/g, ",") → "12,345,678"
+```
+
+---
+
+## 第十阶段：工程化与调试（实战进阶）
+
+### 30. 模块化
+
+```js
+// ES Module
+export const name = "Alice"
+export function greet() {}
+export default class User {}
+import User, { name, greet } from "./module.js"
+
+// 动态导入
+const { default: Module } = await import("./module.js")
+```
+
+### 31. 错误处理
+
+```js
+// try/catch
+try {
+  const data = JSON.parse(input)
+} catch (err) {
+  console.error("解析失败:", err.message)
+} finally {
+  console.log("无论成功失败都执行")
+}
+
+// 全局错误捕获
+window.addEventListener("error", (e) => {
+  console.error(e.error)
+})
+window.addEventListener("unhandledrejection", (e) => {
+  console.error(e.reason)
+})
+```
+
+### 32. 调试技巧
+
+```js
+console.log("普通日志")
+console.table([
+  { a: 1, b: 2 },
+  { a: 3, b: 4 },
+])
+console.time("label")
+/* ... */ console.timeEnd("label")
+console.trace("调用栈")
+debugger // 断点
+```
+
+---
+
+## 速查表
+
+### 数据类型判断
+
+| 方法                                | 适用     | 不足          |
+| ----------------------------------- | -------- | ------------- |
+| `typeof x`                          | 基础类型 | null→"object" |
+| `x instanceof Constructor`          | 原型链   | 跨 realm 失效 |
+| `Object.prototype.toString.call(x)` | 万能     | 稍冗长        |
+| `Array.isArray(x)`                  | 数组     | 仅限数组      |
+
+### 会/不会修改原数组的方法
+
+| 会修改                                     | 不会修改                                                     |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| push/pop/unshift/shift/splice/reverse/sort | concat/slice/join/indexOf/includes/map/filter/reduce/forEach |
+
+### 异步方案速查
+
+| 需求     | 方案                       |
+| -------- | -------------------------- |
+| 全部成功 | `Promise.all([])`          |
+| 全部结束 | `Promise.allSettled([])`   |
+| 竞速     | `Promise.race([])`         |
+| 任一成功 | `Promise.any([])`          |
+| 顺序执行 | `for...of` + `await`       |
+| 并发执行 | `Promise.all(arr.map(fn))` |
+
+### for...in vs for...of
+
+| 遍历       | 对象                  | 数组                  |
+| ---------- | --------------------- | --------------------- |
+| `for...in` | ✅ 遍历键（含原型链） | ⚠️ 遍历索引（字符串） |
+| `for...of` | ❌                    | ✅ 遍历值             |
+
+### 相等比较
+
+| 比较                | `==`  | `===` | `Object.is` |
+| ------------------- | ----- | ----- | ----------- |
+| `1 == "1"`          | true  | false | false       |
+| `null == undefined` | true  | false | false       |
+| `NaN == NaN`        | false | false | **true**    |
+| `+0 == -0`          | true  | true  | **false**   |
+
+---
+
+## 第十一阶段：网络请求（数据交互）
+
+### 33. XMLHttpRequest（传统方式）
+
+```js
+const xhr = new XMLHttpRequest()
+xhr.open("GET", "/api/data", true)
+xhr.onreadystatechange = () => {
+  if (xhr.readyState === 4 && xhr.status === 200) {
+    console.log(JSON.parse(xhr.responseText))
+  }
+}
+xhr.onerror = () => console.error("网络错误")
+xhr.timeout = 10000
+xhr.ontimeout = () => console.error("请求超时")
+xhr.send()
+
+// 上传进度
+xhr.upload.onprogress = (e) => {
+  if (e.lengthComputable) console.log(`${((e.loaded / e.total) * 100).toFixed(1)}%`)
+}
+```
+
+### 34. Fetch API（现代方式）
+
+```js
+// 基本用法
+const res = await fetch("/api/data")
+if (!res.ok) throw new Error(`HTTP ${res.status}`)
+const data = await res.json()
+
+// POST JSON
+await fetch("/api/users", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ name: "Alice" }),
+})
+
+// 取消请求
+const controller = new AbortController()
+setTimeout(() => controller.abort(), 5000)
+const res = await fetch("/api/slow", { signal: controller.signal })
+
+// 超时封装
+function fetchWithTimeout(url, opts = {}, timeout = 10000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeout)
+  return fetch(url, { ...opts, signal: controller.signal }).finally(() => clearTimeout(timer))
+}
+```
+
+### 35. WebSocket — 实时双向通信
+
+```js
+const ws = new WebSocket("wss://example.com/socket")
+ws.onopen = () => ws.send(JSON.stringify({ type: "join", room: "general" }))
+ws.onmessage = (e) => {
+  const msg = JSON.parse(e.data)
+  console.log("收到:", msg)
+}
+ws.onclose = () => console.log("连接关闭")
+ws.onerror = (err) => console.error("WebSocket 错误")
+
+// 关闭连接
+ws.close(1000, "用户离开")
+
+// 自动重连
+function createWS(url) {
+  let ws = new WebSocket(url)
+  ws.onclose = () => setTimeout(() => createWS(url), 3000) // 3 秒后重连
+  return ws
+}
+```
+
+### 36. Server-Sent Events (SSE) — 服务端推送
+
+```js
+const es = new EventSource("/api/sse")
+es.onmessage = (e) => console.log(JSON.parse(e.data))
+es.addEventListener("custom-event", (e) => console.log(e.data))
+es.onerror = () => es.close()
+```
+
+---
+
+## 第十二阶段：算法与数据结构（基础）
+
+### 37. 排序算法
+
+```js
+// 快速排序
+function quickSort(arr) {
+  if (arr.length <= 1) return arr
+  const pivot = arr[0],
+    left = [],
+    right = []
+  for (let i = 1; i < arr.length; i++) {
+    arr[i] < pivot ? left.push(arr[i]) : right.push(arr[i])
+  }
+  return [...quickSort(left), pivot, ...quickSort(right)]
+}
+
+// 归并排序
+function mergeSort(arr) {
+  if (arr.length <= 1) return arr
+  const mid = Math.floor(arr.length / 2)
+  return merge(mergeSort(arr.slice(0, mid)), mergeSort(arr.slice(mid)))
+}
+function merge(left, right) {
+  const result = []
+  let i = 0,
+    j = 0
+  while (i < left.length && j < right.length)
+    result.push(left[i] < right[j] ? left[i++] : right[j++])
+  return [...result, ...left.slice(i), ...right.slice(j)]
+}
+```
+
+### 38. 数组去重与扁平化
+
+```js
+// 去重
+const unique = [...new Set(arr)]
+const unique2 = arr.filter((v, i) => arr.indexOf(v) === i)
+
+// 扁平化
+const flat = arr.flat(Infinity)
+function flatten(arr) {
+  return arr.reduce((acc, cur) => acc.concat(Array.isArray(cur) ? flatten(cur) : cur), [])
+}
+```
+
+### 39. 链表
+
+```js
+class ListNode {
+  constructor(val) {
+    this.val = val
+    this.next = null
+  }
+}
+// 反转链表
+function reverseList(head) {
+  let prev = null,
+    curr = head
+  while (curr) {
+    ;[curr.next, prev, curr] = [prev, curr, curr.next]
+  }
+  return prev
+}
+// 检测环
+function hasCycle(head) {
+  let slow = head,
+    fast = head
+  while (fast?.next) {
+    slow = slow.next
+    fast = fast.next.next
+    if (slow === fast) return true
+  }
+  return false
+}
+```
+
+### 40. 柯里化
+
+```js
+function curry(fn) {
+  return function curried(...args) {
+    if (args.length >= fn.length) return fn.apply(this, args)
+    return (...next) => curried(...args, ...next)
+  }
+}
+const sum = (a, b, c) => a + b + c
+curry(sum)(1)(2)(3) // 6
+curry(sum)(1, 2)(3) // 6
+```
+
+---
+
+## 第十三阶段：内存管理与性能
+
+### 41. 垃圾回收机制
+
+```js
+// JS 采用 标记清除 (Mark-and-Sweep) + 分代回收
+// 从根对象（window/global）出发，标记所有可达对象，清除不可达对象
+
+// 常见内存泄漏场景
+// 1. 意外全局变量
+function leak() {
+  bar = "global"
+} // window.bar
+
+// 2. 未清理的定时器
+const timer = setInterval(() => {}, 1000)
+// 忘记 clearInterval(timer)
+
+// 3. 闭包持有大对象
+function create() {
+  const huge = new Array(10000000)
+  return () => huge[0] // 整个 huge 被保留
+}
+
+// 4. DOM 引用未释放
+const el = document.getElementById("app")
+el.remove() // DOM 移除但 JS 变量仍引用 → 不会 GC
+```
+
+### 42. 性能优化技巧
+
+```js
+// 1. DOM 批量操作 — DocumentFragment
+const fragment = document.createDocumentFragment()
+for (let i = 0; i < 1000; i++) {
+  const li = document.createElement("li")
+  li.textContent = `Item ${i}`
+  fragment.appendChild(li)
+}
+ul.appendChild(fragment) // 1 次回流
+
+// 2. 避免强制同步布局（读写分离）
+const h = el.offsetHeight // 批量读
+el.style.width = "100px" // 批量写
+el.style.height = h + "px"
+
+// 3. Web Worker — 计算密集型任务放独立线程
+const worker = new Worker("worker.js")
+worker.postMessage(largeData)
+worker.onmessage = (e) => console.log(e.data)
+
+// 4. 懒加载
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach((e) => {
+    if (e.isIntersecting) {
+      e.target.src = e.target.dataset.src
+      observer.unobserve(e.target)
+    }
+  })
+})
+document.querySelectorAll("img[data-src]").forEach((img) => observer.observe(img))
+```
+
+---
+
+## 第十四阶段：设计模式（JS 实战）
+
+### 43. 发布订阅模式
+
+```js
+class EventBus {
+  constructor() {
+    this.events = {}
+  }
+  on(event, handler) {
+    ;(this.events[event] ||= []).push(handler)
+    return () => this.off(event, handler) // 返回取消订阅函数
+  }
+  off(event, handler) {
+    this.events[event] = this.events[event]?.filter((h) => h !== handler)
+  }
+  emit(event, ...args) {
+    this.events[event]?.forEach((h) => h(...args))
+  }
+  once(event, handler) {
+    const wrapper = (...args) => {
+      handler(...args)
+      this.off(event, wrapper)
+    }
+    this.on(event, wrapper)
+  }
+}
+```
+
+### 44. 单例模式
+
+```js
+class Singleton {
+  static #instance = null
+  constructor() {
+    if (Singleton.#instance) return Singleton.#instance
+    Singleton.#instance = this
+  }
+  static getInstance() {
+    if (!this.#instance) this.#instance = new Singleton()
+    return this.#instance
+  }
+}
+```
+
+### 45. 代理模式
+
+```js
+// 缓存代理
+function memoize(fn) {
+  const cache = new Map()
+  return (...args) => {
+    const key = JSON.stringify(args)
+    if (!cache.has(key)) cache.set(key, fn(...args))
+    return cache.get(key)
+  }
+}
+const cachedFetch = memoize(async (url) => fetch(url).then((r) => r.json()))
+```
+
+### 46. 策略模式
+
+```js
+const validators = {
+  required: (v) => (v ? "" : "必填"),
+  email: (v) => (/^\S+@\S+$/.test(v) ? "" : "邮箱格式错误"),
+  minLength: (n) => (v) => (v.length >= n ? "" : `至少${n}个字符`),
+}
+function validate(value, rules) {
+  return rules.map((rule) => ({
+    rule,
+    msg: typeof rule === "string" ? validators[rule](value) : rule.fn(value),
+  }))
+}
+```
+
+---
+
+## 拓展速查表
+
+### 网络请求对比
+
+| 方式      | 优点                     | 缺点                       |
+| --------- | ------------------------ | -------------------------- |
+| XHR       | 支持上传进度、超时       | API 繁琐                   |
+| Fetch     | Promise 风格、简洁       | 不支持上传进度、需手动解析 |
+| WebSocket | 全双工、低延迟           | 需额外服务端支持           |
+| SSE       | 服务端主动推送、自动重连 | 仅单向（服务端→客户端）    |
+
+### 排序算法对比
+
+| 算法     | 平均时间复杂度 | 空间复杂度 | 稳定性 |
+| -------- | -------------- | ---------- | ------ |
+| 快速排序 | O(n log n)     | O(log n)   | ❌     |
+| 归并排序 | O(n log n)     | O(n)       | ✅     |
+| 插入排序 | O(n^2)         | O(1)       | ✅     |
+
+### 设计模式速查
+
+| 模式     | 一句话                   | JS 实现                     |
+| -------- | ------------------------ | --------------------------- |
+| 发布订阅 | 通过事件中心解耦通信     | EventBus / addEventListener |
+| 单例     | 全局只有一个实例         | class static #instance      |
+| 代理     | 为对象提供替代品控制访问 | ES6 Proxy / 缓存代理        |
+| 策略     | 封装可互换的算法         | 表单验证策略                |
+| 命令     | 请求封装为对象支持撤销   | undo/redo 队列              |
+| 工厂     | 封装 new 的逻辑          | createUser(type, name)      |
+
+---
+
+## 第十五阶段：Number 与 Math（数值处理）
+
+### 47. 数值精度问题
+
+```js
+0.1 + 0.2 // 0.30000000000000004 — IEEE 754 双精度浮点
+0.1 + 0.2 === 0.3 // false
+
+// 解决方案
+Math.abs(0.1 + 0.2 - 0.3) <
+  Number.EPSILON(
+    // true — 误差范围内相等
+    0.1 * 10 + 0.2 * 10
+  ) /
+    10 + // 0.3 — 转为整数运算
+    (0.1 + 0.2).toFixed(1) // 0.3 — 四舍五入（仅展示场景）
+```
+
+### 48. 数字转换与判断
+
+```js
+parseInt("42px") // 42 — 解析整数
+parseFloat("3.14") // 3.14 — 解析浮点
+Number("42") // 42 — 严格转换
+Number("42px") // NaN
+
+// NaN 判断
+isNaN("abc") // true（全局 isNaN 会先转数字）
+Number.isNaN("abc") // false（ES6，不做类型转换）
+Number.isNaN(NaN) // true
+
+// 整数判断
+Number.isInteger(1) // true
+Number.isInteger(1.5) // false
+Number.isSafeInteger(9007199254740992) // false — 超出安全范围
+```
+
+### 49. Math 常用方法
+
+```js
+Math.round(3.5) // 4 — 四舍五入
+Math.ceil(3.1) // 4 — 向上取整
+Math.floor(3.9) // 3 — 向下取整
+Math.trunc(3.9) // 3 — 去掉小数（ES6）
+Math.random() // [0, 1) 随机数
+Math.max(1, 3, 2) // 3
+Math.min(1, 3, 2) // 1
+
+// 随机整数 [min, max]
+function randomInt(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
+```
+
+### 50. 进制转换
+
+```js
+;(255)
+  .toString(2)(
+    // "11111111" — 二进制
+    255
+  )
+  .toString(16) // "ff" — 十六进制
+parseInt("ff", 16) // 255 — 从十六进制解析
+parseInt("1111", 2) // 15 — 从二进制解析
+```
+
+---
+
+## 第十六阶段：Web API 进阶
+
+### 51. URL 与 URLSearchParams
+
+```js
+const url = new URL("https://example.com/search?q=hello&page=1")
+url.searchParams.get("q") // "hello"
+url.searchParams.set("page", "2")
+url.searchParams.append("sort", "date")
+url.href // "https://example.com/search?q=hello&page=2&sort=date"
+
+// 遍历
+for (const [k, v] of url.searchParams) {
+}
+
+// 解析当前页面参数
+const params = new URLSearchParams(location.search)
+```
+
+### 52. History API — SPA 路由
+
+```js
+// 修改 URL 不刷新
+history.pushState({ page: 1 }, "", "/page1")
+history.replaceState({ page: 1 }, "", "/page1")
+
+// 监听前进/后退
+window.addEventListener("popstate", (e) => {
+  console.log(e.state) // pushState 传入的状态
+})
+
+// 前进/后退
+history.back()
+history.forward()
+history.go(-1)
+```
+
+### 53. Blob 与 File
+
+```js
+// 创建 Blob（二进制大对象）
+const blob = new Blob([JSON.stringify(data)], { type: "application/json" })
+
+// Blob 转 URL → 下载文件
+const url = URL.createObjectURL(blob)
+const a = document.createElement("a")
+a.href = url
+a.download = "data.json"
+a.click()
+URL.revokeObjectURL(url) // 释放内存
+
+// File → Base64
+const reader = new FileReader()
+reader.onload = (e) => console.log(e.target.result)
+reader.readAsDataURL(file)
+
+// Blob → ArrayBuffer
+const buffer = await blob.arrayBuffer()
+```
+
+### 54. Canvas 基础
+
+```js
+const canvas = document.querySelector("canvas")
+const ctx = canvas.getContext("2d")
+
+// 绘制
+ctx.fillStyle = "red"
+ctx.fillRect(10, 10, 100, 50) // 填充矩形
+ctx.strokeStyle = "blue"
+ctx.strokeRect(10, 70, 100, 50) // 描边矩形
+ctx.fillText("Hello", 10, 150) // 文字
+ctx.drawImage(img, 0, 0) // 图片
+
+// 路径
+ctx.beginPath()
+ctx.arc(200, 75, 50, 0, Math.PI * 2) // 圆
+ctx.fill()
+
+// 高清屏适配
+const dpr = window.devicePixelRatio
+canvas.width = canvas.offsetWidth * dpr
+canvas.height = canvas.offsetHeight * dpr
+ctx.scale(dpr, dpr)
+```
+
+---
+
+## 第十七阶段：高级异步模式
+
+### 55. 控制并发请求
+
+```js
+async function batchRequest(urls, limit = 3) {
+  const results = []
+  const executing = new Set()
+
+  for (const url of urls) {
+    const p = fetch(url)
+      .then((r) => r.json())
+      .then((d) => results.push(d))
+    executing.add(p)
+    p.finally(() => executing.delete(p))
+
+    if (executing.size >= limit) {
+      await Promise.race(executing) // 等任意一个完成
+    }
+  }
+
+  await Promise.all(executing) // 等剩余全部完成
+  return results
+}
+```
+
+### 56. Promise 超时与重试
+
+```js
+// 超时
+function withTimeout(promise, ms) {
+  const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error("超时")), ms))
+  return Promise.race([promise, timeout])
+}
+
+// 重试
+async function retry(fn, times = 3, delay = 1000) {
+  for (let i = 0; i < times; i++) {
+    try {
+      return await fn()
+    } catch (e) {
+      if (i === times - 1) throw e
+      await new Promise((r) => setTimeout(r, delay))
+    }
+  }
+}
+```
+
+### 57. 取消 Promise（AbortController）
+
+```js
+function fetchWithAbort(url, { signal } = {}) {
+  return new Promise((resolve, reject) => {
+    fetch(url, { signal })
+      .then((res) => res.json())
+      .then(resolve, reject)
+
+    signal?.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")))
+  })
+}
+
+const controller = new AbortController()
+fetchWithAbort("/api/data", { signal: controller.signal })
+setTimeout(() => controller.abort(), 5000) // 5 秒后取消
+```
+
+---
+
+## 第十八阶段：国际化与格式化
+
+### 58. Intl API
+
+```js
+// 日期格式化
+new Intl.DateTimeFormat("zh-CN", { dateStyle: "full" }).format(new Date())
+// "2024年7月16日星期二"
+
+new Intl.DateTimeFormat("en-US", { dateStyle: "long" }).format(new Date())
+// "July 16, 2024"
+
+// 相对时间
+new Intl.RelativeTimeFormat("zh-CN", { numeric: "auto" }).format(-3, "day")
+// "3天前"
+
+// 数字格式化
+new Intl.NumberFormat("zh-CN", { style: "currency", currency: "CNY" }).format(12345)
+// "¥12,345.00"
+
+// 列表格式化
+new Intl.ListFormat("zh-CN", { type: "conjunction" }).format(["苹果", "香蕉", "橘子"])[
+  // "苹果、香蕉和橘子"
+
+  // 排序（中文拼音）
+  ("张三", "李四", "王五")
+].sort((a, b) => a.localeCompare(b, "zh-CN"))
+```
+
+---
+
+## 第十九阶段：更多现代 JS 特性
+
+### 59. ES2020-ES2024 特性速览
+
+```js
+// ES2020: 可选链、空值合并、BigInt、globalThis、Promise.allSettled
+const city = user?.address?.city ?? "未知"
+
+// ES2021: String.replaceAll、Promise.any、逻辑赋值、数字分隔符
+str.replaceAll("a", "b")
+x ||= "default" // 等价 x || (x = "default")
+const million = 1_000_000
+
+// ES2022: Class #私有字段、顶层 await、Array.at(-1)、Object.hasOwn
+arr.at(-1) // 最后一个元素
+Object.hasOwn(obj, "key")
+
+// ES2023: Array.findLast、Array.toReversed/toSorted/toSpliced（不可变方法）
+arr.findLast((item) => item > 3)
+const sorted = arr.toSorted() // 不修改原数组
+
+// ES2024: Promise.withResolvers、Object.groupBy、正则 v 标志
+const { promise, resolve, reject } = Promise.withResolvers()
+```
+
+### 60. WeakRef 与 FinalizationRegistry
+
+```js
+// WeakRef — 弱引用，不阻止 GC
+let obj = { data: "large" }
+const ref = new WeakRef(obj)
+obj = null // GC 后 ref.deref() 返回 undefined
+
+// FinalizationRegistry — GC 回调
+const registry = new FinalizationRegistry((heldValue) => {
+  console.log(`"${heldValue}" 被 GC 回收`)
+})
+registry.register(largeObj, "大对象")
+```
+
+### 61. BigInt — 任意精度整数
+
+```js
+const big = 9007199254740993n // n 后缀
+const fromStr = BigInt("9007199254740993")
+
+// 超出安全整数也能保证精度
+9007199254740993 === 9007199254740994 // true — 丢失精度
+9007199254740993n === 9007199254740994n // false — 永远精确
+
+// 注意：不能与 Number 混合运算
+// big + 1 // ❌ TypeError
+big + 1n // ✅
+```
+
+---
+
+## 补充速查表
+
+### ES 版本特性
+
+| 版本       | 年份 | 重要特性                                         |
+| ---------- | ---- | ------------------------------------------------ |
+| ES5        | 2009 | strict mode、JSON、Array 方法                    |
+| ES6/ES2015 | 2015 | let/const、箭头函数、Class、Promise、Proxy、模块 |
+| ES2017     | 2017 | async/await                                      |
+| ES2018     | 2018 | ... 对象展开、异步迭代                           |
+| ES2020     | 2020 | 可选链、空值合并、BigInt、Promise.allSettled     |
+| ES2021     | 2021 | replaceAll、Promise.any、逻辑赋值                |
+| ES2022     | 2022 | #私有字段、顶层 await、Array.at、Object.hasOwn   |
+| ES2024     | 2024 | Promise.withResolvers、Object.groupBy            |
+
+### 判断类型的万能方法
+
+```js
+function getType(v) {
+  return Object.prototype.toString.call(v).slice(8, -1).toLowerCase()
+}
+getType([]) // "array"
+getType(null) // "null"
+getType(new Map()) // "map"
+getType(() => {}) // "function"
+```
+
+### Intl API 速查
+
+| API                       | 用途                        |
+| ------------------------- | --------------------------- |
+| `Intl.DateTimeFormat`     | 日期格式化                  |
+| `Intl.NumberFormat`       | 数字（含货币/百分比）格式化 |
+| `Intl.RelativeTimeFormat` | 相对时间（3天前）           |
+| `Intl.ListFormat`         | 列表连接（A、B和C）         |
+| `Intl.Collator`           | 排序比较                    |
+| `Intl.PluralRules`        | 复数规则                    |
+| `Intl.DisplayNames`       | 语言/地区/货币名称          |
+
+### Blob 与 File API 速查
+
+| API                              | 说明             |
+| -------------------------------- | ---------------- |
+| `new Blob([data], opts)`         | 创建二进制对象   |
+| `blob.arrayBuffer()`             | → ArrayBuffer    |
+| `blob.text()`                    | → 字符串         |
+| `blob.stream()`                  | → ReadableStream |
+| `URL.createObjectURL(blob)`      | → blob: URL      |
+| `new FileReader()`               | 读取文件         |
+| `reader.readAsDataURL(file)`     | → Base64         |
+| `reader.readAsArrayBuffer(file)` | → ArrayBuffer    |
+
+---
+
+## 第二十阶段：迭代器与生成器（深层机制）
+
+### 62. 迭代器 (Iterator) 协议
+
+```js
+// 可迭代对象需要实现 [Symbol.iterator]
+const range = {
+  from: 1,
+  to: 5,
+  [Symbol.iterator]() {
+    let current = this.from
+    return {
+      next() {
+        if (current <= this.to) return { done: false, value: current++ }
+        return { done: true }
+      },
+    }
+  },
+}
+for (const n of range) {
+  console.log(n)
+} // 1 2 3 4 5
+```
+
+### 63. 生成器 (Generator) 进阶
+
+```js
+function* fibonacci() {
+  let [a, b] = [0, 1]
+  while (true) {
+    yield b
+    ;[a, b] = [b, a + b]
+  }
+}
+const fib = fibonacci()
+fib.next().value // 1 → 1 → 2 → 3 → 5 → ...
+
+// yield* 委托
+function* flatten(arr) {
+  for (const item of arr) {
+    Array.isArray(item) ? yield* flatten(item) : yield item
+  }
+}
+```
+
+---
+
+## 第二十一阶段：Symbol 深入
+
+### 64. Symbol 的使用场景
+
+```js
+// 1. 唯一属性键 — 避免命名冲突
+const id = Symbol("id")
+const user = { [id]: 123, name: "Alice" }
+
+// 2. 全局共享符号
+const sym1 = Symbol.for("app.key") // 没有则创建
+const sym2 = Symbol.for("app.key") // 返回同一个
+sym1 === sym2 // true
+
+// 3. 内置 Symbol
+const range = { [Symbol.iterator]() {} } // 迭代器
+const tag = { [Symbol.toStringTag]: "MyObj" } // 自定义标签
+
+// 4. Symbol 属性在遍历中被隐藏
+Object.keys(user) // ["name"] — 不含 Symbol
+Object.getOwnPropertySymbols(user) // [Symbol(id)] — 专门获取 Symbol
+```
+
+---
+
+## 第二十二阶段：错误处理体系
+
+### 65. 自定义错误类型
+
+```js
+class AppError extends Error {
+  constructor(message, code) {
+    super(message)
+    this.name = "AppError"
+    this.code = code
+  }
+}
+
+class ValidationError extends AppError {
+  constructor(message, fields) {
+    super(message, "VALIDATION_ERROR")
+    this.fields = fields
+  }
+}
+
+// 使用
+try {
+  throw new ValidationError("校验失败", ["email", "name"])
+} catch (err) {
+  if (err instanceof ValidationError) {
+    console.error(err.code, err.fields)
+  }
+}
+```
+
+### 66. 错误处理模式
+
+```js
+// Go 风格的结果封装
+async function to<T>(promise: Promise<T>): Promise<[Error, null] | [null, T]> {
+  try { return [null, await promise] }
+  catch (e) { return [e as Error, null] }
+}
+
+const [err, data] = await to(fetch("/api/data").then(r => r.json()))
+if (err) { console.error(err); return }
+console.log(data)
+```
+
+### 67. 全局错误监听
+
+```js
+// 同步错误
+window.addEventListener("error", (e) => {
+  console.error(e.message, e.filename, e.lineno)
+})
+
+// Promise 未处理的拒绝
+window.addEventListener("unhandledrejection", (e) => {
+  console.error("未处理的 Promise 错误:", e.reason)
+  e.preventDefault() // 阻止控制台输出
+})
+
+// Node.js
+process.on("uncaughtException", (err) => {})
+process.on("unhandledRejection", (reason) => {})
+```
+
+---
+
+## 第二十三阶段：Object 深度
+
+### 68. 属性描述符
+
+```js
+const user = { name: "Alice" }
+
+// 查看描述符
+Object.getOwnPropertyDescriptor(user, "name")
+// { value: "Alice", writable: true, enumerable: true, configurable: true }
+
+// 精确定义属性
+Object.defineProperty(user, "id", {
+  value: 1,
+  writable: false, // 不可修改
+  enumerable: false, // 不在 for...in 中出现
+  configurable: false, // 不可删除/重新定义
+})
+
+// getter / setter
+Object.defineProperty(user, "fullName", {
+  get() {
+    return `${this.first} ${this.last}`
+  },
+  set(v) {
+    ;[this.first, this.last] = v.split(" ")
+  },
+})
+```
+
+### 69. 对象不可变性
+
+```js
+// 级别 1: 不可扩展（禁止新增）
+Object.preventExtensions(obj)
+
+// 级别 2: 密封（禁止新增+删除，可修改）
+Object.seal(obj)
+
+// 级别 3: 冻结（禁止新增+删除+修改）
+Object.freeze(obj)
+
+// 查询状态
+Object.isExtensible(obj) // 是否可扩展
+Object.isSealed(obj) // 是否已密封
+Object.isFrozen(obj) // 是否已冻结
+
+function deepFreeze(obj) {
+  Object.freeze(obj)
+  Object.values(obj).forEach((v) => {
+    if (typeof v === "object" && v !== null && !Object.isFrozen(v)) deepFreeze(v)
+  })
+}
+```
+
+### 70. Object 的隐含操作
+
+```js
+// 类型转换钩子
+const obj =
+  {
+    [Symbol.toPrimitive](hint) {
+      if (hint === "number") return 42
+      if (hint === "string") return "hello"
+      return "default"
+    },
+  } +
+  obj // 42 (hint: number)
+  `${obj}` // "hello" (hint: string)
+obj + "" // "default" (hint: default)
+```
+
+---
+
+## 第二十四阶段：二进制数据处理
+
+### 71. ArrayBuffer / TypedArray / DataView
+
+```js
+// ArrayBuffer — 固定长度的原始二进制缓冲区
+const buffer = new ArrayBuffer(16)
+
+// TypedArray — 类型化数组视图
+const int32 = new Int32Array(buffer) // 有符号 32 位整数
+const uint8 = new Uint8Array(buffer) // 无符号 8 位
+const float64 = new Float64Array(8) // 64 位浮点
+
+int32[0] = 42
+console.log(uint8[0]) // 42 （同一块内存的不同视图）
+
+// DataView — 灵活读写任意位置
+const view = new DataView(buffer)
+view.setInt16(0, 256, true) // 小端序
+view.getInt16(0, false) // 大端序
+```
+
+### 72. TextEncoder / TextDecoder
+
+```js
+// 字符串 ↔ 字节数组
+const encoder = new TextEncoder()
+const bytes = encoder.encode("你好") // Uint8Array [228, 189, 160, 229, 165, 189]
+
+const decoder = new TextDecoder("utf-8")
+const text = decoder.decode(bytes) // "你好"
+
+// 流式解码
+const decoder = new TextDecoder("utf-8", { fatal: true }) // 无效字节抛错
+```
+
+---
+
+## 第二十五阶段：安全
+
+### 73. XSS 防范
+
+```js
+// ❌ 危险: innerHTML
+el.innerHTML = userInput
+
+// ✅ 安全: textContent（不解析 HTML）
+el.textContent = userInput
+
+// ✅ HTML 实体编码
+function escapeHTML(str) {
+  const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#x27;" }
+  return str.replace(/[&<>"']/g, (c) => map[c])
+}
+el.innerHTML = escapeHTML(userInput)
+```
+
+### 74. 原型污染防范
+
+```js
+// 攻击: { "__proto__": { "isAdmin": true } }
+// 防御: 过滤危险属性
+function safeMerge(target, source) {
+  for (const key of Object.keys(source)) {
+    if (key === "__proto__" || key === "constructor" || key === "prototype") continue
+    target[key] = source[key]
+  }
+}
+// 或用 Object.create(null) 创建无原型对象
+const safe = Object.create(null)
+```
+
+---
+
+## 补充速查表
+
+### Object API 速查
+
+| API                                 | 用途                          |
+| ----------------------------------- | ----------------------------- |
+| `Object.keys(obj)`                  | 自身可枚举属性名              |
+| `Object.values(obj)`                | 自身可枚举属性值              |
+| `Object.entries(obj)`               | 自身可枚举 [k, v] 对          |
+| `Object.assign(t, ...s)`            | 浅拷贝 s → t                  |
+| `Object.create(proto)`              | 指定原型创建对象              |
+| `Object.freeze(obj)`                | 冻结                          |
+| `Object.fromEntries(arr)`           | [k,v][] → 对象                |
+| `Object.getOwnPropertyNames(obj)`   | 自身所有属性名（含不可枚举）  |
+| `Object.getOwnPropertySymbols(obj)` | 自身所有 Symbol               |
+| `Reflect.ownKeys(obj)`              | 自身所有键（字符串 + Symbol） |
+
+### TypedArray 类型
+
+| 类型                | 字节 | 范围               |
+| ------------------- | ---- | ------------------ |
+| `Int8Array`         | 1    | -128 ~ 127         |
+| `Uint8Array`        | 1    | 0 ~ 255            |
+| `Uint8ClampedArray` | 1    | 0 ~ 255（钳制）    |
+| `Int16Array`        | 2    | -32768 ~ 32767     |
+| `Int32Array`        | 4    | ±2^31              |
+| `Float32Array`      | 4    | IEEE 754 单精度    |
+| `Float64Array`      | 8    | IEEE 754 双精度    |
+| `BigInt64Array`     | 8    | 64 位有符号 BigInt |
+
+### 不可变性对比
+
+| 方法                | 新增 | 删除 | 修改 | 用例     |
+| ------------------- | ---- | ---- | ---- | -------- |
+| `preventExtensions` | ❌   | ✅   | ✅   | 固定结构 |
+| `seal`              | ❌   | ❌   | ✅   | 固定字段 |
+| `freeze`            | ❌   | ❌   | ❌   | 常量对象 |
+
+---
+
+## 第二十六阶段：JSON 与序列化
+
+### 75. JSON 的局限性
+
+```js
+const data = {
+  date: new Date(),
+  fn: () => {},
+  undef: undefined,
+  sym: Symbol("id"),
+  big: 9007199254740993n,
+  map: new Map([[1, "a"]]),
+  set: new Set([1, 2, 3]),
+  nan: NaN,
+  inf: Infinity,
+  arr: [1, , 3], // 稀疏数组
+}
+
+JSON.stringify(data)
+// {
+//   "date": "2024-07-16T...",  ← Date → ISO 字符串
+//   "arr": [1, null, 3],        ← 稀疏 → null
+//   "nan": null,                 ← NaN → null
+//   "inf": null                  ← Infinity → null
+// }
+// fn/undef/sym/big/Map/Set → 全部被忽略！
+```
+
+```js
+// 自定义序列化
+JSON.stringify(obj, (key, value) => {
+  if (value instanceof Date) return value.getTime() // 日期 → 时间戳
+  if (typeof value === "bigint") return value.toString()
+  return value
+})
+
+// 自定义 toJSON
+const obj = {
+  data: "secret",
+  toJSON() {
+    return { masked: true }
+  }, // 控制序列化输出
+}
+```
+
+### 76. structuredClone — 现代深拷贝
+
+```js
+const obj = {
+  date: new Date(),
+  map: new Map([["a", 1]]),
+  set: new Set([1, 2]),
+  nested: { arr: [1, 2] },
+  buffer: new ArrayBuffer(8),
+}
+
+const clone = structuredClone(obj)
+// ✅ 完美克隆: Date, Map, Set, ArrayBuffer, RegExp, Blob, File, ImageData...
+// ❌ 不能克隆: Function, Symbol, DOM 节点, Error（仅保留 message）
+```
+
+### 77. JSON.parse 的安全使用
+
+```js
+// try/catch 包装
+function safeParse<T>(json: string, fallback: T): T {
+  try { return JSON.parse(json) }
+  catch { return fallback }
+}
+
+// reviver（转换器）
+JSON.parse('{"date":"2024-01-01T00:00:00Z"}', (k, v) => {
+  if (k === "date") return new Date(v)
+  return v
+})
+```
+
+---
+
+## 第二十七阶段：Reflect 与 Proxy 进阶
+
+### 78. Reflect API — 更安全的元操作
+
+```js
+// Reflect 提供与 Proxy 陷阱一一对应的静态方法
+// 对比传统的 try/catch 方式
+
+// ❌ 旧方式 — 抛异常
+try {
+  delete obj.prop
+} catch (e) {}
+
+// ✅ Reflect — 返回布尔值
+Reflect.deleteProperty(obj, "prop") // true/false
+
+// 确保 getter 的 this 正确
+const proto = {
+  get name() {
+    return this._name
+  },
+}
+const child = Object.create(proto)
+Reflect.get(proto, "name", child) // this 正确指向 child
+```
+
+### 79. Proxy 实现路由匹配
+
+```js
+const router = new Proxy(
+  {},
+  {
+    get(target, prop) {
+      return (...args) => {
+        console.log(`调用路由 ${String(prop)}，参数:`, args)
+        // 实际可触发对应的处理函数
+      }
+    },
+  }
+)
+
+router.getUser(1) // 调用路由 getUser，参数: [1]
+router.createUser({}) // 调用路由 createUser，参数: [{}]
+```
+
+### 80. Proxy 实现响应式数组
+
+```js
+function reactiveArray(arr) {
+  return new Proxy(arr, {
+    get(target, prop, receiver) {
+      if (prop === "push" || prop === "pop" || prop === "splice") {
+        return (...args) => {
+          console.log(`数组方法 ${String(prop)} 被调用`)
+          const result = Array.prototype[prop].apply(target, args)
+          return result
+        }
+      }
+      return Reflect.get(target, prop, receiver)
+    },
+  })
+}
+
+const arr = reactiveArray([1, 2, 3])
+arr.push(4) // 输出: 数组方法 push 被调用
+```
+
+---
+
+## 第二十八阶段：Web Workers 深入
+
+### 81. Dedicated Worker — 单页面专用
+
+```js
+// worker.js
+self.onmessage = (e) => {
+  const result = heavyComputation(e.data) // 耗时计算不阻塞主线程
+  self.postMessage(result)
+}
+
+// 主线程
+const worker = new Worker("worker.js")
+worker.postMessage(largeData)
+
+// Transferable — 零拷贝（转移所有权）
+const buffer = new ArrayBuffer(1024 * 1024 * 1024) // 1GB
+worker.postMessage(buffer, [buffer]) // buffer 在主线程变为空
+
+worker.terminate() // 立即终止 Worker
+```
+
+### 82. Shared Worker — 多页面共享
+
+```js
+// shared.js
+const connections = new Set()
+self.onconnect = (e) => {
+  const port = e.ports[0]
+  connections.add(port)
+  port.onmessage = (ev) => {
+    // 广播给所有连接
+    connections.forEach((c) => c.postMessage(ev.data))
+  }
+  port.start()
+}
+
+// 主线程
+const worker = new SharedWorker("shared.js")
+worker.port.onmessage = (e) => console.log(e.data)
+worker.port.postMessage("hello")
+```
+
+---
+
+## 第二十九阶段：高级集合操作
+
+### 83. WeakMap 实现真正的私有属性
+
+```js
+const _private = new WeakMap()
+
+class User {
+  constructor(name, secret) {
+    this.name = name // 公开
+    _private.set(this, { secret, createdAt: Date.now() }) // 真正私有
+  }
+  getSecret() {
+    return _private.get(this).secret
+  }
+  destroy() {
+    _private.delete(this)
+  }
+}
+
+const u = new User("Alice", "my-secret")
+// u.secret → undefined（完全无法从外部访问）
+// u._private → undefined
+// 只有 getSecret() 方法能访问
+```
+
+### 84. Set 集合运算
+
+```js
+// 借助 Set 实现高效集合运算
+const a = new Set([1, 2, 3])
+const b = new Set([2, 3, 4])
+
+// 并集
+new Set([...a, ...b]) // {1, 2, 3, 4}
+
+// 交集
+new Set([...a].filter((x) => b.has(x))) // {2, 3}
+
+// 差集 (a - b)
+new Set([...a].filter((x) => !b.has(x))) // {1}
+
+// 对称差集
+new Set([...a].filter((x) => !b.has(x)).concat([...b].filter((x) => !a.has(x)))) // {1, 4}
+```
+
+---
+
+## 第三十阶段：Web Components
+
+### 85. 自定义元素 — Custom Elements
+
+```js
+class MyCounter extends HTMLElement {
+  static observedAttributes = ["value"]
+
+  constructor() {
+    super()
+    this._value = 0
+  }
+
+  connectedCallback() {
+    this.innerHTML = `<button id="dec">-</button><span>${this._value}</span><button id="inc">+</button>`
+    this.querySelector("#inc").onclick = () => {
+      this._value++
+      this.setAttribute("value", this._value)
+    }
+    this.querySelector("#dec").onclick = () => {
+      this._value--
+      this.setAttribute("value", this._value)
+    }
+  }
+
+  attributeChangedCallback(name, oldVal, newVal) {
+    if (name === "value") {
+      this._value = Number(newVal)
+      const s = this.querySelector("span")
+      if (s) s.textContent = newVal
+    }
+  }
+}
+
+customElements.define("my-counter", MyCounter)
+// <my-counter value="10"></my-counter>
+```
+
+---
+
+## 补充速查表
+
+### JSON.stringify 的特殊行为
+
+| 输入                                | 输出                              |
+| ----------------------------------- | --------------------------------- |
+| `undefined` / `Function` / `Symbol` | 忽略（对象中）或 `null`（数组中） |
+| `NaN` / `Infinity`                  | `null`                            |
+| `Date`                              | ISO 字符串                        |
+| `Map` / `Set` / `WeakMap`           | `{}`（需自定义）                  |
+| `BigInt`                            | 抛出 TypeError                    |
+| 循环引用                            | 抛出 TypeError                    |
+
+### Worker 类型对比
+
+| 类型             | 作用域     | 生命周期         | 共享方式 |
+| ---------------- | ---------- | ---------------- | -------- |
+| Dedicated Worker | 单个页面   | 页面关闭         | 仅创建者 |
+| Shared Worker    | 同源多页面 | 最后一个页面关闭 | 多个页面 |
+| Service Worker   | 注册范围   | 独立于页面       | 拦截请求 |
+
+### Reflect vs 直接操作
+
+| 操作   | 直接写法              | Reflect 写法                       |
+| ------ | --------------------- | ---------------------------------- |
+| 读属性 | `obj[key]`            | `Reflect.get(obj, key)`            |
+| 写属性 | `obj[key] = val`      | `Reflect.set(obj, key, val)`       |
+| 删除   | `delete obj[key]`     | `Reflect.deleteProperty(obj, key)` |
+| 调用   | `fn.apply(ctx, args)` | `Reflect.apply(fn, ctx, args)`     |
+| new    | `new Fn(args)`        | `Reflect.construct(Fn, args)`      |
+
+---
+
+## 第三十一阶段：定时器与渲染时机
+
+### 86. 定时器家族
+
+```js
+// setTimeout — 延迟执行（一次）
+const id1 = setTimeout(() => console.log("延迟 1 秒"), 1000)
+clearTimeout(id1)
+
+// setInterval — 周期性执行
+const id2 = setInterval(() => console.log("每秒"), 1000)
+clearInterval(id2)
+
+// 如果回调执行时间 > 间隔，不会堆积，但遇到耗时任务会被推迟
+
+// setImmediate (Node.js) — 在 I/O 回调之后、定时器之前
+setImmediate(() => console.log("immediate"))
+
+// requestAnimationFrame — 下次重绘前（~16.7ms 一次）
+function animate(timestamp) {
+  // 更新动画
+  requestAnimationFrame(animate)
+}
+requestAnimationFrame(animate)
+
+// requestIdleCallback — 帧末尾的空闲时间
+requestIdleCallback(
+  (deadline) => {
+    while (deadline.timeRemaining() > 0 && tasks.length) {
+      processTask(tasks.shift())
+    }
+  },
+  { timeout: 2000 }
+)
+```
+
+### 87. 微任务 vs 宏任务执行时序
+
+```js
+console.log("1: 同步")
+
+setTimeout(() => console.log("2: 宏任务 setTimeout"), 0)
+
+Promise.resolve()
+  .then(() => console.log("3: 微任务 Promise.then"))
+  .then(() => console.log("4: 微任务链"))
+
+queueMicrotask(() => console.log("5: 微任务 queueMicrotask"))
+
+requestAnimationFrame(() => console.log("6: rAF（渲染前）"))
+
+console.log("7: 同步")
+// 输出: 1 7 3 5 4 6 2
+// 流程: 同步 → 微任务(全部清空) → rAF → 渲染 → 宏任务(下一个)
+```
+
+---
+
+## 第三十二阶段：Console 与调试 API
+
+### 88. Console 高级用法
+
+```js
+console.log("普通日志")
+
+// 格式化输出
+console.log("User: %s, Age: %d", "Alice", 18) // %s字符串 %d数字 %o对象 %cCSS样式
+
+// 表格
+console.table([
+  { name: "Alice", age: 18 },
+  { name: "Bob", age: 20 },
+])
+
+// 分组
+console.group("用户信息")
+console.log("Name: Alice")
+console.groupEnd()
+
+// 计时
+console.time("operation")
+// ... 操作 ...
+console.timeEnd("operation") // operation: 123.45ms
+
+// 计数
+console.count("click") // click: 1
+console.count("click") // click: 2
+
+// 断点断言
+console.assert(x > 0, "x 必须大于 0") // x ≤ 0 时输出
+
+// 调用栈
+console.trace("DEBUG")
+```
+
+---
+
+## 第三十三阶段：表达式与运算符细节
+
+### 89. 你未必知道的运算符
+
+```js
+// 空值合并赋值 (ES2021)
+x ??= "default" // 等价: if (x === null || x === undefined) x = "default"
+
+// 逻辑与赋值
+x &&= doSomething() // 等价: if (x) x = doSomething()
+
+// 逻辑或赋值
+x ||= "default" // 等价: if (!x) x = "default"
+
+// 指数运算符 (ES2016)
+2 ** 10 // 1024
+
+// 可选链 + 函数调用
+callback?.() // callback 存在才调用
+arr?.[0] // arr 存在才访问索引
+
+// 逗号运算符 — 返回最后一个值
+const x = (1, 2, 3) // x = 3
+
+// void — 求值后返回 undefined
+void doSomething() // undefined（常用于 a 标签 href="javascript:void(0)"）
+
+// 标签语句 — 跳出多层循环
+outer: for (let i = 0; i < 3; i++) {
+  for (let j = 0; j < 3; j++) {
+    if (i === 1 && j === 1) break outer // 跳出外层循环
+  }
+}
+```
+
+### 90. 位运算符实用技巧
+
+```js
+// 位运算操作 32 位有符号整数，执行极快
+
+// 取整（舍弃小数）
+3.14 | 0 // 3
+~~3.14 // 3
+
+// 判断奇偶
+if (n & 1) {
+  /* 奇数 */
+} else {
+  /* 偶数 */
+}
+
+// 乘除 2 的幂（极快）
+n << 1 // n * 2
+n >> 1 // Math.floor(n / 2)
+n << 3 // n * 8
+
+// 交换两数（不用临时变量）
+a ^= b
+b ^= a
+a ^= b
+
+// 取反
+~indexOf // -1 → 0, 其他 → 非零。if (~str.indexOf("x")) = "如果包含"
+```
+
+---
+
+## 第三十四阶段：严格模式与 eval
+
+### 91. 严格模式 "use strict"
+
+```js
+"use strict"
+
+// 1. 禁止意外全局变量
+x = 1 // ❌ ReferenceError
+
+// 2. 禁止删除不可删除的属性
+delete Object.prototype // ❌ TypeError
+
+// 3. 函数参数不能重名
+// function fn(a, a) {} // ❌ SyntaxError
+
+// 4. this 不自动转全局
+function fn() {
+  console.log(this)
+}
+fn() // undefined（非严格 → window）
+
+// 5. 禁止八进制字面量
+// const n = 010 // ❌
+
+// 6. eval 不污染外层作用域
+eval("var x = 1")
+console.log(x) // ❌ ReferenceError
+```
+
+### 92. eval 的风险与替代
+
+```js
+// ❌ eval — 安全风险 + 性能差
+eval("console.log('dangerous code')")
+
+// ❌ new Function — 同样是动态代码
+const fn = new Function("a", "b", "return a + b")
+
+// ✅ 替代: JSON.parse（处理数据）、策略模式（处理逻辑）
+JSON.parse('{"name":"Alice"}') // 数据
+const strategies = { add: (a, b) => a + b, sub: (a, b) => a - b } // 逻辑
+```
+
+---
+
+## 第三十五阶段：内存与性能分析
+
+### 93. 内存测量
+
+```js
+// 浏览器
+console.log(performance.memory) // Chrome only: { usedJSHeapSize, totalJSHeapSize, jsHeapSizeLimit }
+
+// Node.js
+console.log(process.memoryUsage()) // { rss, heapTotal, heapUsed, external, arrayBuffers }
+```
+
+### 94. 性能测量
+
+```js
+// 精确计时
+const start = performance.now()
+heavyComputation()
+const end = performance.now()
+console.log(`耗时: ${(end - start).toFixed(2)}ms`)
+
+// Performance Mark & Measure
+performance.mark("start-work")
+doWork()
+performance.mark("end-work")
+performance.measure("work-duration", "start-work", "end-work")
+const measure = performance.getEntriesByName("work-duration")[0]
+console.log(`工作耗时: ${measure.duration}ms`)
+
+// 记录多次测量的统计
+performance.getEntriesByType("measure")
+
+// 清除
+performance.clearMarks()
+performance.clearMeasures()
+```
+
+---
+
+## 第三十六阶段：模块化深度
+
+### 95. ES Module 高级用法
+
+```js
+// 动态导入
+const module = await import("./heavy-module.js")
+module.default() // 默认导出
+module.namedFn() // 命名导出
+
+// import.meta
+console.log(import.meta.url) // 当前模块的 file:// 路径
+console.log(import.meta.resolve) // 解析模块路径
+
+// 重新导出
+export { default as User } from "./user.js" // 重新导出默认
+export * from "./utils.js"                  // 全部重新导出
+export * as utils from "./utils.js"         // 命名空间重新导出
+
+// 仅类型导入 (TypeScript)
+import type { User } from "./types.js"
+```
+
+### 96. 模块加载器的差异
+
+```js
+// ESM (.mjs / package.json "type": "module")
+import { add } from "./math.js"
+export const VERSION = "1.0"
+
+// CJS (.cjs / package.json "type": "commonjs")
+const { add } = require("./math.cjs")
+exports.VERSION = "1.0"
+module.exports = { add }
+
+// ESM 中兼容使用 CJS
+import pkg from "./legacy.cjs" // CJS 默认导出
+const { add } = pkg
+
+// CJS 中兼容使用 ESM（异步）
+const { add } = await import("./modern.mjs")
+```
+
+---
+
+## 第三十七阶段：高级技巧
+
+### 97. Async Iteration — 异步迭代
+
+```js
+// 异步可迭代对象
+const asyncRange = {
+  from: 1,
+  to: 3,
+  [Symbol.asyncIterator]() {
+    return {
+      current: this.from,
+      async next() {
+        await new Promise((r) => setTimeout(r, 1000))
+        return this.current <= this.to ? { done: false, value: this.current++ } : { done: true }
+      },
+    }
+  },
+}
+
+for await (const n of asyncRange) {
+  console.log(n)
+} // 每秒输出 1, 2, 3
+
+// 异步生成器
+async function* asyncGen() {
+  yield await fetch("/api/1").then((r) => r.json())
+  yield await fetch("/api/2").then((r) => r.json())
+}
+```
+
+### 98. 管道操作符 (Pipeline) — Stage 2 提案
+
+```js
+// 传统嵌套:
+const result = capitalize(trim(reverse(str)))
+
+// Pipeline（提案中，Babel 可用）:
+// const result = str |> reverse |> trim |> capitalize
+```
+
+### 99. Proxy 拦截更多操作
+
+```js
+const handler = {
+  has(target, key) {
+    return key in target
+  }, // 'key' in proxy
+  deleteProperty(target, key) {
+    return delete target[key]
+  },
+  ownKeys(target) {
+    return Reflect.ownKeys(target)
+  },
+  getPrototypeOf(target) {
+    return Object.getPrototypeOf(target)
+  },
+  setPrototypeOf(target, proto) {
+    return Object.setPrototypeOf(target, proto)
+  },
+  preventExtensions(target) {
+    return Object.preventExtensions(target)
+  },
+  isExtensible(target) {
+    return Object.isExtensible(target)
+  },
+  construct(target, args, newTarget) {
+    return new target(...args)
+  }, // new
+  apply(target, thisArg, args) {
+    return target.apply(thisArg, args)
+  }, // proxy()
+}
+```
+
+### 100. 监控对象所有操作
+
+```js
+function watch(obj, onChange) {
+  return new Proxy(obj, {
+    get(target, key, receiver) {
+      const value = Reflect.get(target, key, receiver)
+      onChange("get", key, value)
+      return typeof value === "object" && value !== null ? watch(value, onChange) : value
+    },
+    set(target, key, value, receiver) {
+      const old = target[key]
+      const result = Reflect.set(target, key, value, receiver)
+      if (old !== value) onChange("set", key, value, old)
+      return result
+    },
+    deleteProperty(target, key) {
+      onChange("delete", key)
+      return Reflect.deleteProperty(target, key)
+    },
+  })
+}
+```
+
+---
+
+## 补充速查表
+
+### 定时器对比
+
+| API                        | 精度                 | 适合         |
+| -------------------------- | -------------------- | ------------ |
+| `setTimeout(fn, 0)`        | ≥4ms（嵌套 ≥5 层后） | 延迟到下一轮 |
+| `setTimeout(fn, ms)`       | ≥4ms                 | 指定延迟     |
+| `requestAnimationFrame`    | ~16.7ms              | 动画         |
+| `requestIdleCallback`      | 空闲                 | 低优先级任务 |
+| `queueMicrotask`           | 最快                 | 下一个微任务 |
+| `Promise.resolve().then()` | 最快                 | 微任务       |
+
+### 位运算速查
+
+| 运算       | 说明         | 示例            |
+| ---------- | ------------ | --------------- |
+| `\| 0`     | 取整         | `3.14 \| 0 → 3` |
+| `& 1`      | 奇偶判断     | `5 & 1 → 1(奇)` |
+| `<< n`     | ×2^n         | `3 << 2 → 12`   |
+| `>> n`     | ÷2^n（取整） | `10 >> 1 → 5`   |
+| `^` (异或) | 不同=1       | `5 ^ 3 → 6`     |
+
+### console 格式化占位符
+
+| 占位符      | 说明                 |
+| ----------- | -------------------- |
+| `%s`        | 字符串               |
+| `%d` / `%i` | 整数                 |
+| `%f`        | 浮点数               |
+| `%o`        | 可展开的 DOM/对象    |
+| `%O`        | 可展开的 JS 对象     |
+| `%c`        | CSS 样式（后接文本） |
+
+---
+
+## 第三十八阶段：全局对象与执行上下文
+
+### 101. globalThis — 统一的全局对象
+
+```js
+// 不同环境获取全局对象的方式不同
+// 浏览器: window / self / frames
+// Node.js: global
+// Web Worker: self
+
+// ES2020: globalThis 统一所有环境
+console.log(globalThis) // 任意环境都能拿到全局对象
+
+// 全局变量在浏览器中成为 window 属性
+var x = 1
+console.log(window.x) // 1
+// let/const 不会
+let y = 2
+console.log(window.y) // undefined
+```
+
+### 102. Execution Context — 执行上下文
+
+```js
+// JS 引擎创建执行上下文的三个步骤:
+// 1. 创建阶段: 确定 this、创建词法环境（let/const）和变量环境（var）
+// 2. 执行阶段: 赋值、执行代码
+
+// 变量提升现象
+console.log(a) // undefined（var 提升）
+var a = 1
+
+// console.log(b) // ❌ ReferenceError（let 不初始化）
+let b = 2
+
+// 函数声明整体提升
+sayHi() // "Hi" — 声明+函数体都提升
+function sayHi() {
+  console.log("Hi")
+}
+```
+
+---
+
+## 第三十九阶段：常见陷阱与最佳实践
+
+### 103. 经典陷阱
+
+```js
+// 1. typeof null === "object" — 历史 bug
+typeof null // "object"（应该是 "null"）
+// 正确: value === null
+
+// 2. NaN !== NaN — 唯一不等于自身的值
+NaN === NaN // false
+// 正确: Number.isNaN(x)
+
+// 3. 数组的 typeof 返回 "object"
+typeof [] // "object"（无法区分数组）
+// 正确: Array.isArray([])
+
+// 4. 稀疏数组的坑
+const arr = [1, , , 4] // arr.length = 4，但只有 2 个元素
+arr.forEach((item) => console.log(item)) // 只输出 1 和 4（跳过空位）
+arr.map((x) => x) // [1, empty × 2, 4] — map 保持空位
+
+// 5. parseInt 的进制问题
+parseInt("08") // 旧版 ES3: 0（八进制）→ ES5+: 8
+parseInt("08", 10) // 始终传 radix！
+
+// 6. delete 不能删 var 声明的变量
+var x = 1
+delete x // false（x 还在）
+y = 2
+delete y[ // true
+  // 7. sort() 默认按字符串排序
+  (3, 1, 10, 2)
+]
+  .sort() // [1, 10, 2, 3] 不是 [1, 2, 3, 10]
+  [(3, 1, 10, 2)].sort((a, b) => a - b) // [1, 2, 3, 10] ✅
+```
+
+### 104. 最佳实践
+
+```js
+// 1. 始终使用 === 而非 ==
+// 2. 不要扩展原生原型（Array.prototype.myFn = ...）
+// 3. 用可选链替代多层 && 判断: user?.address?.city
+// 4. 用空值合并区分 null/undefined 和 falsy: value ?? default
+// 5. for...of 遍历数组，for...in 遍历对象
+// 6. 用 const 默认，需要改时用 let，永远不用 var
+// 7. 函数参数超过 3 个用对象解构: function fn({ name, age, email })
+// 8. 异步操作用 try/catch 包裹
+// 9. DOM 操作用 DocumentFragment 批量处理
+// 10. 避免在循环中创建函数
+```
+
+---
+
+## 第四十阶段：附录 — JS 语言全貌速查
+
+### 105. 运算符优先级速查表
+
+```
+优先级（从高到低）:
+1.  ()                    (分组)
+2.  . [] new ?.           (成员访问/计算属性/可选链)
+3.  ()                    (函数调用)
+4.  ++ --                 (后置)
+5.  ! ~ + - ++ -- typeof void delete  (一元)
+6.  **                    (指数)
+7.  * / %                 (乘除)
+8.  + -                   (加减)
+9.  << >> >>>             (位移)
+10. < <= > >= instanceof in
+11. == != === !==
+12. &                     (按位与)
+13. ^                     (按位异或)
+14. |                     (按位或)
+15. &&                    (逻辑与)
+16. || ??                 (逻辑或/空值合并)
+17. ? :                   (三元)
+18. = += -= ...           (赋值)
+19. ,                     (逗号)
+```
+
+### 106. truthy / falsy 完整列表
+
+```js
+// Falsy (仅 8 个):
+;(false, 0, -0, 0n, "", null, undefined, NaN)
+
+// 以下为 truthy（常被误判）:
+Boolean("false") // true — 非空字符串
+Boolean("0") // true
+Boolean([]) // true — 空数组
+Boolean({}) // true — 空对象
+Boolean(new Boolean(false)) // true — 包装对象
+Boolean(Infinity) // true
+Boolean(-Infinity) // true
+Boolean(" ") // true — 含空格
+```
+
+### 107. 常用简写
+
+```js
+// 变量交换
+;[a, b] = [b, a]
+
+// 默认值
+const name = input || "默认" // falsy 回退
+const name = input ?? "默认" // 仅 null/undefined 回退
+
+// 短路赋值
+x &&= fn() // x 为 truthy 才执行 fn()
+x ||= "默认" // x 为 falsy 才赋值
+
+// 条件判断简写
+if (arr.length) {
+} // arr 非空
+if (!arr.length) {
+} // arr 为空
+if (str) {
+} // str 非空字符串
+if (obj != null) {
+} // obj 非 null 且非 undefined
+
+// 链式取值
+const city = user?.address?.city ?? "未知"
+```
+
+---
+
+## 全文总结
+
+本文档覆盖 JavaScript 从零到高级的完整学习路径，共 **40 阶段、107 个核心知识点**：
+
+| 阶段  | 核心内容                                                                                                                                                                                  |
+| ----- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1-4   | 变量/类型/运算符/条件循环（语法基础）                                                                                                                                                     |
+| 5-7   | 函数/作用域/闭包/this（核心概念）                                                                                                                                                         |
+| 8-10  | 对象/原型/继承（OO 机制）                                                                                                                                                                 |
+| 11-12 | Array/String 方法体系                                                                                                                                                                     |
+| 13-15 | Promise/async-await/事件循环                                                                                                                                                              |
+| 16-18 | DOM/事件/存储（浏览器能力）                                                                                                                                                               |
+| 19-23 | ES6+ 特性/Generator/Proxy                                                                                                                                                                 |
+| 24-27 | call-apply-bind/深拷贝/防抖节流/Promise 实现                                                                                                                                              |
+| 28-29 | 正则/模块化                                                                                                                                                                               |
+| 30-32 | 网络请求/SSE/WebSocket/调试                                                                                                                                                               |
+| 33-40 | 算法/设计模式/Number/WebAPI/异步高级/Intl/迭代器/Symbol/错误处理/Object 深度/二进制/JSON/Reflect/Proxy 进阶/Worker/Web Components/Console/运算符/严格模式/性能/ES Modules/定时器/最佳实践 |
+
+---
+
+## 实战附录：常见面试手写题汇总
+
+### 实现 new
+
+```js
+function myNew(Constructor, ...args) {
+  const obj = Object.create(Constructor.prototype) // 以构造函数原型创建对象
+  const result = Constructor.apply(obj, args)
+  return result instanceof Object ? result : obj
+}
+```
+
+### 实现 instanceof
+
+```js
+function myInstanceOf(obj, Constructor) {
+  let proto = Object.getPrototypeOf(obj)
+  while (proto) {
+    if (proto === Constructor.prototype) return true
+    proto = Object.getPrototypeOf(proto)
+  }
+  return false
+}
+```
+
+### 实现 Object.create
+
+```js
+function myCreate(proto) {
+  function F() {}
+  F.prototype = proto
+  return new F()
+}
+```
+
+### 实现数组扁平化（多方案）
+
+```js
+// 方案 1: reduce 递归
+function flatten(arr) {
+  return arr.reduce((acc, cur) => acc.concat(Array.isArray(cur) ? flatten(cur) : cur), [])
+}
+
+// 方案 2: flat
+arr.flat(Infinity)
+
+// 方案 3: toString + split（仅全数字）
+arr.toString().split(",").map(Number)
+```
+
+### 实现数组去重（多方案）
+
+```js
+// Set（最简洁）
+const unique = [...new Set(arr)]
+
+// filter + indexOf
+arr.filter((v, i) => arr.indexOf(v) === i)
+
+// reduce
+arr.reduce((acc, cur) => (acc.includes(cur) ? acc : [...acc, cur]), [])
+```
+
+### 实现函数柯里化
+
+```js
+function curry(fn) {
+  return function curried(...args) {
+    return args.length >= fn.length ? fn.apply(this, args) : (...next) => curried(...args, ...next)
+  }
+}
+```
+
+### 实现并发控制
+
+```js
+async function parallelLimit(tasks, limit) {
+  const results = []
+  const executing = new Set()
+  for (const task of tasks) {
+    const p = Promise.resolve(task()).then((r) => {
+      results.push(r)
+      executing.delete(p)
+    })
+    executing.add(p)
+    if (executing.size >= limit) await Promise.race(executing)
+  }
+  await Promise.all(executing)
+  return results
+}
+```
+
+### 实现 LazyMan
+
+```js
+class LazyMan {
+  constructor(name) {
+    this.tasks = []
+    const task = () => {
+      console.log(`Hi, ${name}`)
+      this.next()
+    }
+    this.tasks.push(task)
+    setTimeout(() => this.next(), 0)
+  }
+  next() {
+    const task = this.tasks.shift()
+    task?.()
+  }
+  sleep(seconds) {
+    this.tasks.push(() => {
+      setTimeout(() => {
+        console.log(`Wake up after ${seconds}s`)
+        this.next()
+      }, seconds * 1000)
+    })
+    return this
+  }
+  eat(food) {
+    this.tasks.push(() => {
+      console.log(`Eat ${food}`)
+      this.next()
+    })
+    return this
+  }
+}
+// new LazyMan("Alice").sleep(2).eat("lunch") // Hi, Alice → 等2s → Wake up after 2s → Eat lunch
+```

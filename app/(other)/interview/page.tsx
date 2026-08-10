@@ -2,6 +2,13 @@ import NavPage, { CardGroup } from "@/components/nav-page"
 
 const HOME_FROUPS: CardGroup[] = [
   {
+    title: "CSS",
+    icon: "palette",
+    url: "/css",
+    children: [{ title: "CSS", icon: "palette", url: "", desc: "页面样式语言" }],
+  },
+
+  {
     title: "DB",
     icon: "database",
     url: "/db",
@@ -27,6 +34,20 @@ const HOME_FROUPS: CardGroup[] = [
   },
 
   {
+    title: "HTML",
+    icon: "file-code-2",
+    url: "/html",
+    children: [{ title: "HTML", icon: "file-code-2", url: "", desc: "页面结构语言" }],
+  },
+
+  {
+    title: "JS",
+    icon: "braces",
+    url: "/js",
+    children: [{ title: "JavaScript", icon: "braces", url: "", desc: "前端脚本语言" }],
+  },
+
+  {
     title: "Node",
     icon: "server",
     url: "/node",
@@ -49,6 +70,13 @@ const HOME_FROUPS: CardGroup[] = [
       { title: "React Router", icon: "route", url: "/react-router", desc: "React 声明式路由库" },
       { title: "Taro", icon: "smartphone", url: "/taro", desc: "多端统一开发框架" },
     ],
+  },
+
+  {
+    title: "TS",
+    icon: "code-2",
+    url: "/ts",
+    children: [{ title: "TypeScript", icon: "code-2", url: "", desc: "类型化 JavaScript 超集" }],
   },
 
   {

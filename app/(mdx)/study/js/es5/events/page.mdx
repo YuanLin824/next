@@ -1,0 +1,425 @@
+# JavaScript 事件
+
+---
+
+## 事件流 (Event Flow)
+
+DOM 事件流分为三个阶段：
+
+```
+Window → Document → html → body → ... → 目标元素 (Target) → ... → body → html → Document → Window
+|_______________ 捕获阶段 _______________|___ 目标阶段 ___|_______________ 冒泡阶段 _______________|
+```
+
+| 阶段                   | 方向     | 说明                                     |
+| ---------------------- | -------- | ---------------------------------------- |
+| **捕获阶段** (Capture) | 由外向内 | 事件从 `Window` 向下传递到目标元素的父级 |
+| **目标阶段** (Target)  | —        | 事件到达目标元素本身                     |
+| **冒泡阶段** (Bubble)  | 由内向外 | 事件从目标元素向上冒泡到 `Window`        |
+
+```js
+// 验证三个阶段
+element.addEventListener("click", () => console.log("冒泡"), false) // 第三个参数 false 或不传
+element.addEventListener("click", () => console.log("捕获"), true) // 第三个参数 true
+
+// 简写：直接传入 options 对象
+element.addEventListener("click", handler, { capture: true, once: true, passive: true })
+```
+
+> **注意**：不是所有事件都会冒泡。`focus` / `blur` / `load` / `unload` / `mouseenter` / `mouseleave` 等不会冒泡。
+
+---
+
+## 事件模型
+
+### DOM0 级事件（原始事件模型）
+
+```html
+<!-- 方式一：HTML 内联 -->
+<button onclick="handleClick()">按钮</button>
+
+<!-- 方式二：JS 属性赋值 -->
+<script>
+  let btn = document.getElementById("btn")
+  btn.onclick = function (e) {
+    console.log("clicked")
+  }
+  // 移除
+  btn.onclick = null
+</script>
+```
+
+| 特点         | 说明                              |
+| ------------ | --------------------------------- |
+| 绑定方式     | 属性赋值 `el.onclick = fn`        |
+| 事件流       | 只支持**冒泡阶段**，不支持捕获    |
+| 同类型多事件 | ❌ 只能绑定一个，后绑定的覆盖前者 |
+| 移除方式     | `el.onclick = null`               |
+| 跨浏览器     | 兼容性最好                        |
+
+### DOM2 级事件（标准事件模型）
+
+```txt
+语法: target.addEventListener(type, listener, options)
+      target.removeEventListener(type, listener, options)
+```
+
+```js
+let handler = (e) => console.log("clicked", e)
+
+// 绑定
+element.addEventListener("click", handler)
+
+// 移除（注意：必须传入同一个函数引用）
+element.removeEventListener("click", handler)
+```
+
+**第三个参数 `options`（`useCapture` 或 options 对象）**：
+
+| 参数/选项    | 类型          | 说明                                                   |
+| ------------ | ------------- | ------------------------------------------------------ |
+| `useCapture` | `boolean`     | `true` = 捕获阶段调用，`false` = 冒泡阶段（默认）      |
+| `capture`    | `boolean`     | 同 `useCapture`（对象形式）                            |
+| `once`       | `boolean`     | `true` = 触发一次后自动移除                            |
+| `passive`    | `boolean`     | `true` = 永不调用 `preventDefault()`，用于提升滚动性能 |
+| `signal`     | `AbortSignal` | 传入 `AbortController.signal`，调用 `abort()` 移除监听 |
+
+```js
+// once: 触发一次自动移除
+element.addEventListener("click", handler, { once: true })
+
+// passive: 提升滚动性能（touchstart / scroll 等事件推荐开启）
+element.addEventListener("touchstart", handler, { passive: true })
+
+// signal: 通过 AbortController 一次性移除
+let controller = new AbortController()
+element.addEventListener("click", handler, { signal: controller.signal })
+element.addEventListener("mouseenter", onEnter, { signal: controller.signal })
+// 一次性移除所有绑定的监听
+controller.abort()
+```
+
+### IE 事件模型（已废弃）
+
+```js
+// IE 6-8 特有，没有捕获阶段，事件名需加 "on" 前缀
+el.attachEvent("onclick", handler)
+el.detachEvent("onclick", handler)
+```
+
+---
+
+## 事件对象 (Event)
+
+事件处理函数的第一个参数，包含事件相关的所有信息。
+
+### 常用属性
+
+| 属性               | 说明                                         |
+| ------------------ | -------------------------------------------- |
+| `type`             | 事件类型（`"click"`, `"keydown"` 等）        |
+| `target`           | 触发事件的**目标元素**（事件实际发生的元素） |
+| `currentTarget`    | 当前绑定事件监听器的元素（`this` 指向它）    |
+| `eventPhase`       | 当前阶段：`1`=捕获, `2`=目标, `3`=冒泡       |
+| `bubbles`          | 事件是否冒泡                                 |
+| `cancelable`       | 是否可取消默认行为                           |
+| `defaultPrevented` | 是否已调用 `preventDefault()`                |
+| `timeStamp`        | 事件发生时间戳                               |
+| `isTrusted`        | `true` = 用户触发，`false` = 脚本触发        |
+
+```js
+element.addEventListener("click", function (e) {
+  console.log(e.target) // 实际点击的元素
+  console.log(e.currentTarget) // 绑定事件的元素（此处即 element）
+  console.log(this) // currentTarget（非箭头函数时）
+})
+```
+
+### 常用方法
+
+| 方法                           | 说明                                                              |
+| ------------------------------ | ----------------------------------------------------------------- |
+| `e.preventDefault()`           | 阻止默认行为（如链接跳转、表单提交）                              |
+| `e.stopPropagation()`          | 阻止事件继续传播（冒泡/捕获），但**当前元素上其他监听器仍会执行** |
+| `e.stopImmediatePropagation()` | 阻止传播 + 阻止**当前元素上其余监听器**执行                       |
+| `e.composedPath()`             | 返回事件传播路径上的所有节点数组                                  |
+
+```js
+// stopPropagation vs stopImmediatePropagation
+element.addEventListener("click", handler1)
+element.addEventListener("click", handler2)
+element.addEventListener("click", (e) => {
+  e.stopPropagation() // handler1, handler2 都会被调用，但父元素收不到
+  e.stopImmediatePropagation() // 只执行到这里，handler2 不会被调用
+})
+```
+
+### 鼠标/键盘事件扩展属性
+
+```js
+// 鼠标事件 (MouseEvent)
+e.clientX / e.clientY // 相对视口
+e.pageX / e.pageY // 相对文档（含滚动）
+e.screenX / e.screenY // 相对屏幕
+e.offsetX / e.offsetY // 相对目标元素
+e.button // 0=左键, 1=中键, 2=右键
+e.altKey / e.ctrlKey / e.shiftKey / e.metaKey // 修饰键
+
+// 键盘事件 (KeyboardEvent)
+e.key // 按键值 ("Enter", "a", "ArrowUp")
+e.code // 物理键位 ("KeyA", "Digit1")
+e.keyCode // 已废弃，不推荐
+e.repeat // 是否长按重复触发
+```
+
+---
+
+## 事件传播控制
+
+```js
+// 阻止默认行为
+link.addEventListener("click", (e) => {
+  e.preventDefault() // 阻止链接跳转
+})
+
+// 阻止冒泡
+child.addEventListener("click", (e) => {
+  e.stopPropagation() // 父元素收不到该事件
+})
+
+// 阻止传播 + 阻止同元素其余监听器
+child.addEventListener("click", (e) => {
+  e.stopImmediatePropagation()
+})
+
+// passive 与 preventDefault 互斥
+element.addEventListener("touchstart", handler, { passive: true })
+// handler 内调用 e.preventDefault() 无效且控制台警告
+```
+
+---
+
+## 事件代理/委托 (Event Delegation)
+
+> **事件委托**：利用事件冒泡，把子元素的同一类事件监听绑定到**父元素**上，通过父元素统一处理。
+
+### 原理
+
+```js
+// ❌ 为每个子元素绑定（性能差，动态元素需要重复绑定）
+document.querySelectorAll("li").forEach((li) => {
+  li.addEventListener("click", handler)
+})
+
+// ✅ 事件委托：只绑父元素一次
+let ul = document.querySelector("ul")
+ul.addEventListener("click", (e) => {
+  // 判断点击的是否为目标子元素
+  if (e.target.matches("li")) {
+    console.log("点击了:", e.target.textContent)
+  }
+})
+```
+
+### 通用委托封装
+
+```js
+function delegate(parent, eventType, selector, handler) {
+  parent.addEventListener(eventType, (e) => {
+    // closest 查找匹配的最近祖先（含自身）
+    let target = e.target.closest(selector)
+    if (target && parent.contains(target)) {
+      handler.call(target, e, target)
+    }
+  })
+}
+
+// 使用
+delegate(document.querySelector("ul"), "click", "li", (e, el) => {
+  console.log("点击了:", el.textContent)
+})
+
+// 动态添加的元素也自动生效
+let ul = document.querySelector("ul")
+ul.innerHTML += `<li>新加的项</li>` // 这条也能响应点击
+```
+
+### 优点
+
+| 优点         | 说明                                               |
+| ------------ | -------------------------------------------------- |
+| **减少内存** | 从 N 个监听器减少为 1 个，大量元素时效果明显       |
+| **动态绑定** | 后续添加的子元素自动拥有相同事件行为，无需手动绑定 |
+| **简化管理** | 统一在父元素管理，更易维护                         |
+
+### 局限性
+
+| 局限                             | 说明                                                          |
+| -------------------------------- | ------------------------------------------------------------- |
+| **不冒泡的事件**                 | `focus` / `blur` 不冒泡（可用 `focusin` / `focusout` 替代）   |
+| **高频事件**                     | `mousemove` / `mouseout` 频繁触发，需不断计算位置，不适合委托 |
+| **部分场景需 `stopPropagation`** | 子元素可能阻止冒泡导致委托失效                                |
+| **`e.target` 判断**              | 需精确判断点击的是否为目标元素（`matches` / `closest`）       |
+
+---
+
+## 自定义事件
+
+### Event 构造函数
+
+```txt
+语法: new Event(type, options)
+参数:
+  type    — 事件名称（字符串）
+  options — { bubbles: false, cancelable: false, composed: false }
+```
+
+```js
+// 创建
+let event = new Event("myEvent", { bubbles: true, cancelable: true })
+
+// 监听
+element.addEventListener("myEvent", (e) => console.log("触发啦", e))
+
+// 触发
+element.dispatchEvent(event)
+```
+
+### CustomEvent — 带数据的自定义事件
+
+```txt
+语法: new CustomEvent(type, options)
+options 多了 detail 字段，用于传递自定义数据。
+```
+
+```js
+// 创建（携带数据）
+let event = new CustomEvent("userLogin", {
+  bubbles: true,
+  detail: { userId: 123, name: "Alice", timestamp: Date.now() },
+})
+
+// 监听
+document.addEventListener("userLogin", (e) => {
+  console.log(e.detail.userId) // 123
+  console.log(e.detail.name) // "Alice"
+})
+
+// 触发
+document.dispatchEvent(event)
+```
+
+---
+
+## 常用事件分类
+
+### 鼠标事件
+
+| 事件          | 说明                                   |
+| ------------- | -------------------------------------- |
+| `click`       | 单击（`mousedown` + `mouseup` 后触发） |
+| `dblclick`    | 双击                                   |
+| `mousedown`   | 按下鼠标键                             |
+| `mouseup`     | 松开鼠标键                             |
+| `mousemove`   | 鼠标移动                               |
+| `mouseenter`  | 鼠标进入元素（不冒泡）                 |
+| `mouseleave`  | 鼠标离开元素（不冒泡）                 |
+| `mouseover`   | 鼠标进入元素（冒泡）                   |
+| `mouseout`    | 鼠标离开元素（冒泡）                   |
+| `contextmenu` | 右键菜单                               |
+
+> `mouseenter`/`mouseleave` 不冒泡，进入/离开子元素不会重复触发；`mouseover`/`mouseout` 会冒泡且进入子元素会触发。
+
+### 键盘事件
+
+| 事件       | 说明                         |
+| ---------- | ---------------------------- |
+| `keydown`  | 按下键盘（按住重复触发）     |
+| `keyup`    | 松开键盘                     |
+| `keypress` | 按下字符键（已废弃，不推荐） |
+
+### 表单事件
+
+| 事件       | 说明                                                       |
+| ---------- | ---------------------------------------------------------- |
+| `input`    | 输入框值变化时触发（实时）                                 |
+| `change`   | 值改变且**失去焦点**时触发（`<select>`/checkbox 立即触发） |
+| `submit`   | 表单提交                                                   |
+| `reset`    | 表单重置                                                   |
+| `focus`    | 获得焦点（不冒泡）                                         |
+| `blur`     | 失去焦点（不冒泡）                                         |
+| `focusin`  | 获得焦点（冒泡，会冒泡版本）                               |
+| `focusout` | 失去焦点（冒泡）                                           |
+
+### 文档/窗口事件
+
+| 事件               | 说明                                |
+| ------------------ | ----------------------------------- |
+| `DOMContentLoaded` | DOM 树构建完成（不等图片/CSS 加载） |
+| `load`             | 页面所有资源加载完成                |
+| `beforeunload`     | 页面即将卸载（可用于确认离开提示）  |
+| `unload`           | 页面已卸载                          |
+| `scroll`           | 滚动（高频，推荐 `passive` + 节流） |
+| `resize`           | 窗口尺寸变化（高频，推荐防抖）      |
+| `visibilitychange` | 页面可见性变化（切标签页时）        |
+
+### 触摸事件 (Touch Events)
+
+| 事件          | 说明             |
+| ------------- | ---------------- |
+| `touchstart`  | 手指触摸屏幕     |
+| `touchmove`   | 手指在屏幕上滑动 |
+| `touchend`    | 手指离开屏幕     |
+| `touchcancel` | 触摸被中断       |
+
+### 拖拽事件 (Drag & Drop)
+
+| 事件        | 说明               |
+| ----------- | ------------------ |
+| `dragstart` | 开始拖拽           |
+| `drag`      | 拖拽中             |
+| `dragend`   | 拖拽结束           |
+| `dragenter` | 拖入目标元素       |
+| `dragover`  | 在目标元素上方移动 |
+| `dragleave` | 拖出目标元素       |
+| `drop`      | 在目标元素上释放   |
+
+---
+
+## 汇总速查表
+
+### 事件绑定
+
+| 方法                  | 参数                      | 说明                       |
+| --------------------- | ------------------------- | -------------------------- |
+| `addEventListener`    | `type, listener, options` | 绑定事件                   |
+| `removeEventListener` | `type, listener, options` | 移除事件（需同一函数引用） |
+| `dispatchEvent`       | `event`                   | 手动触发事件               |
+| `el.onclick = fn`     | —                         | DOM0 绑定                  |
+| `el.onclick = null`   | —                         | DOM0 移除                  |
+
+### Event 对象
+
+| 属性/方法                      | 说明                                 |
+| ------------------------------ | ------------------------------------ |
+| `e.target`                     | 事件触发的目标元素                   |
+| `e.currentTarget`              | 监听器绑定的元素（`this`）           |
+| `e.type`                       | 事件类型                             |
+| `e.eventPhase`                 | 阶段：1=捕获, 2=目标, 3=冒泡         |
+| `e.preventDefault()`           | 阻止默认行为                         |
+| `e.stopPropagation()`          | 阻止传播（当前元素其余监听器仍执行） |
+| `e.stopImmediatePropagation()` | 阻止传播 + 阻止当前元素其余监听器    |
+| `e.composedPath()`             | 事件传播路径节点数组                 |
+
+### addEventListener options
+
+| 选项      | 类型          | 说明                            |
+| --------- | ------------- | ------------------------------- |
+| `capture` | `boolean`     | 在捕获阶段触发                  |
+| `once`    | `boolean`     | 触发一次后自动移除              |
+| `passive` | `boolean`     | 不调用 `preventDefault()`       |
+| `signal`  | `AbortSignal` | 通过 `AbortController` 统一移除 |
+
+### 不冒泡的事件
+
+`focus` / `blur` / `mouseenter` / `mouseleave` / `load` / `unload` / `scroll` → 无法使用事件委托

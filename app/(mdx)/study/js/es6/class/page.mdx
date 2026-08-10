@@ -1,0 +1,532 @@
+# Class (类)
+
+> ES2015 引入的 `class` 语法本质是**原型链机制的语法糖**，底层仍然是构造函数和原型。但提供了更清晰、更符合面向对象编程习惯的写法。
+
+---
+
+## 基本语法
+
+### 类声明
+
+```js
+class Person {
+  // 构造函数
+  constructor(name, age) {
+    this.name = name
+    this.age = age
+  }
+
+  // 实例方法 → Person.prototype.sayHi
+  sayHi() {
+    console.log(`Hi, I'm ${this.name}`)
+  }
+
+  // getter
+  get info() {
+    return `${this.name}, ${this.age}岁`
+  }
+
+  // setter
+  set rename(newName) {
+    this.name = newName
+  }
+
+  // 静态方法 → Person.staticMethod
+  static isHuman() {
+    return true
+  }
+
+  // 静态属性 (ES2022)
+  static species = "Homo sapiens"
+}
+
+let p = new Person("Alice", 18)
+p.sayHi() // "Hi, I'm Alice"
+console.log(p.info) // "Alice, 18岁"
+p.rename = "Bob"
+console.log(p.info) // "Bob, 18岁"
+Person.isHuman() // true
+Person.species // "Homo sapiens"
+```
+
+### 类表达式
+
+```js
+// 匿名类表达式
+let Person = class {
+  constructor(name) {
+    this.name = name
+  }
+}
+
+// 具名类表达式（类名仅在类内部可见）
+let Person = class InternalName {
+  constructor() {
+    console.log(InternalName.name) // "InternalName"
+  }
+}
+console.log(Person.name) // "InternalName"
+```
+
+### Class 的本质
+
+以下两段代码**基本等价**：
+
+```js
+// ES6 class
+class Person {
+  constructor(name) {
+    this.name = name
+  }
+  sayHi() {
+    console.log("Hi")
+  }
+}
+
+// 等价 ES5
+function Person(name) {
+  this.name = name
+}
+Person.prototype.sayHi = function () {
+  console.log("Hi")
+}
+```
+
+**但也不完全等价**：class 有 `[[IsClassConstructor]]` 内部属性，不能被 `new` 以外的调用（`Person()` 会抛 TypeError），且 class 内部自动启用严格模式。
+
+---
+
+## constructor
+
+```txt
+语法: constructor(param1, ..., paramN) { ... }
+```
+
+- 通过 `new` 创建实例时自动调用
+- 一个类只能有一个 `constructor`（多个会报语法错误）
+- 可以省略（等同于 `constructor() {}`）
+- 默认返回 `this`，也可显式返回其他对象
+
+```js
+class Foo {
+  constructor() {
+    return { custom: "object" } // 覆盖默认的 this 返回
+  }
+}
+new Foo() instanceof Foo // false
+```
+
+---
+
+## 实例属性与方法
+
+### 实例属性
+
+```js
+class Person {
+  // 方式 1: 在 constructor 中定义
+  constructor(name) {
+    this.name = name
+  }
+
+  // 方式 2: 类字段声明 (ES2022)
+  age = 0 // 每个实例独立拥有
+  hobbies = []
+}
+```
+
+### 实例方法
+
+定义在 `class` 内的**非 static 方法**会被添加到 `.prototype` 上，所有实例共享同一个函数引用。
+
+```js
+class Counter {
+  count = 0
+
+  increment() {
+    this.count++
+  }
+}
+
+let c1 = new Counter()
+let c2 = new Counter()
+console.log(c1.increment === c2.increment) // true (共享同一方法)
+```
+
+---
+
+## 静态属性与方法 (static)
+
+静态成员直接属于类本身，**无法通过实例访问**。
+
+```js
+class MathUtils {
+  static PI = 3.14159 // 静态属性 (ES2022)
+
+  // 静态方法
+  static add(a, b) {
+    return a + b
+  }
+
+  // 静态块 (ES2022)，类加载时执行一次，用于复杂初始化
+  static {
+    console.log("类初始化")
+    this.version = "1.0.0"
+  }
+}
+
+MathUtils.add(1, 2) // 3
+MathUtils.PI // 3.14159
+
+let utils = new MathUtils()
+utils.add // undefined (实例无法访问)
+```
+
+### 子类继承静态成员
+
+```js
+class Parent {
+  static greeting() {
+    return "Hello"
+  }
+}
+
+class Child extends Parent {}
+
+Child.greeting() // "Hello" (静态方法被继承)
+```
+
+---
+
+## getter / setter
+
+```js
+class User {
+  constructor(firstName, lastName) {
+    this._firstName = firstName
+    this._lastName = lastName
+  }
+
+  // getter — 访问时触发
+  get fullName() {
+    return `${this._lastName} ${this._firstName}`
+  }
+
+  // setter — 赋值时触发
+  set fullName(value) {
+    ;[this._lastName, this._firstName] = value.split(" ")
+  }
+
+  // getter/setter 也可用 static 修饰
+  static get version() {
+    return "1.0"
+  }
+}
+
+let user = new User("San", "Zhang")
+console.log(user.fullName) // "Zhang San" (getter)
+user.fullName = "Li Si" // setter
+console.log(user.fullName) // "Li Si"
+```
+
+---
+
+## 私有字段 (Private Fields)
+
+> ES2022 正式引入，使用 `#` 前缀。**真正的私有**，外部完全无法访问。
+
+```js
+class BankAccount {
+  #balance = 0 // 私有实例字段
+  static #count = 0 // 私有静态字段
+
+  constructor(initialBalance) {
+    this.#balance = initialBalance
+    BankAccount.#count++
+  }
+
+  // 私有方法
+  #validate(amount) {
+    return amount > 0 && amount <= this.#balance
+  }
+
+  deposit(amount) {
+    if (this.#validate(amount)) {
+      this.#balance += amount
+      return true
+    }
+    return false
+  }
+
+  get balance() {
+    return this.#balance
+  }
+
+  static get accountCount() {
+    return BankAccount.#count
+  }
+}
+
+let acc = new BankAccount(100)
+console.log(acc.balance) // 100 (通过 getter)
+// acc.#balance        // SyntaxError (外部不可访问)
+// acc.#validate(50)   // SyntaxError
+```
+
+### 私有字段注意事项
+
+| 特点                       | 说明                                        |
+| -------------------------- | ------------------------------------------- |
+| `#` 是名称的一部分         | `#name` 和 `name` 是两个不同的字段          |
+| 必须在类顶部声明           | 不能在 constructor 中动态创建 `this.#field` |
+| 不能通过 `this[name]` 访问 | `this['#name']` 无效（不是字符串属性）      |
+| 不能被继承                 | 子类无法直接访问父类私有字段                |
+| 不能用 `delete` 删除       | `delete this.#field` 是语法错误             |
+
+---
+
+## extends 继承
+
+```js
+class Animal {
+  constructor(name) {
+    this.name = name
+  }
+  speak() {
+    console.log(`${this.name} makes a sound`)
+  }
+}
+
+class Dog extends Animal {
+  constructor(name, breed) {
+    super(name) // 必须先调用 super()，再使用 this
+    this.breed = breed
+  }
+
+  // 方法覆写
+  speak() {
+    super.speak() // 调用父类方法
+    console.log(`${this.name} barks`)
+  }
+}
+
+let dog = new Dog("Buddy", "Golden")
+dog.speak()
+// "Buddy makes a sound"
+// "Buddy barks"
+```
+
+### 继承规则
+
+```js
+// 原型链关系
+class Parent {}
+class Child extends Parent {}
+
+Child.__proto__ === Parent // true (静态属性继承)
+Child.prototype.__proto__ === Parent.prototype // true (实例方法继承)
+
+// 普通构造函数:
+function Fn() {}
+Fn.__proto__ === Function.prototype // true
+// 而 class:
+Child.__proto__ === Parent // true (比 ES5 多了这一条)
+```
+
+### extends 也可以继承内置类型
+
+```js
+class MyArray extends Array {
+  first() {
+    return this[0]
+  }
+  last() {
+    return this[this.length - 1]
+  }
+}
+
+let arr = new MyArray(1, 2, 3)
+arr.first() // 1
+arr instanceof Array // true
+arr instanceof MyArray // true
+```
+
+### extends 甚至可以继承普通函数
+
+```js
+function Legacy(name) {
+  this.name = name
+}
+Legacy.prototype.sayHi = function () {
+  return "Hi"
+}
+
+class Modern extends Legacy {} // 合法
+new Modern("Alice").sayHi() // "Hi"
+```
+
+---
+
+## super 关键字
+
+| 用法             | 位置             | 含义             |
+| ---------------- | ---------------- | ---------------- |
+| `super(args)`    | constructor 中   | 调用父类构造函数 |
+| `super.method()` | 任何方法中       | 调用父类同名方法 |
+| `super.prop`     | getter/setter 中 | 访问父类属性     |
+
+```js
+class Parent {
+  constructor(name) {
+    this.name = name
+  }
+  greet() {
+    return `Hello, ${this.name}`
+  }
+  static identify() {
+    return "Parent"
+  }
+}
+
+class Child extends Parent {
+  constructor(name, age) {
+    super(name) // 调用 Parent constructor
+    this.age = age
+  }
+
+  greet() {
+    return super.greet() + `, age ${this.age}` // 调用 Parent#greet
+  }
+
+  static identify() {
+    return super.identify() + " → Child" // 调用 Parent.identify
+  }
+}
+```
+
+> **关键规则**：子类 constructor 中 `this` 必须在 `super()` 调用之后才能使用。
+
+---
+
+## new.target
+
+在构造函数中，`new.target` 指向被 `new` 调用的构造函数本身。可用于实现**抽象类**。
+
+```js
+class Shape {
+  constructor() {
+    if (new.target === Shape) {
+      throw new Error("Shape 是抽象类，不能直接实例化")
+    }
+  }
+}
+
+class Circle extends Shape {
+  constructor(radius) {
+    super()
+    this.radius = radius
+  }
+}
+
+// new Shape()     // Error: Shape 是抽象类
+new Circle(5) // 正常
+```
+
+---
+
+## 注意事项
+
+### 1. 不会提升
+
+```js
+let p = new Person() // ReferenceError: Cannot access 'Person' before initialization
+class Person {}
+```
+
+函数声明会提升，class 声明**不会提升**（存在 TDZ）。
+
+### 2. 自动严格模式
+
+class 内部所有代码自动以 `"use strict"` 模式运行。
+
+### 3. 方法不可枚举
+
+```js
+class Foo {
+  method() {}
+}
+Object.keys(Foo.prototype) // [] (method 不可枚举)
+// 对比 ES5:
+// Foo.prototype.method = function(){}  // 可枚举
+```
+
+### 4. 不能非 new 调用
+
+```js
+class Foo {}
+Foo() // TypeError: Class constructor Foo cannot be invoked without 'new'
+```
+
+### 5. 方法之间不能用逗号
+
+```js
+class Foo {
+  method1() {}
+  method2() {} // ✅ 无逗号
+}
+```
+
+### 6. 计算属性名
+
+```js
+let methodName = "sayHi"
+
+class Person {
+  [methodName]() {
+    console.log("Hi")
+  }
+
+  static [Symbol.for("version")] = "1.0"
+}
+
+new Person().sayHi()
+```
+
+---
+
+## Class vs ES5 构造函数对比
+
+| 维度               | ES5 构造函数                     | ES6 Class        |
+| ------------------ | -------------------------------- | ---------------- |
+| 语法               | `function F(){}` + `F.prototype` | `class F {}`     |
+| 提升               | 函数声明会提升                   | ❌ 不提升（TDZ） |
+| 严格模式           | 需手动声明                       | ✅ 自动          |
+| 方法可枚举         | ✅ 默认可枚举                    | ❌ 不可枚举      |
+| `new` 调用         | 可省略 `new`（非严格）           | ❌ 必须 `new`    |
+| `call`/`apply`     | ✅                               | ❌ 不可用        |
+| 原型链 `__proto__` | 只到 `Function.prototype`        | 到父类           |
+| 静态属性继承       | ❌                               | ✅               |
+| 私有字段           | ❌ (约定 `_` 前缀)               | ✅ `#` (ES2022)  |
+
+---
+
+## 汇总速查表
+
+### 语法元素
+
+| 语法                               | 说明                    | ES 版本 |
+| ---------------------------------- | ----------------------- | ------- |
+| `class Foo {}`                     | 类声明                  | ES2015  |
+| `constructor() {}`                 | 构造函数                | ES2015  |
+| `method() {}`                      | 实例方法 → `.prototype` | ES2015  |
+| `static method() {}`               | 静态方法 → 类自身       | ES2015  |
+| `static prop = val`                | 静态属性                | ES2022  |
+| `prop = val`                       | 实例字段                | ES2022  |
+| `get prop() {}` / `set prop(v) {}` | getter / setter         | ES2015  |
+| `#field`                           | 私有字段                | ES2022  |
+| `#method() {}`                     | 私有方法                | ES2022  |
+| `static {}`                        | 静态初始化块            | ES2022  |
+| `[expr]() {}`                      | 计算属性名              | ES2015  |
+| `extends Parent {}`                | 继承                    | ES2015  |
+| `super(...)` / `super.method()`    | 调用父类                | ES2015  |
+| `new.target`                       | 元属性                  | ES2015  |
