@@ -310,13 +310,13 @@ App.vue: onLaunch ──→ App.vue: onShow
 **完整生命周期触发顺序：**
 
 ```
-进入页面：  onLoad → onShow → created → mounted → onReady
-离开页面：  onHide（切走）→ onUnload（销毁）
-后台切回：  onShow
+进入页面：    onLoad → onShow → created → mounted → onReady
+离开页面：    onHide（切走）→ onUnload（销毁）
+后台切回：    onShow
 TabBar 切换： onHide（旧页）→ onShow（新页）
-分享/收藏：  onShareAppMessage
-下拉刷新：  onPullDownRefresh
-触底加载：  onReachBottom
+分享/收藏：   onShareAppMessage
+下拉刷新：    onPullDownRefresh
+触底加载：    onReachBottom
 ```
 
 ```vue
@@ -450,8 +450,8 @@ rpx（responsive pixel）是 UniApp/微信小程序定义的**响应式像素单
   例：375px 设计稿，20px → 20 * (750 / 375) = 40rpx
 
 不同设备：
-  iPhone SE：    320px  → 750rpx  → 1rpx = 0.426px
-  iPhone 14：    390px  → 750rpx  → 1rpx = 0.52px
+  iPhone SE：        320px → 750rpx → 1rpx = 0.426px
+  iPhone 14：        390px → 750rpx → 1rpx = 0.52px
   iPhone 14 Pro Max：430px → 750rpx → 1rpx = 0.573px
 
 编译为 H5 时：rpx → rem（根字号根据屏幕宽度动态计算）

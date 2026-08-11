@@ -189,16 +189,16 @@ Linux 是多用户系统。每个用户有一个 UID，属于一个或多个组�
 
 ```bash
 # 查看
-whoami                          # 当前用户名
-id                              # uid、gid、所属组
-id username                     # 查看指定用户
-who                             # 当前登录的所有用户
-w                               # 谁在做什么
+whoami                               # 当前用户名
+id                                   # uid、gid、所属组
+id username                          # 查看指定用户
+who                                  # 当前登录的所有用户
+w                                    # 谁在做什么
 
 # 创建用户
-useradd -m -s /bin/bash dev     # 创建用户 dev（-m 建 home，-s 指定 shell）
-useradd -M bot                  # 创建用户但不创建 home 目录（服务账户）
-passwd dev                      # 设置/修改密码
+useradd -m -s /bin/bash dev          # 创建用户 dev（-m 建 home，-s 指定 shell）
+useradd -M bot                       # 创建用户但不创建 home 目录（服务账户）
+passwd dev                           # 设置/修改密码
 echo "newpass" | passwd --stdin dev  # 脚本中非交互设置密码
 
 # 创建组
@@ -232,20 +232,20 @@ ls -l
 
 ```bash
 # 修改权限
-chmod 755 script.sh             # rwxr-xr-x（目录/脚本常用）
-chmod 644 config.conf           # rw-r--r--（配置文件常用）
-chmod 600 id_rsa                # rw-------（私钥文件）
-chmod +x script.sh              # 添加执行权限
-chmod -R 755 public_html/       # 递归修改
+chmod 755 script.sh                  # rwxr-xr-x（目录/脚本常用）
+chmod 644 config.conf                # rw-r--r--（配置文件常用）
+chmod 600 id_rsa                     # rw-------（私钥文件）
+chmod +x script.sh                   # 添加执行权限
+chmod -R 755 public_html/            # 递归修改
 
 # 修改所有者
-chown dev:devops file.txt       # 同时改所有者和组
+chown dev:devops file.txt            # 同时改所有者和组
 chown -R www-data:www-data /var/www  # 递归修改
-chgrp devops file.txt           # 只改组
+chgrp devops file.txt                # 只改组
 
 # 默认权限掩码
-umask                           # 查看当前掩码
-umask 027                       # 新文件 → 640，新目录 → 750
+umask                                # 查看当前掩码
+umask 027                            # 新文件 → 640，新目录 → 750
 # 默认值: 文件 666 - umask, 目录 777 - umask
 ```
 
@@ -325,7 +325,7 @@ echo "deb [arch=amd64] https://example.com/repo stable main" | \
 # 安装本地 .deb 文件
 sudo dpkg -i package.deb
 # 如果缺少依赖 → sudo apt install -f  （自动修复）
-sudo apt install ./package.deb     # 推荐：APT 会自动处理依赖
+sudo apt install ./package.deb   # 推荐：APT 会自动处理依赖
 
 # 查看
 dpkg -l | grep nginx             # 列出已安装的包
@@ -373,9 +373,9 @@ sed 's/$/ :SUFFIX/' file.txt            # 每行行尾加后缀
 sed -E 's/[0-9]{4}/****/g' file.txt     # 隐藏 4 位数字
 
 # 删除与筛选
-sed '3d' file.txt                        # 删除第 3 行
-sed '1,10d' file.txt                     # 删除 1-10 行
-sed -n '5,10p' file.txt                  # 只打印 5-10 行
+sed '3d' file.txt                       # 删除第 3 行
+sed '1,10d' file.txt                    # 删除 1-10 行
+sed -n '5,10p' file.txt                 # 只打印 5-10 行
 
 # 原地修改（-i）
 sed -i 's/8080/3000/g' config.env       # 直接修改源文件
@@ -405,7 +405,7 @@ awk '{count[$1]++} END {for(k in count) print k, count[k]}' log.txt  # 分组统
 
 ```bash
 # 管道 | —— 连接命令，前者的 stdout → 后者的 stdin
-ps aux | grep nginx | wc -l              # 统计 nginx 进程数
+ps aux | grep nginx | wc -l               # 统计 nginx 进程数
 cat access.log | awk '{print $1}' | sort | uniq -c | sort -rn | head -10  # 访问最多的 10 个 IP
 
 # 输出重定向
@@ -459,9 +459,9 @@ export MY_VAR="hello"
 export PATH="$PATH:/opt/myapp/bin"
 
 # 永久设置（写入配置文件）
-# ~/.bashrc      → 每个交互 Shell 都加载
-# ~/.profile     → 登录 Shell 加载
-# /etc/profile   → 全局（所有用户）
+# ~/.bashrc        → 每个交互 Shell 都加载
+# ~/.profile       → 登录 Shell 加载
+# /etc/profile     → 全局（所有用户）
 # /etc/environment → 全系统级别
 
 # 修改后立即生效
@@ -947,7 +947,7 @@ nproc                                        # 查看 CPU 核心数
 ├── 日志说什么？           journalctl -u <service> -n 100
 ├── 磁盘满了吗？           df -h
 ├── 内存用完了吗？         free -h
-├── CPU 打满了吗？          top / htop
+├── CPU 打满了吗？         top / htop
 ├── 端口被防火墙挡了？     sudo ufw status
 └── DNS 正常吗？           resolvectl query example.com
 ```

@@ -620,8 +620,8 @@ kubectl describe node <node-name>
 ```bash
 # 查看 Pod 日志
 kubectl logs <pod> -f
-kubectl logs <pod> -c <container>  # 多容器 Pod 指定容器
-kubectl logs <pod> --previous       # 上次崩溃的日志
+kubectl logs <pod> -c <container>       # 多容器 Pod 指定容器
+kubectl logs <pod> --previous           # 上次崩溃的日志
 kubectl logs -l app=frontend --tail=50  # 标签过滤
 
 # 常用日志架构: Fluentd/Filebeat → Elasticsearch → Kibana (EFK)
@@ -1018,7 +1018,7 @@ kubectl get pods -l "!env"                           # 不存在 env 标签
 ```bash
 kubectl describe pod <pod>           # 详细信息 + Events
 kubectl logs <pod> -f                # 实时日志
-kubectl exec -it <pod> -- /bin/sh   # 进入容器
+kubectl exec -it <pod> -- /bin/sh    # 进入容器
 kubectl run debug --rm -it --image=busybox -- /bin/sh  # 临时 Pod 调试网络
 kubectl get events --sort-by='.lastTimestamp'  # 集群事件
 kubectl get all -n <namespace>       # 某命名空间所有资源

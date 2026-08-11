@@ -458,7 +458,7 @@ db.dropDatabase() // 删整个数据库
 
 ```
 集合 → [$match] → [$group] → [$sort] → [$project] → 结果
-     过滤       分组聚合     排序       字段裁剪
+       过滤       分组聚合   排序      字段裁剪
 ```
 
 ```js
@@ -705,9 +705,9 @@ db.places.find({
 db.users.find({ email: "alice@example.com" }).explain("executionStats")
 
 // 关键指标解读：
-// "stage": "IXSCAN"         ← ✅ 用了索引扫描
-// "stage": "COLLSCAN"       ← ❌ 全表扫描，需要优化
-// "totalDocsExamined": 0    ← 扫描的文档数，越小越好
+// "stage": "IXSCAN"          ← ✅ 用了索引扫描
+// "stage": "COLLSCAN"        ← ❌ 全表扫描，需要优化
+// "totalDocsExamined": 0     ← 扫描的文档数，越小越好
 // "nReturned": 100           ← 返回的文档数
 // "executionTimeMillis": 5   ← 执行时间（毫秒）
 ```

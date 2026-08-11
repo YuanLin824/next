@@ -12,7 +12,7 @@ Redis（Remote Dictionary Server）是一个**基于内存的键值数据存储*
 
 ```
 PostgreSQL/MySQL：硬盘为主，内存是缓存层
-Redis：         内存为主，硬盘是持久化层
+Redis：           内存为主，硬盘是持久化层
 ```
 
 **核心特征：**
@@ -498,7 +498,7 @@ PFMERGE page:total:uv page:home:uv page:about:uv  # 合并多页 UV
 GEOADD locations 116.404 39.915 "天安门"
 GEOADD locations 116.397 39.908 "故宫"
 GEODIST locations "天安门" "故宫" m      # 两点距离（米）
-GEORADIUS locations 116.4 39.91 5 km WITHDIST  # 5km 内的地点
+GEORADIUS locations 116.4 39.91 5 km WITHDIST   # 5km 内的地点
 GEORADIUSBYMEMBER locations "天安门" 10 km ASC  # 距天安门 10km 内的地点
 ```
 
@@ -613,7 +613,7 @@ Redis 使用两种策略配合：
 ```
 ┌──────────┐     全量RDB + 增量AOF    ┌──────────┐
 │  Master  │ ──────────────────────▶  │  Slave   │
-│ (写+读)  │                          │ (只读)   │
+│ (写+读)  │                          │  (只读)  │
 └──────────┘                          └──────────┘
 ```
 

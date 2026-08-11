@@ -47,8 +47,8 @@ git config --global --unset http.proxy
 ### 3. 创建仓库
 
 ```bash
-git init                          # 初始化本地仓库
-git clone https://github.com/user/repo.git   # 克隆远程仓库
+git init                                           # 初始化本地仓库
+git clone https://github.com/user/repo.git         # 克隆远程仓库
 git clone -b dev https://github.com/user/repo.git  # 克隆指定分支
 ```
 
@@ -61,14 +61,14 @@ git clone -b dev https://github.com/user/repo.git  # 克隆指定分支
 ### 4. 基本工作流
 
 ```bash
-git status                        # 查看当前状态（修改了哪些文件）
-git add <file>                    # 添加指定文件到暂存区
-git add .                         # 添加所有修改到暂存区
-git add -p                        # 交互式选择部分修改暂存（推荐）
+git status                         # 查看当前状态（修改了哪些文件）
+git add <file>                     # 添加指定文件到暂存区
+git add .                          # 添加所有修改到暂存区
+git add -p                         # 交互式选择部分修改暂存（推荐）
 git commit -m "feat: 添加登录功能" # 提交
 git commit -am "fix: 修复bug"      # add + commit（仅已跟踪文件）
-git commit --amend                # 修改上一次提交（未 push 前）
-git commit --amend --no-edit      # 追加到上一次提交，不改 message
+git commit --amend                 # 修改上一次提交（未 push 前）
+git commit --amend --no-edit       # 追加到上一次提交，不改 message
 ```
 
 ### 5. 查看历史
@@ -182,7 +182,7 @@ git rebase -i HEAD~3              # 整理最近 3 个 commit
 
 git rebase --continue             # 解决冲突后继续
 git rebase --abort                # 放弃 rebase
-git rebase --skip                  # 跳过当前 commit
+git rebase --skip                 # 跳过当前 commit
 ```
 
 | merge           | rebase                     |
@@ -199,7 +199,7 @@ git rebase --skip                  # 跳过当前 commit
 # 1. 编辑冲突文件，手动解决（删除 <<<<<< / ====== / >>>>>> 标记）
 # 2. git add <file>               # 标记为已解决
 # 3. git merge --continue         # 或 git rebase --continue
-#    或 git merge --abort          # 放弃合并
+#    或 git merge --abort         # 放弃合并
 ```
 
 ### 13. cherry-pick — 选择性合并
@@ -236,14 +236,14 @@ git push --force-with-lease       # 安全强制推送（如果远程有新提�
 
 git pull                          # = git fetch + git merge
 git pull --rebase                 # = git fetch + git rebase（推荐）
-git fetch                        # 仅拉取远程更新，不合并
+git fetch                         # 仅拉取远程更新，不合并
 git fetch --prune                 # 同步删除远程已删除的本地跟踪分支
 ```
 
 ### 16. 跟踪远程分支
 
 ```bash
-git checkout -b local-branch origin/remote-branch   # 从远程分支创建本地分支
+git checkout -b local-branch origin/remote-branch    # 从远程分支创建本地分支
 git checkout --track origin/feature                  # 简写
 git branch -u origin/main                            # 设置当前分支跟踪远程分支
 git branch -vv                                       # 查看本地分支与远程对应关系
@@ -276,10 +276,10 @@ git push -u origin feature/my-feature
 ### 18. tag 标签
 
 ```bash
-git tag v1.0.0                   # 轻量标签
-git tag -a v1.0.0 -m "发布 1.0"   # 附注标签（推荐）
+git tag v1.0.0                     # 轻量标签
+git tag -a v1.0.0 -m "发布 1.0"    # 附注标签（推荐）
 git tag -a v1.0.0 <commit> -m "补打标签"
-git push origin v1.0.0            # 推送单个标签
+git push origin v1.0.0             # 推送单个标签
 git push origin --tags             # 推送所有标签
 git tag -d v1.0.0                  # 删除本地标签
 git push origin --delete v1.0.0    # 删除远程标签
@@ -301,20 +301,20 @@ git checkout -b recovered-branch HEAD@{2}
 ### 20. bisect — 二分法定位 bug
 
 ```bash
-git bisect start                  # 开始二分查找
-git bisect bad HEAD               # 当前版本有问题
+git bisect start                   # 开始二分查找
+git bisect bad HEAD                # 当前版本有问题
 git bisect good v1.0               # v1.0 版本没问题
 # Git 自动 checkout 中间版本 → 测试 → 标记 good/bad
 # git bisect good / git bisect bad
 # 重复 → 定位到引入 bug 的 commit
-git bisect reset                  # 结束二分
+git bisect reset                   # 结束二分
 ```
 
 ### 21. 子模块 (submodule)
 
 ```bash
-git submodule add <url> <path>    # 添加子模块
-git clone --recursive <url>       # 克隆含子模块的仓库
+git submodule add <url> <path>           # 添加子模块
+git clone --recursive <url>              # 克隆含子模块的仓库
 git submodule update --init --recursive  # 拉取子模块
 ```
 
@@ -529,7 +529,7 @@ git for-each-ref --sort=-committerdate refs/heads/ --format="%(committerdate:sho
 
 ```bash
 # 查找哪个 commit 引入了特定字符串
-git log -S "searchTerm" --oneline  # 搜索新增/删除的内容
+git log -S "searchTerm" --oneline   # 搜索新增/删除的内容
 git log -G "regexPattern" --oneline # 正则搜索
 
 # 查找 commit 的"归属分支"
@@ -603,12 +603,12 @@ npx lint-staged
 ### 37. GitHub CLI (gh)
 
 ```bash
-gh auth login                 # 登录
-gh repo clone user/repo       # 克隆
+gh auth login                                   # 登录
+gh repo clone user/repo                         # 克隆
 gh pr create --title "feat: xxx" --body "描述"  # 创建 PR
-gh pr list                    # 查看 PR 列表
-gh pr checkout 42             # 检出 PR #42
-gh issue create --title "bug: xxx"  # 创建 Issue
+gh pr list                                      # 查看 PR 列表
+gh pr checkout 42                               # 检出 PR #42
+gh issue create --title "bug: xxx"              # 创建 Issue
 gh release create v1.0.0 --notes "发布说明"
 ```
 

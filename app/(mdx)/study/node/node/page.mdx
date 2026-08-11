@@ -570,8 +570,8 @@ if (isMainThread) {
 │  │    close callbacks        │  socket.on('close')
 └──┴───────────────────────────┘
         ┌───────────────┐
-        │ nextTick 队列   │  优先级最高
-        │ 微任务队列      │  Promise.then
+        │ nextTick 队列 │  优先级最高
+        │ 微任务队列    │  Promise.then
         └───────────────┘
 ```
 
@@ -982,8 +982,8 @@ test("分组测试", async (t) => {
 ```
 
 ```bash
-node --test                    # 运行所有测试
-node --test --watch            # 监听模式
+node --test                      # 运行所有测试
+node --test --watch              # 监听模式
 node --test --test-reporter spec # 详细输出
 ```
 

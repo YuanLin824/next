@@ -890,7 +890,7 @@ const timerRef = useRef<NodeJS.Timeout>()
 function handleClick(e: React.MouseEvent) {
   e.preventDefault()       // ✅
   e.stopPropagation()      // ⚠️ 只阻止合成事件冒泡，不阻止原生事件
-  e.nativeEvent             // 访问原生事件
+  e.nativeEvent            // 访问原生事件
 }
 
 // 为什么需要合成事件:

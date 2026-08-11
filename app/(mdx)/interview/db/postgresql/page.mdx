@@ -19,7 +19,7 @@
 ### Q2: PostgreSQL 的 Schema 是什么？和 MySQL 的 Database 有什么区别？
 
 ```
-MySQL:     Database → Table
+MySQL:      Database → Table
 PostgreSQL: Database → Schema → Table
                        ├── public
                        ├── app
@@ -157,7 +157,7 @@ ANALYZE users;
 ```sql
 -- 关键示例
 CREATE INDEX idx_tags ON users USING GIN (tags);            -- 数组
-CREATE INDEX idx_config ON configs USING GIN (data);         -- JSONB
+CREATE INDEX idx_config ON configs USING GIN (data);        -- JSONB
 CREATE INDEX idx_logs_time ON logs USING BRIN (created_at); -- 时序数据
 ```
 
@@ -216,7 +216,7 @@ SELECT repeat('  ', level) || name AS tree_view FROM tree;
 
 ```sql
 -- JSONB 操作符
-SELECT data->>'key' FROM t;          -- 取文本值
+SELECT data->>'key' FROM t;                -- 取文本值
 SELECT * FROM t WHERE data @> '{"k":"v"}'; -- 包含检查（走 GIN 索引）
 ```
 
@@ -248,10 +248,10 @@ pg_dumpall -U postgres > all.sql        # 全实例备份（含用户/角色）
 ### Q15: 流复制的工作原理？
 
 ```
-Primary                      Standby
-  │                             │
-  │ 写入 → WAL                  │
-  │                             │
+Primary                 Standby
+  │                        │
+  │ 写入 → WAL             │
+  │                        │
   └─── WAL Sender ──▶ WAL Receiver ──▶ 重放 WAL ──▶ 同步
                      (流复制)
 ```

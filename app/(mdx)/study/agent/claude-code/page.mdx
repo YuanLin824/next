@@ -105,7 +105,7 @@ claude
 ### 4. 交互式对话（默认模式）
 
 ```bash
-claude                # 在当前目录启动
+claude                  # 在当前目录启动
 claude path/to/project  # 在指定目录启动
 ```
 
@@ -373,7 +373,7 @@ MCP（Model Context Protocol）是 Anthropic 定义的工具集成标准：
 
 ```bash
 # 添加 MCP 服务器
-claude mcp add playwright npx @playwright/mcp         # 浏览器自动化
+claude mcp add playwright npx @playwright/mcp           # 浏览器自动化
 claude mcp add github npx @anthropic/mcp-server-github  # GitHub API
 claude mcp add filesystem npx @anthropic/mcp-server-filesystem /data  # 外部文件
 
@@ -402,11 +402,11 @@ claude mcp remove playwright                          # 移除
 /skills
 
 # 内置技能示例
-/init          # 生成 CLAUDE.md
-/review        # 代码审查（diff → bug/安全/性能分析）
+/init             # 生成 CLAUDE.md
+/review           # 代码审查（diff → bug/安全/性能分析）
 /security-review  # 安全专项审查
-/simplify      # 代码简化——重构冗余、提升可读性
-/verify        # 验证变更是否按预期工作
+/simplify         # 代码简化——重构冗余、提升可读性
+/verify           # 验证变更是否按预期工作
 ```
 
 **在 CLAUDE.md 中注册自定义技能：**
@@ -560,7 +560,7 @@ PERSONA: 资深后端 DBA L99 为什么我的查询变慢了？
 │   ├── settings.json          # ← 提交 Git，共享权限配置
 │   ├── settings.local.json    # ← .gitignore，个人配置
 │   └── memory/
-│       ├── MEMORY.md           # ← 可选提交，共享记忆
+│       ├── MEMORY.md          # ← 可选提交，共享记忆
 │       └── ...
 ```
 

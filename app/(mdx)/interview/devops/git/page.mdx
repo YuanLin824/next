@@ -9,7 +9,7 @@
 ```
 工作目录        暂存区         本地仓库        远程仓库
 (Working)   →  (Stage)   →  (Local Repo) → (Remote)
-    │             │              │             │
+    │             │              │            │
 git add        git commit   git push       (GitHub)
 (修改文件)     (暂存变更)   (提交历史)     (协作共享)
 ```
@@ -85,9 +85,9 @@ A─B─C─D  (main)                       A─B─C─D  (main)
 | 适用 | 本地未推送的 commit         | 已推送的公共 commit                    |
 
 ```bash
-git reset --soft HEAD~1   # 撤销 commit，保留暂存区和工作区
-git reset --mixed HEAD~1  # 默认：撤销 commit + 暂存区，保留工作区
-git reset --hard HEAD~1   # ⚠️ 全部撤销（危险）
+git reset --soft HEAD~1    # 撤销 commit，保留暂存区和工作区
+git reset --mixed HEAD~1   # 默认：撤销 commit + 暂存区，保留工作区
+git reset --hard HEAD~1    # ⚠️ 全部撤销（危险）
 
 git revert HEAD            # 新建一个反向 commit 回滚
 ```
@@ -112,7 +112,7 @@ git stash save "WIP: login"  # 带描述信息
 将某个分支的**特定 commit** 复制到当前分支：
 
 ```bash
-git cherry-pick abc123       # 将 commit abc123 应用到当前分支
+git cherry-pick abc123         # 将 commit abc123 应用到当前分支
 git cherry-pick abc123..xyz456 # 批量（不含 abc123）
 ```
 

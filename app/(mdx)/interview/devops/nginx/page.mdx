@@ -20,12 +20,12 @@ Nginx 是**高性能 HTTP 和反向代理服务器**，2004 年由 Igor Sysoev �
 ### Q2: 正向代理和反向代理的区别？
 
 ```
-正向代理（为客户端服务）：        反向代理（为服务端服务）：
-Client → Proxy → Internet          Client → Nginx → Server1
-                                                → Server2
-                                                → Server3
-(客户端知道代理的存在)            (客户端以为 Nginx 就是服务器)
-(VPN/科学上网)                    (负载均衡/SSL 卸载/缓存)
+正向代理（为客户端服务）：    │    反向代理（为服务端服务）：
+Client → Proxy → Internet     │    Client → Nginx → Server1
+                              │                   → Server2
+                              │                   → Server3
+(客户端知道代理的存在)        │    (客户端以为 Nginx 就是服务器)
+(VPN/科学上网)                │    (负载均衡/SSL 卸载/缓存)
 ```
 
 ### Q3: Nginx 的 Master-Worker 架构？
@@ -56,11 +56,11 @@ worker_connections 1024;      # 每个 Worker 最大连接数
 ### Q4: Nginx 的 location 匹配规则？
 
 ```
-=   精确匹配          = /api         → 仅 /api
+=   精确匹配           = /api         → 仅 /api
 ~   正则（区分大小写） ~ \.php$       → 以 .php 结尾
 ~*  正则（不区分）     ~* \.jpg$
 ^~  前缀匹配（优先）   ^~ /static/    → 以 /static/ 开头
-/   通用前缀            /             → 所有请求（最低优先级）
+/   通用前缀           /              → 所有请求（最低优先级）
 ```
 
 ```nginx

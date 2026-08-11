@@ -915,8 +915,8 @@ docker exec mysql mysql -u root -p -e "UNLOCK TABLES;"
 │  (读写)    │                  │  (只读)    │
 └────────────┘                  └────────────┘
       │                                │
-  写入数据                        IO 线程拉取 binlog
-  生成 binlog                     SQL 线程重放 binlog
+  写入数据                     IO 线程拉取 binlog
+  生成 binlog                  SQL 线程重放 binlog
 ```
 
 > 主从复制实现：读写分离（主库写、从库读）、数据备份、高可用基础。配置较复杂，详见《MySQL 官方文档——复制》章节。云服务（RDS）通常一键开启。

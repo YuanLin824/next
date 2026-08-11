@@ -180,7 +180,7 @@ docker network connect mynet <container>  # 动态加入网络
 ### 10. 核心指令
 
 ```dockerfile
-FROM node:20-alpine               # 基础镜像（必需，第一行）
+FROM node:20-alpine                # 基础镜像（必需，第一行）
 WORKDIR /app                       # 设置工作目录
 COPY package*.json ./              # 复制文件（先复制依赖文件以利用缓存）
 RUN npm ci                         # 执行命令（构建时）
@@ -389,7 +389,7 @@ docker stop $(docker ps -q)                     # 停止所有容器
 docker rm $(docker ps -aq)                      # 删除所有容器
 docker rmi $(docker images -q)                  # 删除所有镜像
 docker system prune -a -f                       # 一键清理所有未使用资源
-docker system df                                 # 查看磁盘使用
+docker system df                                # 查看磁盘使用
 ```
 
 ### CMD vs ENTRYPOINT
@@ -661,7 +661,7 @@ jobs:
 
 ```bash
 # 标准 CI/CD Pipeline
-docker build -t registry.example.com/app:${VERSION} .   # 构建
+docker build -t registry.example.com/app:${VERSION} .    # 构建
 docker push registry.example.com/app:${VERSION}          # 推送
 ssh deploy@server "docker pull registry.example.com/app:${VERSION} && docker compose -f /app/compose.yml up -d"  # 部署
 ```
@@ -769,8 +769,8 @@ docker init                         # 交互式问答 → 自动生成 Dockerfil
 ### 37. Docker Scout — 漏洞扫描
 
 ```bash
-docker scout quickview nginx:alpine      # 快速查看
-docker scout cves nginx:alpine           # 查看 CVE 漏洞
+docker scout quickview nginx:alpine       # 快速查看
+docker scout cves nginx:alpine            # 查看 CVE 漏洞
 docker scout recommendations nginx:alpine # 推荐修复方案
 ```
 
@@ -816,7 +816,7 @@ docker context use default
 ### Alpine 包管理 (apk)
 
 ```bash
-apk add --no-cache curl vim git           # 安装
+apk add --no-cache curl vim git            # 安装
 apk del curl                               # 卸载
 apk update                                 # 更新索引
 apk upgrade                                # 升级所有包

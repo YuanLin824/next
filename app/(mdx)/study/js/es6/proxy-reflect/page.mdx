@@ -173,29 +173,29 @@ Object.getOwnPropertyNames(proxy) // ["name", "age"]
 #### 2.6 其余 8 种陷阱
 
 ```txt
-getOwnPropertyDescriptor(target, property)  — 拦截 Object.getOwnPropertyDescriptor(proxy, prop)
-                                               返回: 属性描述符对象 / undefined
+getOwnPropertyDescriptor(target, property)    — 拦截 Object.getOwnPropertyDescriptor(proxy, prop)
+                                                返回: 属性描述符对象 / undefined
 
-defineProperty(target, property, descriptor) — 拦截 Object.defineProperty(proxy, prop, descriptor)
-                                               返回: true 表示成功
+defineProperty(target, property, descriptor)  — 拦截 Object.defineProperty(proxy, prop, descriptor)
+                                                返回: true 表示成功
 
-preventExtensions(target)                   — 拦截 Object.preventExtensions(proxy)
-                                               返回: true / false
+preventExtensions(target)                     — 拦截 Object.preventExtensions(proxy)
+                                                返回: true / false
 
-isExtensible(target)                        — 拦截 Object.isExtensible(proxy)
-                                               返回: true / false
+isExtensible(target)                          — 拦截 Object.isExtensible(proxy)
+                                                返回: true / false
 
-getPrototypeOf(target)                      — 拦截 Object.getPrototypeOf(proxy), __proto__, instanceof
-                                               返回: 对象或 null
+getPrototypeOf(target)                        — 拦截 Object.getPrototypeOf(proxy), __proto__, instanceof
+                                                返回: 对象或 null
 
-setPrototypeOf(target, proto)               — 拦截 Object.setPrototypeOf(proxy, proto)
-                                               返回: true / false
+setPrototypeOf(target, proto)                 — 拦截 Object.setPrototypeOf(proxy, proto)
+                                                返回: true / false
 
-apply(target, thisArg, argumentsList)       — 拦截 proxy(...args), proxy.call(...), proxy.apply(...)
-                                               返回: 任意值
+apply(target, thisArg, argumentsList)         — 拦截 proxy(...args), proxy.call(...), proxy.apply(...)
+                                                返回: 任意值
 
-construct(target, argumentsList, newTarget) — 拦截 new proxy(...args)
-                                               返回: 必须返回一个对象
+construct(target, argumentsList, newTarget)   — 拦截 new proxy(...args)
+                                                返回: 必须返回一个对象
 ```
 
 ```js
@@ -491,10 +491,10 @@ Reflect.getPrototypeOf(1) // ❌ TypeError（必须是对象）
 ```
 设计哲学对比：
 
-Object 系列（旧）        Reflect 系列（新）
-操作失败 = 抛异常   →    操作失败 = 返回 false
-（打断程序流程）          （交给程序决定）
-                         函数式、可组合、可预测
+Object 系列（旧）       Reflect 系列（新）
+操作失败 = 抛异常   →   操作失败 = 返回 false
+（打断程序流程）        （交给程序决定）
+                        函数式、可组合、可预测
 ```
 
 ---

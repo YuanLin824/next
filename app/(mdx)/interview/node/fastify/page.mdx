@@ -120,8 +120,7 @@ app.get("/users", async () => {
 ### Q6: Fastify 的生命周期 Hooks 有哪些？
 
 ```
-请求进入 → onRequest → preParsing → preValidation → preHandler
-  → handler → preSerialization → onSend → onResponse → 响应发出
+请求进入 → onRequest → preParsing → preValidation → preHandler → handler → preSerialization → onSend → onResponse → 响应发出
 ```
 
 ```js

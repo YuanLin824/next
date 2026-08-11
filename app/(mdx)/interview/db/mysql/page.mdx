@@ -43,7 +43,7 @@
 
 ```sql
 -- FLOAT/DOUBLE 是近似值（IEEE 754），存在精度丢失
-SELECT 0.1 + 0.2 = 0.3;            -- → 0（false!）
+SELECT 0.1 + 0.2 = 0.3;             -- → 0（false!）
 SELECT 0.1 + 0.2;                   -- → 0.30000000000000004
 
 -- DECIMAL 是定点精确存储
@@ -115,10 +115,10 @@ InnoDB 使用 **B+Tree**：
 叶子节点存的是「整行数据」                叶子节点存的是「主键值」
 
 表数据本身就是按主键 B+Tree 组织的        查到主键后 → 再查聚簇索引取完整行
-= 数据就是索引，索引就是数据               这个过程叫「回表」
+= 数据就是索引，索引就是数据              这个过程叫「回表」
 
-● 一张表只能有一个聚簇索引                  ● 可以有多个二级索引
-● 主键默认就是聚簇索引                      ● 唯一索引/普通索引都是二级索引
+● 一张表只能有一个聚簇索引                ● 可以有多个二级索引
+● 主键默认就是聚簇索引                    ● 唯一索引/普通索引都是二级索引
 ```
 
 ```sql
@@ -277,9 +277,9 @@ WHERE id = 1 AND version = 5; -- 版本号匹配才更新
 ```sql
 -- 经典死锁场景
 -- 事务A：UPDATE accounts SET balance = balance - 100 WHERE id = 1;
---         UPDATE accounts SET balance = balance + 100 WHERE id = 2;
+--        UPDATE accounts SET balance = balance + 100 WHERE id = 2;
 -- 事务B：UPDATE accounts SET balance = balance - 50 WHERE id = 2; -- ← 等待 A 释放 id=2
---         UPDATE accounts SET balance = balance + 50 WHERE id = 1; -- ← 等待 B 释放 id=1
+--        UPDATE accounts SET balance = balance + 50 WHERE id = 1; -- ← 等待 B 释放 id=1
 -- → 相互等待，死锁！
 ```
 
@@ -362,8 +362,8 @@ binlog (二进制日志)                │
   └──── IO线程拉取 ────▶ relay log │
                         (中继日志) │
                                    ▼
-                        SQL线程重放 relay log
-                        → 数据与 Master 同步
+                          SQL线程重放 relay log
+                          → 数据与 Master 同步
 ```
 
 **三种复制格式：**

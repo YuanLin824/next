@@ -13,7 +13,7 @@
 ```
 请求 → Middleware → Guard → Interceptor(前) → Pipe → Controller → Service → Interceptor(后) → 响应
                                                     ↓ (任何阶段出错)
-                                            ExceptionFilter
+                                              ExceptionFilter
 ```
 
 ### 2. 核心组件
@@ -204,9 +204,9 @@ app.useGlobalPipes(
 
 ```ts
 @Get(":id")
-getUser(@Param("id") id: string) {}              // 路由参数
-@Get() list(@Query() query: PaginationDto) {}     // 查询参数
-@Post() create(@Body() dto: CreateUserDto) {}      // 请求体
+getUser(@Param("id") id: string) {}                    // 路由参数
+@Get() list(@Query() query: PaginationDto) {}          // 查询参数
+@Post() create(@Body() dto: CreateUserDto) {}          // 请求体
 @Get() info(@Headers("authorization") auth: string) {} // 请求头
 ```
 
@@ -1164,7 +1164,7 @@ consumer.apply(CorsMiddleware, AuthMiddleware, LogMiddleware).forRoutes("api/*")
 ### 40. 中间件执行顺序总览
 
 ```
-1. 全局中间件 (app.use)  — 最早执行
+1. 全局中间件 (app.use)        — 最早执行
 2. 模块中间件 (consumer.apply) — 按注册顺序
 3. Guard                       — 鉴权
 4. Interceptor                 — 拦截
@@ -1370,8 +1370,8 @@ export class UsersController extends BaseController<User, CreateUserDto, UpdateU
   ├── 1. Middleware（中间件）
   │       ├── 全局中间件 (app.use)
   │       └── 模块中间件 (consumer.apply)
-  │         能做什么: 日志/CORS/body-parser/IP 过滤/请求预处理
-  │         不能: 访问具体路由信息(getHandler/getClass 不可用)
+  │       能做什么: 日志/CORS/body-parser/IP 过滤/请求预处理
+  │       不能: 访问具体路由信息(getHandler/getClass 不可用)
   │
   ├── 2. Guard（守卫）
   │       鉴权/角色检查/权限校验

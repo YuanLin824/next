@@ -51,7 +51,7 @@ Redis 6.0+：
 **跳表（Skiplist）+ 哈希表**：
 
 ```
-Skiplist：保证按 score 排序（O(log N) 增删改查）
+Skiplist： 保证按 score 排序（O(log N) 增删改查）
 HashTable：保证按 member 查 score（O(1)）
 
 Level 3:  head ──────────────────▶ [B:85]
@@ -276,7 +276,7 @@ EVAL "
 
 ```bash
 # 排查
-redis-cli --bigkeys          # 扫描大 Key
+redis-cli --bigkeys           # 扫描大 Key
 redis-cli --hotkeys           # 扫描热 Key
 redis-cli MEMORY USAGE key    # 单个 key 内存
 

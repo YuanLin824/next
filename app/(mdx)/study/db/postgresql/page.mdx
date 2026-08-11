@@ -893,12 +893,12 @@ cat backup.sql | docker exec -i postgres psql -U postgres -d my_app
 ### 28. 复制概念
 
 ```
-┌──────────────┐     WAL stream      ┌──────────────┐
-│   Primary    │ ─────────────────▶  │   Standby    │
-│  (读写)      │                     │  (只读/备份) │
-│              │                     │              │
-│  WAL Sender  │                     │  WAL Receiver│
-└──────────────┘                     └──────────────┘
+┌──────────────┐     WAL stream      ┌───────────────┐
+│   Primary    │ ─────────────────▶  │   Standby     │
+│    (读写)    │                     │  (只读/备份)  │
+│              │                     │               │
+│  WAL Sender  │                     │  WAL Receiver │
+└──────────────┘                     └───────────────┘
 ```
 
 - **流复制（Streaming Replication）**：Primary 的 WAL 实时流到 Standby，毫秒级延迟

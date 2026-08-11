@@ -589,7 +589,7 @@ post {
 ```groovy
 post {
     always {
-        junit "test-results/*.xml"                          // JUnit 报告
+        junit "test-results/*.xml"                                      // JUnit 报告
         publishHTML([reportDir: "coverage", reportFiles: "index.html"]) // HTML 报告
     }
 }
